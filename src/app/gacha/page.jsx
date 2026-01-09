@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import BottomNavigation from "@/components/shared/BottomNavigation";
+import { useWallet } from "@/hooks/useWallet";
+import NetworkModal from "@/components/shared/NetworkModal";
 
 // Possible rewards
 const possibleRewards = [
@@ -36,14 +38,17 @@ const possibleRewards = [
 export default function GachaPage() {
   const { authenticated, ready } = usePrivy();
   const router = useRouter();
+  const { walletAddress, chainId, currencySymbol, getBalance, embeddedWallet } = useWallet();
+
   const [isSpinning, setIsSpinning] = useState(false);
   const [hasSpun, setHasSpun] = useState(false);
   const [reward, setReward] = useState(null);
   const [slideProgress, setSlideProgress] = useState(0);
-  const [coins, setCoins] = useState(99);
+  const [balance, setBalance] = useState(0);
+  const [loadingBalance, setLoadingBalance] = useState(true);
+  const [showNetworkModal, setShowNetworkModal] = useState(false);
 
   const sliderRef = useRef(null);
-  const containerRef = useRef(null);
   const startXRef = useRef(0);
   const isDraggingRef = useRef(false);
 
@@ -53,6 +58,31 @@ export default function GachaPage() {
       router.push("/");
     }
   }, [ready, authenticated, router]);
+
+  // Fetch balance when wallet is connected
+  const fetchBalance = async () => {
+    if (!walletAddress || !embeddedWallet) {
+      setLoadingBalance(false);
+      return;
+    }
+
+    try {
+      setLoadingBalance(true);
+      const bal = await getBalance();
+      setBalance(bal);
+    } catch (error) {
+      console.error("Failed to fetch balance:", error);
+      setBalance(0);
+    } finally {
+      setLoadingBalance(false);
+    }
+  };
+
+  useEffect(() => {
+    if (walletAddress && embeddedWallet) {
+      fetchBalance();
+    }
+  }, [walletAddress, embeddedWallet, chainId]);
 
   // Handle mouse/touch move globally
   useEffect(() => {
@@ -115,7 +145,7 @@ export default function GachaPage() {
       setReward(randomReward);
       setHasSpun(true);
       setIsSpinning(false);
-      setCoins(prev => prev - 6); // Deduct cost
+      // Note: In production, deduct cost via smart contract transaction
     }, 2000);
   };
 
@@ -137,13 +167,25 @@ export default function GachaPage() {
         {/* Header */}
         <header className="px-4 pt-3 pb-2">
           <div className="flex items-center justify-end">
-            {/* Coins */}
-            <div className="flex items-center gap-1.5 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full px-3 py-1.5 shadow-lg">
+            {/* Balance Badge - Click to switch network */}
+            <div
+              onClick={() => setShowNetworkModal(true)}
+              className="flex items-center gap-1.5 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full px-3 py-1.5 shadow-lg cursor-pointer hover:scale-105 transition-transform group"
+            >
               <div className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center text-orange-900 font-black text-xs">
-                $
+                {currencySymbol === "MATIC" ? "⬡" : "Ξ"}
               </div>
-              <span className="font-black text-sm">{coins}</span>
-              <span className="text-lg font-bold">+</span>
+              <span className="font-black text-sm">
+                {loadingBalance ? "..." : balance.toFixed(4)}
+              </span>
+              <span className="text-xs font-bold opacity-80">{currencySymbol}</span>
+              {chainId && (
+                <div className="ml-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -280,6 +322,13 @@ export default function GachaPage() {
 
       {/* Bottom Navigation */}
       <BottomNavigation />
+
+      {/* Network Modal */}
+      <NetworkModal
+        isOpen={showNetworkModal}
+        onClose={() => setShowNetworkModal(false)}
+        onNetworkChanged={() => fetchBalance()}
+      />
     </main>
   );
 }

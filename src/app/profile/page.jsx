@@ -4,11 +4,16 @@ import { useState, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import BottomNavigation from "@/components/shared/BottomNavigation";
+import { useWallet } from "@/hooks/useWallet";
+import NetworkModal from "@/components/shared/NetworkModal";
 
 export default function ProfilePage() {
   const { authenticated, ready, user, logout } = usePrivy();
+  const { isConnected, walletAddress, getBalance, currencySymbol, chainId } = useWallet();
   const router = useRouter();
-  const [coins, setCoins] = useState(99);
+  const [balance, setBalance] = useState(0);
+  const [loadingBalance, setLoadingBalance] = useState(false);
+  const [showNetworkModal, setShowNetworkModal] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -16,6 +21,26 @@ export default function ProfilePage() {
       router.push("/");
     }
   }, [ready, authenticated, router]);
+
+  // Fetch balance when wallet is connected
+  useEffect(() => {
+    if (isConnected) {
+      fetchBalance();
+    }
+  }, [isConnected]);
+
+  const fetchBalance = async () => {
+    try {
+      setLoadingBalance(true);
+      const bal = await getBalance();
+      setBalance(bal);
+    } catch (error) {
+      console.error("Failed to fetch balance:", error);
+      setBalance(0);
+    } finally {
+      setLoadingBalance(false);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -26,15 +51,16 @@ export default function ProfilePage() {
     return null;
   }
 
-  // Get wallet address or email
-  const walletAddress = user?.wallet?.address || "Not connected";
+  // Get user info
   const userEmail = user?.email?.address || "";
   const userName = user?.twitter?.username || user?.discord?.username || "Hot Wheels Racer";
 
   // Shorten wallet address for display
-  const shortAddress = walletAddress !== "Not connected"
+  const shortAddress = isConnected && walletAddress
     ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
-    : walletAddress;
+    : authenticated
+    ? "Creating wallet..."
+    : "Not connected";
 
   const menuItems = [
     {
@@ -43,9 +69,11 @@ export default function ProfilePage() {
       title: "Wallet Address",
       subtitle: shortAddress,
       onClick: () => {
-        if (walletAddress !== "Not connected") {
+        if (isConnected && walletAddress) {
           navigator.clipboard.writeText(walletAddress);
-          alert("Wallet address copied!");
+          alert("Wallet address copied to clipboard!");
+        } else {
+          alert("Wallet not connected yet. Please wait a moment.");
         }
       }
     },
@@ -121,12 +149,27 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Points Display */}
-            <div className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full px-4 py-2 w-fit">
+            {/* Balance Display - Click to switch network */}
+            <div
+              onClick={() => setShowNetworkModal(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full px-4 py-2 w-fit cursor-pointer hover:scale-105 transition-transform group"
+              title="Click to switch network"
+            >
               <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center text-orange-900 font-black text-sm">
-                $
+                {currencySymbol === "MATIC" ? "⬡" : "Ξ"}
               </div>
-              <span className="font-black text-lg">{coins}</span>
+              <span className="font-black text-lg">
+                {loadingBalance ? "..." : balance.toFixed(4)}
+              </span>
+              <span className="text-sm font-bold opacity-90">{currencySymbol}</span>
+              {/* Network indicator */}
+              {chainId && (
+                <div className="ml-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -178,6 +221,15 @@ export default function ProfilePage() {
 
       {/* Bottom Navigation */}
       <BottomNavigation />
+
+      {/* Network Switcher Modal */}
+      <NetworkModal
+        isOpen={showNetworkModal}
+        onClose={() => setShowNetworkModal(false)}
+        onNetworkChanged={() => {
+          fetchBalance();
+        }}
+      />
     </main>
   );
 }

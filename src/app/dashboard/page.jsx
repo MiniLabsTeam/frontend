@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import BottomNavigation from "@/components/shared/BottomNavigation";
+import { useWallet } from "@/hooks/useWallet";
+import NetworkModal from "@/components/shared/NetworkModal";
 
 // Car data
 const carCollection = [
@@ -52,10 +54,13 @@ const carCollection = [
 ];
 
 export default function Dashboard() {
-  const { authenticated, ready, logout } = usePrivy();
+  const { authenticated, ready } = usePrivy();
+  const { isConnected, walletAddress, getBalance, currencySymbol, chainId } = useWallet();
   const router = useRouter();
   const [currentCarIndex, setCurrentCarIndex] = useState(0);
-  const [coins, setCoins] = useState(99);
+  const [balance, setBalance] = useState(0);
+  const [loadingBalance, setLoadingBalance] = useState(false);
+  const [showNetworkModal, setShowNetworkModal] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -63,6 +68,26 @@ export default function Dashboard() {
       router.push("/");
     }
   }, [ready, authenticated, router]);
+
+  // Fetch balance when wallet is connected
+  useEffect(() => {
+    if (isConnected) {
+      fetchBalance();
+    }
+  }, [isConnected]);
+
+  const fetchBalance = async () => {
+    try {
+      setLoadingBalance(true);
+      const bal = await getBalance();
+      setBalance(bal);
+    } catch (error) {
+      console.error("Failed to fetch balance:", error);
+      setBalance(0);
+    } finally {
+      setLoadingBalance(false);
+    }
+  };
 
   if (!ready || !authenticated) {
     return null;
@@ -81,28 +106,55 @@ export default function Dashboard() {
         <header className="px-4 pt-3 pb-2">
           {/* Top Bar */}
           <div className="flex items-center justify-between">
-            {/* Coins */}
-            <div className="flex items-center gap-1.5 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full px-3 py-1.5 shadow-lg">
+            {/* Balance Badge - Click to switch network */}
+            <div
+              onClick={() => setShowNetworkModal(true)}
+              className="flex items-center gap-1.5 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full px-3 py-1.5 shadow-lg cursor-pointer hover:scale-105 transition-transform group"
+              title="Click to switch network"
+            >
               <div className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center text-orange-900 font-black text-xs">
-                $
+                {currencySymbol === "MATIC" ? "⬡" : "Ξ"}
               </div>
-              <span className="font-black text-sm">{coins}</span>
-              <span className="text-lg font-bold">+</span>
+              <span className="font-black text-sm">
+                {loadingBalance ? "..." : balance.toFixed(4)}
+              </span>
+              <span className="text-xs font-bold opacity-80">{currencySymbol}</span>
+              {/* Network indicator */}
+              {chainId && (
+                <div className="ml-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              )}
             </div>
 
-            {/* Hot Wheels Logo */}
-            {/* <div className="flex-1 flex justify-center">
-              <img
-                src="/assets/icons/logo2.png"
-                alt="Hot Wheels"
-                className="h-28.5 object-contain"
-              />
-            </div> */}
+            {/* Wallet Status */}
+            <div className="flex items-center gap-2">
+              {isConnected ? (
+                <div className="bg-green-500/20 border border-green-500 rounded-full px-3 py-1.5 flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  <span className="text-green-400 text-xs font-bold">
+                    {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
+                  </span>
+                </div>
+              ) : authenticated ? (
+                <div className="bg-yellow-500/20 border border-yellow-500 rounded-full px-3 py-1.5 flex items-center gap-2">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                  <span className="text-yellow-400 text-xs font-bold">Creating wallet...</span>
+                </div>
+              ) : (
+                <div className="bg-red-500/20 border border-red-500 rounded-full px-3 py-1.5 flex items-center gap-2">
+                  <div className="w-2 h-2 bg-red-500 rounded-full" />
+                  <span className="text-red-400 text-xs font-bold">Not logged in</span>
+                </div>
+              )}
 
-            {/* Help Icon */}
-            <button className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center hover:bg-gray-700 transition-colors">
-              <span className="text-white text-xl font-bold">?</span>
-            </button>
+              {/* Help Icon */}
+              <button className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center hover:bg-gray-700 transition-colors">
+                <span className="text-white text-xl font-bold">?</span>
+              </button>
+            </div>
           </div>
         </header>
 
@@ -210,6 +262,15 @@ export default function Dashboard() {
 
       {/* Bottom Navigation */}
       <BottomNavigation />
+
+      {/* Network Switcher Modal */}
+      <NetworkModal
+        isOpen={showNetworkModal}
+        onClose={() => setShowNetworkModal(false)}
+        onNetworkChanged={() => {
+          fetchBalance();
+        }}
+      />
     </main>
   );
 }

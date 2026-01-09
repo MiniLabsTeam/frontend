@@ -1,11 +1,14 @@
 ﻿"use client";
 
 import { PrivyProvider } from "@privy-io/react-auth";
+import { base, baseSepolia, mainnet } from "viem/chains";
 
 export default function Providers({ children }) {
+  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "cmjxyscmx03pulf0cadbpdmvq";
+
   return (
     <PrivyProvider
-      appId="cmjxyscmx03pulf0cadbpdmvq"
+      appId={appId}
       config={{
         loginMethods: ["email", "wallet", "google", "twitter", "discord"],
         appearance: {
@@ -13,8 +16,14 @@ export default function Providers({ children }) {
           accentColor: "#ff7a59",
         },
         embeddedWallets: {
-          createOnLogin: "users-without-wallets",
+          createOnLogin: "all-users", // Auto-create wallet for all users
+          requireUserPasswordOnCreate: false, // No password needed
+          noPromptOnSignature: true, // No popup for signing (smooth UX)
         },
+        defaultChain: baseSepolia, // Default to Base Sepolia testnet
+        supportedChains: [base, baseSepolia, mainnet], // Support Base mainnet, testnet, and Ethereum mainnet
+        // Wallet connection behavior
+        walletConnectCloudProjectId: undefined, // Disable if not using WalletConnect
       }}
     >
       {children}

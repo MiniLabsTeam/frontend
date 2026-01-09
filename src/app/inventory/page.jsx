@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import BottomNavigation from "@/components/shared/BottomNavigation";
+import { useWallet } from "@/hooks/useWallet";
+import NetworkModal from "@/components/shared/NetworkModal";
 
 // Mock inventory data
 const inventoryData = [
@@ -40,7 +42,11 @@ const inventoryData = [
 export default function InventoryPage() {
   const { authenticated, ready } = usePrivy();
   const router = useRouter();
-  const [coins, setCoins] = useState(9924);
+  const { walletAddress, chainId, currencySymbol, getBalance, embeddedWallet } = useWallet();
+
+  const [balance, setBalance] = useState(0);
+  const [loadingBalance, setLoadingBalance] = useState(true);
+  const [showNetworkModal, setShowNetworkModal] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("semua");
   const [selectedCars, setSelectedCars] = useState([]);
 
@@ -52,6 +58,31 @@ export default function InventoryPage() {
       router.push("/");
     }
   }, [ready, authenticated, router]);
+
+  // Fetch balance when wallet is connected
+  const fetchBalance = async () => {
+    if (!walletAddress || !embeddedWallet) {
+      setLoadingBalance(false);
+      return;
+    }
+
+    try {
+      setLoadingBalance(true);
+      const bal = await getBalance();
+      setBalance(bal);
+    } catch (error) {
+      console.error("Failed to fetch balance:", error);
+      setBalance(0);
+    } finally {
+      setLoadingBalance(false);
+    }
+  };
+
+  useEffect(() => {
+    if (walletAddress && embeddedWallet) {
+      fetchBalance();
+    }
+  }, [walletAddress, embeddedWallet, chainId]);
 
   // Filter inventory based on selected filter
   const filteredInventory = selectedFilter === "semua"
@@ -107,12 +138,25 @@ export default function InventoryPage() {
         {/* Header */}
         <header className="px-4 pt-3 pb-4">
           <div className="flex items-center justify-end mb-4">
-            {/* Coins */}
-            <div className="flex items-center gap-2 bg-orange-600/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg">
+            {/* Balance Badge - Click to switch network */}
+            <div
+              onClick={() => setShowNetworkModal(true)}
+              className="flex items-center gap-2 bg-orange-600/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg cursor-pointer hover:scale-105 transition-transform group"
+            >
               <div className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center text-orange-900 font-black text-xs">
-                $
+                {currencySymbol === "MATIC" ? "⬡" : "Ξ"}
               </div>
-              <span className="font-black text-lg">{coins}</span>
+              <span className="font-black text-lg">
+                {loadingBalance ? "..." : balance.toFixed(4)}
+              </span>
+              <span className="text-xs font-bold opacity-80">{currencySymbol}</span>
+              {chainId && (
+                <div className="ml-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              )}
             </div>
           </div>
 
@@ -227,6 +271,13 @@ export default function InventoryPage() {
 
       {/* Bottom Navigation */}
       <BottomNavigation />
+
+      {/* Network Modal */}
+      <NetworkModal
+        isOpen={showNetworkModal}
+        onClose={() => setShowNetworkModal(false)}
+        onNetworkChanged={() => fetchBalance()}
+      />
     </main>
   );
 }
