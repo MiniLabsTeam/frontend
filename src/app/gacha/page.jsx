@@ -6,37 +6,10 @@ import { useRouter } from "next/navigation";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
 import NetworkModal from "@/components/shared/NetworkModal";
-
-// Possible rewards
-const possibleRewards = [
-  {
-    id: 1,
-    name: "YELLOW BEETLE",
-    image: "/assets/car/Neon Drifter.png",
-    rarity: "LEGENDARY CAR",
-    stats: "87/1000",
-    rarityColor: "from-purple-500 to-pink-500",
-  },
-  {
-    id: 2,
-    name: "CHROME VIPER",
-    image: "/assets/car/Chrome Viper.png",
-    rarity: "EPIC CAR",
-    stats: "120/1000",
-    rarityColor: "from-purple-600 to-blue-500",
-  },
-  {
-    id: 3,
-    name: "SPEED DEMON",
-    image: "/assets/car/Speed Demon.png",
-    rarity: "RARE CAR",
-    stats: "200/1000",
-    rarityColor: "from-blue-500 to-cyan-500",
-  },
-];
+import { getGachaBoxes, openGachaBox, getRarityConfig } from "@/lib/gachaApi";
 
 export default function GachaPage() {
-  const { authenticated, ready } = usePrivy();
+  const { authenticated, ready, getAccessToken } = usePrivy();
   const router = useRouter();
   const { walletAddress, chainId, currencySymbol, getBalance, embeddedWallet } = useWallet();
 
@@ -47,6 +20,13 @@ export default function GachaPage() {
   const [balance, setBalance] = useState(0);
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [showNetworkModal, setShowNetworkModal] = useState(false);
+
+  // Gacha data from backend
+  const [gachaBoxes, setGachaBoxes] = useState([]);
+  const [userCoins, setUserCoins] = useState(0);
+  const [selectedBoxType, setSelectedBoxType] = useState("standard");
+  const [loadingGachaData, setLoadingGachaData] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const sliderRef = useRef(null);
   const startXRef = useRef(0);
@@ -83,6 +63,32 @@ export default function GachaPage() {
       fetchBalance();
     }
   }, [walletAddress, embeddedWallet, chainId]);
+
+  // Fetch gacha boxes and user coins from backend
+  const fetchGachaData = async () => {
+    if (!authenticated) return;
+
+    try {
+      setLoadingGachaData(true);
+      setErrorMessage("");
+      const authToken = await getAccessToken();
+      const data = await getGachaBoxes(authToken);
+
+      setGachaBoxes(data.boxes);
+      setUserCoins(data.userCoins);
+      setLoadingGachaData(false);
+    } catch (error) {
+      console.error("Failed to fetch gacha data:", error);
+      setErrorMessage("Failed to load gacha data. Please try again.");
+      setLoadingGachaData(false);
+    }
+  };
+
+  useEffect(() => {
+    if (authenticated && ready) {
+      fetchGachaData();
+    }
+  }, [authenticated, ready]);
 
   // Handle mouse/touch move globally
   useEffect(() => {
@@ -133,24 +139,66 @@ export default function GachaPage() {
   };
 
   // Trigger the spin animation and result
-  const triggerSpin = () => {
+  const triggerSpin = async () => {
     if (hasSpun || isSpinning) return;
 
     setIsSpinning(true);
+    setErrorMessage("");
     isDraggingRef.current = false;
 
-    // Simulate spinning
-    setTimeout(() => {
-      const randomReward = possibleRewards[Math.floor(Math.random() * possibleRewards.length)];
-      setReward(randomReward);
-      setHasSpun(true);
+    try {
+      // Get auth token
+      const authToken = await getAccessToken();
+
+      // Call backend API to open gacha box
+      const result = await openGachaBox(selectedBoxType, authToken);
+
+      // Simulate spinning animation (2 seconds)
+      setTimeout(() => {
+        // Map backend reward to frontend format
+        const rarityConfig = getRarityConfig(result.reward.rarity);
+
+        const rewardData = {
+          tokenId: result.reward.tokenId,
+          name: result.reward.modelName,
+          series: result.reward.series,
+          rarity: rarityConfig.label,
+          rarityColor: rarityConfig.color,
+          txHash: result.reward.txHash,
+          image: "/assets/car/Chrome Viper.png", // Default image, dapat disesuaikan
+        };
+
+        setReward(rewardData);
+        setHasSpun(true);
+        setIsSpinning(false);
+
+        // Update user coins
+        setUserCoins(result.coins.remaining);
+
+        console.log("✅ Gacha Success:", result);
+      }, 2000);
+    } catch (error) {
+      console.error("❌ Gacha failed:", error);
       setIsSpinning(false);
-      // Note: In production, deduct cost via smart contract transaction
-    }, 2000);
+      setSlideProgress(0);
+
+      // Show error message
+      if (error.message.includes("Insufficient coins")) {
+        setErrorMessage("Insufficient coins! You need more coins to open this box.");
+      } else {
+        setErrorMessage(error.message || "Failed to open gacha box. Please try again.");
+      }
+    }
   };
 
   const handleClaim = () => {
-    router.push("/dashboard");
+    // Refresh gacha data to update coins
+    fetchGachaData();
+    // Reset state for next spin
+    setHasSpun(false);
+    setReward(null);
+    setSlideProgress(0);
+    setErrorMessage("");
   };
 
   if (!ready || !authenticated) {
@@ -166,8 +214,19 @@ export default function GachaPage() {
       <div className="relative z-10 flex flex-col h-screen max-w-md mx-auto">
         {/* Header */}
         <header className="px-4 pt-3 pb-2">
-          <div className="flex items-center justify-end">
-            {/* Balance Badge - Click to switch network */}
+          <div className="flex items-center justify-between gap-2">
+            {/* User Coins (from backend) */}
+            <div className="flex items-center gap-1.5 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full px-3 py-1.5 shadow-lg">
+              <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center text-yellow-300 font-black text-xs">
+                💰
+              </div>
+              <span className="font-black text-sm text-orange-900">
+                {loadingGachaData ? "..." : userCoins}
+              </span>
+              <span className="text-xs font-bold text-orange-900 opacity-80">coins</span>
+            </div>
+
+            {/* ETH Balance Badge - Click to switch network */}
             <div
               onClick={() => setShowNetworkModal(true)}
               className="flex items-center gap-1.5 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full px-3 py-1.5 shadow-lg cursor-pointer hover:scale-105 transition-transform group"
@@ -189,6 +248,39 @@ export default function GachaPage() {
             </div>
           </div>
         </header>
+
+        {/* Box Selection Tabs */}
+        {!hasSpun && !isSpinning && (
+          <div className="px-4 py-2">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              {gachaBoxes.map((box) => (
+                <button
+                  key={box.type}
+                  onClick={() => setSelectedBoxType(box.type)}
+                  disabled={!box.canAfford}
+                  className={`flex-shrink-0 px-4 py-2 rounded-full font-bold text-sm transition-all ${
+                    selectedBoxType === box.type
+                      ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-orange-900 shadow-lg scale-105"
+                      : box.canAfford
+                      ? "bg-orange-600/50 text-white hover:bg-orange-600/70"
+                      : "bg-gray-700/50 text-gray-500 cursor-not-allowed"
+                  }`}
+                >
+                  {box.type.toUpperCase()} ({box.costCoins} 💰)
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {errorMessage && (
+          <div className="px-4 pb-2">
+            <div className="bg-red-500/20 border border-red-500 rounded-xl px-4 py-2 flex items-center gap-2">
+              <span className="text-red-400 text-sm">⚠️ {errorMessage}</span>
+            </div>
+          </div>
+        )}
 
         {/* Content Area */}
         <div className="flex-1 flex items-center justify-center px-4 pb-32">
@@ -224,10 +316,15 @@ export default function GachaPage() {
                 <p className="text-orange-400 font-bold text-sm mb-2">COST</p>
                 <div className="flex items-center justify-center gap-2">
                   <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
-                    <span className="text-2xl">$</span>
+                    <span className="text-2xl">💰</span>
                   </div>
-                  <span className="text-6xl font-black text-orange-400">6</span>
+                  <span className="text-6xl font-black text-orange-400">
+                    {gachaBoxes.find(b => b.type === selectedBoxType)?.costCoins || 0}
+                  </span>
                 </div>
+                <p className="text-gray-400 text-xs mt-2">
+                  {selectedBoxType.toUpperCase()} Box
+                </p>
               </div>
 
               {/* Slide to Open */}
@@ -299,14 +396,34 @@ export default function GachaPage() {
                 </p>
               </div>
 
-              {/* Car Name & Stats */}
+              {/* Car Name & Series */}
               <div className="bg-gradient-to-r from-orange-500 to-orange-600 py-3 mb-2">
                 <h3 className="text-white font-black text-xl uppercase tracking-wider">
                   {reward?.name}
                 </h3>
               </div>
 
-              <p className="text-gray-300 text-sm mb-6">SISA {reward?.stats}</p>
+              <p className="text-gray-300 text-sm mb-2">{reward?.series} Series</p>
+
+              {/* NFT Info */}
+              <div className="bg-black/40 backdrop-blur-sm rounded-xl p-3 mb-4 text-left">
+                <p className="text-gray-400 text-xs mb-1">
+                  <span className="text-orange-400 font-bold">Token ID:</span> #{reward?.tokenId}
+                </p>
+                {reward?.txHash && (
+                  <p className="text-gray-400 text-xs break-all">
+                    <span className="text-orange-400 font-bold">TX:</span>{" "}
+                    <a
+                      href={`https://sepolia.basescan.org/tx/${reward.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:underline"
+                    >
+                      {reward.txHash.slice(0, 10)}...{reward.txHash.slice(-8)}
+                    </a>
+                  </p>
+                )}
+              </div>
 
               {/* Claim Button */}
               <button
