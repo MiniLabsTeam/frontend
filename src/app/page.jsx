@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useRef } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
+import LoadingAnimation from "@/components/LoadingAnimation";
 
 const background =
   "/assets/backgrounds/view-car-running-high-speed%20%282%29.jpg";
@@ -56,15 +57,21 @@ export default function Home() {
   const router = useRouter();
   const [activeCarIndexTop, setActiveCarIndexTop] = useState(0);
   const [activeCarIndexBottom, setActiveCarIndexBottom] = useState(0);
+  const [showLoading, setShowLoading] = useState(false);
   const carouselTopRef = useRef(null);
   const carouselBottomRef = useRef(null);
 
-  // Redirect to dashboard if authenticated
+  // Show loading animation and redirect to dashboard if authenticated
   useEffect(() => {
     if (ready && authenticated) {
-      router.push("/dashboard");
+      setShowLoading(true);
     }
-  }, [ready, authenticated, router]);
+  }, [ready, authenticated]);
+
+  const handleLoadingComplete = () => {
+    setShowLoading(false);
+    router.push("/dashboard");
+  };
 
   return (
     <main className="relative overflow-x-hidden bg-black text-white">
@@ -316,6 +323,12 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Loading Animation Popup */}
+      <LoadingAnimation
+        isVisible={showLoading}
+        onComplete={handleLoadingComplete}
+      />
     </main>
   );
 }
