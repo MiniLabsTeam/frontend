@@ -7,37 +7,13 @@ import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
 import NetworkModal from "@/components/shared/NetworkModal";
 
-// Mock inventory data
-const inventoryData = [
-  {
-    id: 1,
-    name: "BLAZE RUNNER",
-    image: "/assets/car/Blaze Runner.png",
-    rarity: "LEGEND",
-    rarityColor: "from-purple-500 to-pink-500",
-  },
-  {
-    id: 2,
-    name: "CHROME VIPER",
-    image: "/assets/car/Chrome Viper.png",
-    rarity: "COMMON",
-    rarityColor: "from-gray-500 to-gray-600",
-  },
-  {
-    id: 3,
-    name: "TURBO PHANTOM",
-    image: "/assets/car/Turbo Phantom.png",
-    rarity: "GOLD",
-    rarityColor: "from-yellow-500 to-orange-500",
-  },
-  {
-    id: 4,
-    name: "SPEED DEMON",
-    image: "/assets/car/Speed Demon.png",
-    rarity: "SILVER",
-    rarityColor: "from-gray-400 to-gray-500",
-  },
-];
+// Rarity color mapping
+const rarityColorMap = {
+  common: "from-gray-500 to-gray-600",
+  rare: "from-blue-500 to-cyan-500",
+  epic: "from-purple-500 to-pink-500",
+  legendary: "from-yellow-500 to-orange-500",
+};
 
 export default function InventoryPage() {
   const { authenticated, ready, getAccessToken } = usePrivy();
@@ -51,8 +27,10 @@ export default function InventoryPage() {
   const [showNetworkModal, setShowNetworkModal] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("semua");
   const [selectedCars, setSelectedCars] = useState([]);
+  const [inventoryData, setInventoryData] = useState([]);
+  const [loadingInventory, setLoadingInventory] = useState(true);
 
-  const filters = ["semua", "Legend", "Gold", "silver", "common"];
+  const filters = ["semua", "legendary", "epic", "rare", "common"];
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -111,6 +89,53 @@ export default function InventoryPage() {
       setLoadingMockIDRX(false);
     }
   };
+
+  // Fetch inventory NFT dari backend
+  const fetchInventory = async () => {
+    try {
+      setLoadingInventory(true);
+      const authToken = await getAccessToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/cars`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch inventory");
+      }
+
+      const data = await response.json();
+
+      // Transform data untuk UI
+      const transformedCars = data.cars.map(car => ({
+        id: car.tokenId,
+        tokenId: car.tokenId,
+        name: car.modelName.toUpperCase(),
+        modelName: car.modelName,
+        series: car.series,
+        rarity: car.rarity,
+        rarityColor: rarityColorMap[car.rarity] || "from-gray-500 to-gray-600",
+        image: `/assets/car/${car.modelName}.png`,
+        mintTxHash: car.mintTxHash,
+        isRedeemed: car.isRedeemed,
+      }));
+
+      setInventoryData(transformedCars);
+    } catch (error) {
+      console.error("Failed to fetch inventory:", error);
+      setInventoryData([]);
+    } finally {
+      setLoadingInventory(false);
+    }
+  };
+
+  // Fetch inventory saat authenticated
+  useEffect(() => {
+    if (authenticated) {
+      fetchInventory();
+    }
+  }, [authenticated]);
 
   // Filter inventory based on selected filter
   const filteredInventory = selectedFilter === "semua"
@@ -211,7 +236,14 @@ export default function InventoryPage() {
         {/* Inventory Grid */}
         <div className="flex-1 px-4 mb-4">
           <div className="bg-orange-700/50 backdrop-blur-sm rounded-3xl p-4 min-h-[300px]">
-            {filteredInventory.length > 0 ? (
+            {loadingInventory ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                  <p className="text-white/60">Memuat inventory...</p>
+                </div>
+              </div>
+            ) : filteredInventory.length > 0 ? (
               <div className="grid grid-cols-2 gap-4">
                 {filteredInventory.map((car) => (
                   <button
@@ -230,13 +262,33 @@ export default function InventoryPage() {
                       </span>
                     </div>
 
+                    {/* Token ID Badge */}
+                    <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 z-10">
+                      <span className="text-white text-[10px] font-bold">
+                        #{car.tokenId}
+                      </span>
+                    </div>
+
                     {/* Car Image */}
                     <div className="aspect-square flex items-center justify-center mb-2">
                       <img
                         src={car.image}
                         alt={car.name}
                         className="w-full h-full object-contain drop-shadow-2xl"
+                        onError={(e) => {
+                          e.target.src = "/assets/car/placeholder.png";
+                        }}
                       />
+                    </div>
+
+                    {/* Car Info */}
+                    <div className="text-center px-1">
+                      <p className="text-white text-xs font-black uppercase truncate">
+                        {car.modelName}
+                      </p>
+                      <p className="text-white/70 text-[10px] font-semibold truncate">
+                        {car.series}
+                      </p>
                     </div>
 
                     {/* Selection Indicator */}
@@ -252,9 +304,18 @@ export default function InventoryPage() {
               </div>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-white/60 text-center">
-                  Tidak ada mobil di kategori ini
-                </p>
+                <div className="text-center">
+                  <p className="text-white/60 text-lg font-bold mb-2">
+                    {selectedFilter === "semua"
+                      ? "Inventory Kosong"
+                      : "Tidak ada mobil di kategori ini"}
+                  </p>
+                  <p className="text-white/40 text-sm">
+                    {selectedFilter === "semua"
+                      ? "Buka gacha box untuk mendapatkan mobil!"
+                      : "Coba filter lain atau buka gacha box"}
+                  </p>
+                </div>
               </div>
             )}
           </div>
