@@ -260,15 +260,14 @@ export default function GachaPage() {
                   key={box.type}
                   onClick={() => setSelectedBoxType(box.type)}
                   disabled={!box.canAfford}
-                  className={`flex-shrink-0 px-4 py-2 rounded-full font-bold text-sm transition-all ${
-                    selectedBoxType === box.type
+                  className={`flex-shrink-0 px-4 py-2 rounded-full font-bold text-sm transition-all ${selectedBoxType === box.type
                       ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-orange-900 shadow-lg scale-105"
                       : box.canAfford
-                      ? "bg-orange-600/50 text-white hover:bg-orange-600/70"
-                      : "bg-gray-700/50 text-gray-500 cursor-not-allowed"
-                  }`}
+                        ? "bg-orange-600/50 text-white hover:bg-orange-600/70"
+                        : "bg-gray-700/50 text-gray-500 cursor-not-allowed"
+                    }`}
                 >
-                  {box.type.toUpperCase()} ({box.costMockIDRX} 💰)
+                  {box.type.toUpperCase()} ({box.costCoins} 💰)
                 </button>
               ))}
             </div>
@@ -294,9 +293,8 @@ export default function GachaPage() {
                 <img
                   src="/assets/car/High Speed.png"
                   alt="Mystery Car"
-                  className={`w-full h-64 object-contain drop-shadow-2xl transition-all duration-300 ${
-                    isSpinning ? "animate-spin" : ""
-                  }`}
+                  className={`w-full h-64 object-contain drop-shadow-2xl transition-all duration-300 ${isSpinning ? "animate-spin" : ""
+                    }`}
                   style={{
                     filter: isSpinning ? "blur(8px)" : "none",
                   }}
@@ -321,7 +319,7 @@ export default function GachaPage() {
                     <span className="text-2xl">💰</span>
                   </div>
                   <span className="text-6xl font-black text-orange-400">
-                    {gachaBoxes.find(b => b.type === selectedBoxType)?.costMockIDRX || 0}
+                    {gachaBoxes.find(b => b.type === selectedBoxType)?.costCoins || 0}
                   </span>
                   <span className="text-2xl font-bold text-orange-400 opacity-80">IDRX</span>
                 </div>

@@ -83,7 +83,10 @@ export function useWallet() {
             await createWallet();
             console.log("✅ Wallet creation triggered successfully!");
           } catch (error) {
-            console.error("❌ Failed to create wallet:", error);
+            // Only log as error if it's NOT the expected "already has wallet" case
+            if (!error.message?.includes("already has an embedded wallet")) {
+              console.error("❌ Failed to create wallet:", error);
+            }
 
             // Handle case where wallet already exists but hasn't appeared yet
             if (error.message?.includes("already has an embedded wallet")) {
