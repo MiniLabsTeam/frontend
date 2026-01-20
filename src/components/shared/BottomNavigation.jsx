@@ -8,7 +8,7 @@ export default function BottomNavigation() {
 
   const navItems = [
     { id: "home", icon: "🏠", label: "Home", path: "/dashboard" },
-    { id: "history", icon: "🕐", label: "History", path: "/history" },
+    { id: "marketplace", icon: "🛒", label: "Market", path: "/marketplace" },
     { id: "claim", icon: "🔥", label: "CLAIM", path: "/dashboard" },
     { id: "invent", icon: "📦", label: "Invent", path: "/inventory" },
     { id: "profile", icon: "👤", label: "Profile", path: "/profile" },
