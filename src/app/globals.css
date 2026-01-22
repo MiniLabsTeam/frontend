@@ -133,6 +133,103 @@ body {
   }
 }
 
+@keyframes gacha-orbit {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+    opacity: 0.25;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+    opacity: 0.35;
+  }
+}
+
+@keyframes gacha-handle-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(255, 204, 85, 0.3);
+  }
+
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 16px rgba(255, 204, 85, 0.45);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(255, 204, 85, 0.3);
+  }
+}
+
+@keyframes gacha-track-sheen {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes gacha-confetti-fall {
+  0% {
+    transform: translateY(-20px) rotate(0deg);
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(160px) rotate(260deg);
+    opacity: 0;
+  }
+}
+
+@keyframes gacha-reward-pulse {
+  0% {
+    opacity: 0.4;
+    transform: scale(0.98);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.02);
+  }
+
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+}
+
+@keyframes dashboard-scan {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 0.6;
+  }
+
+  60% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
 @layer components {
   .minigarage-hero {
     position: relative;
@@ -443,6 +540,246 @@ body {
         rgba(255, 189, 78, 0.95) 0 8px,
         rgba(72, 32, 0, 0.65) 8px 16px);
   }
+
+  .gacha-orbit {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 120%;
+    height: 120%;
+    border-radius: 999px;
+    border: 1px dashed rgba(255, 195, 120, 0.4);
+    transform: translate(-50%, -50%);
+    animation: gacha-orbit 8s linear infinite;
+    pointer-events: none;
+  }
+
+  .gacha-track {
+    position: relative;
+  }
+
+  .gacha-track-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, rgba(255, 213, 128, 0.6), rgba(255, 255, 255, 0.2));
+    transition: width 120ms ease-out;
+    border-radius: inherit;
+    overflow: hidden;
+  }
+
+  .gacha-track-fill::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.5) 50%, transparent 80%);
+    animation: gacha-track-sheen 2.4s linear infinite;
+    opacity: 0.55;
+  }
+
+  .gacha-track-sheen {
+    position: absolute;
+    inset: -30% 0;
+    background: radial-gradient(circle, rgba(255, 236, 200, 0.3), transparent 60%);
+    animation: gacha-track-sheen 3.2s linear infinite;
+    pointer-events: none;
+  }
+
+  .gacha-track-ready {
+    box-shadow: 0 0 24px rgba(255, 195, 120, 0.55);
+  }
+
+  .gacha-slider-idle {
+    animation: gacha-handle-pulse 2.2s ease-in-out infinite;
+  }
+
+  .gacha-slider-ready::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 242, 200, 0.7);
+    opacity: 0.8;
+    animation: gacha-handle-pulse 1.6s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .gacha-reward-glow {
+    position: absolute;
+    inset: -30% 0;
+    background: radial-gradient(circle at top, rgba(255, 176, 90, 0.6), transparent 70%);
+    animation: gacha-reward-pulse 4s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .gacha-confetti {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .gacha-confetti-piece {
+    position: absolute;
+    top: -12px;
+    left: var(--confetti-left, 50%);
+    width: 10px;
+    height: 14px;
+    border-radius: 3px;
+    background: linear-gradient(135deg, #ffd28a, #ff8f2b);
+    opacity: 0;
+    animation: gacha-confetti-fall 1.7s ease-out forwards;
+    animation-delay: var(--confetti-delay, 0ms);
+  }
+
+  .dashboard-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dashboard-card > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .dashboard-card::before {
+    content: "";
+    position: absolute;
+    inset: -30% 0 auto 0;
+    height: 140%;
+    background: radial-gradient(circle at top, rgba(255, 210, 150, 0.2), transparent 70%);
+    pointer-events: none;
+  }
+
+  .dashboard-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.12) 50%, transparent 65%);
+    transform: translateX(-120%);
+    animation: dashboard-scan 7s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .marketplace-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .marketplace-card > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .marketplace-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, 0.12) 50%, transparent 65%);
+    transform: translateX(-120%);
+    animation: dashboard-scan 9s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .inventory-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .inventory-card > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .inventory-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, 0.14) 50%, transparent 65%);
+    transform: translateX(-120%);
+    animation: dashboard-scan 11s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .inventory-assemble {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .inventory-assemble::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 20%, rgba(255, 255, 255, 0.5) 50%, transparent 80%);
+    transform: translateX(-120%);
+    animation: button-shimmer 4.2s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .profile-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+  }
+
+  .profile-card > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .profile-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, 0.12) 50%, transparent 65%);
+    transform: translateX(-120%);
+    animation: dashboard-scan 10s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .profile-badge {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .profile-badge > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .profile-badge::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.45) 50%, transparent 80%);
+    transform: translateX(-120%);
+    animation: button-shimmer 5s ease-in-out infinite;
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .profile-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 110px;
+    transform: translateX(-50%);
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: rgba(10, 8, 6, 0.9);
+    border: 1px solid rgba(255, 190, 120, 0.45);
+    box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: #ffe6c8;
+    z-index: 60;
+    max-width: calc(100% - 48px);
+    text-align: center;
+  }
 }
 
 @layer utilities {
@@ -578,6 +915,31 @@ body {
     opacity: 1;
     transform: none;
     transition: none;
+  }
+
+  .gacha-orbit,
+  .gacha-track-fill::after,
+  .gacha-track-sheen,
+  .gacha-slider-idle,
+  .gacha-slider-ready::after,
+  .gacha-reward-glow,
+  .gacha-confetti-piece {
+    animation: none;
+  }
+
+  .dashboard-card::after {
+    animation: none;
+  }
+
+  .marketplace-card::after {
+    animation: none;
+  }
+
+  .inventory-card::after,
+  .inventory-assemble::before,
+  .profile-card::after,
+  .profile-badge::after {
+    animation: none;
   }
 }
 

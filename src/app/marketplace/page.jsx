@@ -611,7 +611,7 @@ export default function MarketplacePage() {
                 </div>
               ) : listings.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4">
-                  {listings.map((listing) => (
+                  {listings.map((listing, index) => (
                     <div
                       key={listing.id}
                       onClick={() => {
@@ -620,7 +620,8 @@ export default function MarketplacePage() {
                       }}
                       className={`relative bg-gradient-to-br ${
                         rarityColorMap[listing.car.rarity] || "from-gray-500 to-gray-600"
-                      } rounded-2xl p-3 shadow-xl cursor-pointer hover:scale-105 transition-transform`}
+                      } rounded-2xl p-3 shadow-xl cursor-pointer transition-transform hover:scale-105 active:scale-[0.98] group marketplace-card animate-rise`}
+                      style={{ animationDelay: `${index * 70}ms` }}
                     >
                       {/* Rarity Badge */}
                       <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 z-10">
@@ -664,6 +665,12 @@ export default function MarketplacePage() {
                           {listing.price.toLocaleString()}
                         </span>
                         <span className="text-orange-900 text-[8px] font-bold">IDRX</span>
+                      </div>
+
+                      <div className="absolute inset-0 rounded-2xl bg-black/40 opacity-0 transition-opacity duration-200 flex items-center justify-center group-hover:opacity-100 group-active:opacity-100">
+                        <span className="px-3 py-1 rounded-full bg-black/60 text-orange-200 text-[10px] font-bold tracking-[0.3em] uppercase">
+                          View
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -803,7 +810,7 @@ function ListingCard({ listing, onCancel, onClick }) {
       onClick={onClick}
       className={`bg-gradient-to-br ${
         rarityColorMap[listing.car.rarity] || "from-gray-500 to-gray-600"
-      } rounded-2xl p-4 shadow-xl cursor-pointer hover:scale-[1.02] transition-transform`}
+      } rounded-2xl p-4 shadow-xl cursor-pointer hover:scale-[1.02] active:scale-[0.99] transition-transform marketplace-card`}
     >
       <div className="flex gap-3">
         {/* Car Image */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import BottomNavigation from "@/components/shared/BottomNavigation";
@@ -16,6 +16,9 @@ export default function ProfilePage() {
   const [loadingBalance, setLoadingBalance] = useState(false);
   const [loadingMockIDRX, setLoadingMockIDRX] = useState(false);
   const [showNetworkModal, setShowNetworkModal] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const toastTimerRef = useRef(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -37,6 +40,14 @@ export default function ProfilePage() {
       fetchMockIDRXBalance();
     }
   }, [authenticated]);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   const fetchBalance = async () => {
     try {
@@ -75,6 +86,17 @@ export default function ProfilePage() {
     router.push("/");
   };
 
+  const triggerToast = (message) => {
+    setToastMessage(message);
+    setShowToast(true);
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => {
+      setShowToast(false);
+    }, 2200);
+  };
+
   if (!ready || !authenticated) {
     return null;
   }
@@ -107,48 +129,112 @@ export default function ProfilePage() {
       ? "Creating wallet..."
       : "Not connected";
 
+  const hasWallet = isConnected && walletAddress;
+  const chainLabel = chainId === 8453
+    ? "Base Mainnet"
+    : chainId === 84532
+      ? "Base Sepolia"
+      : chainId === 1
+        ? "Ethereum Mainnet"
+        : chainId
+          ? `Chain ${chainId}`
+          : "Detecting network...";
+
+  const explorerBaseUrl = chainId === 8453
+    ? "https://basescan.org"
+    : chainId === 84532
+      ? "https://sepolia.basescan.org"
+      : chainId === 1
+        ? "https://etherscan.io"
+        : null;
+
+  const handleCopyAddress = async () => {
+    if (!hasWallet) {
+      triggerToast("Wallet not connected yet");
+      return;
+    }
+    if (!navigator?.clipboard) {
+      triggerToast("Copy not supported");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(walletAddress);
+      triggerToast("Wallet address copied");
+    } catch (error) {
+      console.error("Failed to copy wallet address:", error);
+      triggerToast("Copy failed");
+    }
+  };
+
+  const handleOpenExplorer = () => {
+    if (!hasWallet) {
+      triggerToast("Wallet not connected yet");
+      return;
+    }
+    if (!explorerBaseUrl) {
+      triggerToast("Explorer not available");
+      return;
+    }
+    window.open(`${explorerBaseUrl}/address/${walletAddress}`, "_blank", "noopener,noreferrer");
+  };
+
+  const handleComingSoon = (label) => {
+    triggerToast(`${label} coming soon`);
+  };
+
   const menuItems = [
     {
       id: "address",
       icon: "📍",
       title: "Wallet Address",
       subtitle: shortAddress,
-      onClick: () => {
-        if (isConnected && walletAddress) {
-          navigator.clipboard.writeText(walletAddress);
-          alert("Wallet address copied to clipboard!");
-        } else {
-          alert("Wallet not connected yet. Please wait a moment.");
-        }
-      }
+      hint: "Tap to copy",
+      onClick: handleCopyAddress,
+    },
+    {
+      id: "network",
+      icon: "🌐",
+      title: "Network",
+      subtitle: chainLabel,
+      hint: "Tap to switch",
+      onClick: () => setShowNetworkModal(true),
+    },
+    {
+      id: "explorer",
+      icon: "🧭",
+      title: "View on Explorer",
+      subtitle: explorerBaseUrl ? chainLabel : "Explorer unavailable",
+      hint: "Open in browser",
+      onClick: handleOpenExplorer,
+      disabled: !hasWallet || !explorerBaseUrl,
     },
     {
       id: "help",
       icon: "💬",
       title: "Bantuan",
       subtitle: "customer services",
-      onClick: () => alert("Customer service coming soon!")
+      onClick: () => handleComingSoon("Customer service")
     },
     {
       id: "info",
       icon: "ℹ️",
       title: "Informasi",
       subtitle: "redeem voucher",
-      onClick: () => alert("Redeem voucher coming soon!")
+      onClick: () => handleComingSoon("Redeem voucher")
     },
     {
       id: "terms",
       icon: "📄",
       title: "Syarat dan ketentuan",
       subtitle: "",
-      onClick: () => alert("Terms and conditions coming soon!")
+      onClick: () => handleComingSoon("Terms and conditions")
     },
     {
       id: "privacy",
       icon: "🔒",
       title: "Kebijakan Privasi",
       subtitle: "",
-      onClick: () => alert("Privacy policy coming soon!")
+      onClick: () => handleComingSoon("Privacy policy")
     },
   ];
 
@@ -179,7 +265,7 @@ export default function ProfilePage() {
           </div>
 
           {/* User Info Card */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 mb-4">
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 mb-4 profile-card">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-3xl">
@@ -204,9 +290,15 @@ export default function ProfilePage() {
             </div>
 
             {/* Balance Display */}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {/* MockIDRX Balance Badge */}
-              <div className="flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full px-4 py-2 w-fit">
+              <button
+                type="button"
+                onClick={fetchMockIDRXBalance}
+                className="flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full px-4 py-2 w-fit profile-badge transition-transform hover:scale-[1.02] active:scale-95"
+                aria-label="Refresh IDRX balance"
+                title="Tap to refresh IDRX balance"
+              >
                 <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center text-yellow-300 font-black text-sm">
                   💰
                 </div>
@@ -214,7 +306,23 @@ export default function ProfilePage() {
                   {loadingMockIDRX ? "..." : Math.floor(mockIDRXBalance)}
                 </span>
                 <span className="text-sm font-bold text-orange-900 opacity-90">IDRX</span>
-              </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={fetchBalance}
+                className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-white profile-badge transition-transform hover:scale-[1.02] active:scale-95"
+                aria-label="Refresh wallet balance"
+                title="Tap to refresh wallet balance"
+              >
+                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-white font-black text-sm">
+                  Ξ
+                </div>
+                <span className="font-black text-lg">
+                  {loadingBalance ? "..." : balance.toFixed(4)}
+                </span>
+                <span className="text-sm font-bold text-white/70">{currencySymbol}</span>
+              </button>
             </div>
           </div>
         </header>
@@ -225,7 +333,10 @@ export default function ProfilePage() {
             <button
               key={item.id}
               onClick={item.onClick}
-              className="w-full bg-orange-500/50 hover:bg-orange-500/70 backdrop-blur-sm rounded-xl p-4 transition-all transform hover:scale-[1.02] active:scale-95"
+              disabled={item.disabled}
+              className={`group w-full bg-orange-500/50 backdrop-blur-sm rounded-xl p-4 transition-all transform hover:scale-[1.02] active:scale-95 ${
+                item.disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-orange-500/70"
+              }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-start gap-3 text-left">
@@ -235,9 +346,12 @@ export default function ProfilePage() {
                     {item.subtitle && (
                       <p className="text-sm text-white/80">{item.subtitle}</p>
                     )}
+                    {item.hint && (
+                      <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">{item.hint}</span>
+                    )}
                   </div>
                 </div>
-                <span className="text-2xl text-white">›</span>
+                <span className="text-2xl text-white transition-transform group-hover:translate-x-1">›</span>
               </div>
             </button>
           ))}
@@ -263,6 +377,12 @@ export default function ProfilePage() {
           />
         </div>
       </div>
+
+      {showToast && (
+        <div className="profile-toast animate-rise" role="status" aria-live="polite">
+          {toastMessage}
+        </div>
+      )}
 
       {/* Bottom Navigation */}
       <BottomNavigation />

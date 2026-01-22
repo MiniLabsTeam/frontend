@@ -332,7 +332,13 @@ export default function InventoryPage() {
         <header className="px-4 pt-3 pb-4">
           <div className="flex items-center justify-end gap-2 mb-4">
             {/* MockIDRX Balance Badge */}
-            <div className="flex items-center gap-1.5 bg-yellow-400 rounded-full px-3 py-1.5 shadow-lg">
+            <button
+              type="button"
+              onClick={fetchMockIDRXBalance}
+              className="flex items-center gap-1.5 bg-yellow-400 rounded-full px-3 py-1.5 shadow-lg transition-transform hover:scale-[1.02] active:scale-95"
+              aria-label="Refresh IDRX balance"
+              title="Tap to refresh balance"
+            >
               <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center text-yellow-300 font-black text-xs">
                 💰
               </div>
@@ -340,7 +346,7 @@ export default function InventoryPage() {
                 {loadingMockIDRX ? "..." : Math.floor(mockIDRXBalance).toLocaleString()}
               </span>
               <span className="text-xs font-bold text-orange-900 opacity-80">IDRX</span>
-            </div>
+            </button>
           </div>
 
           {/* Logo */}
@@ -359,7 +365,7 @@ export default function InventoryPage() {
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => setActiveTab("cars")}
-              className={`flex-1 py-3 rounded-full font-bold text-sm transition-all ${
+              className={`flex-1 py-3 rounded-full font-bold text-sm transition-all active:scale-95 ${
                 activeTab === "cars"
                   ? "bg-white text-orange-600 shadow-lg"
                   : "bg-orange-600/50 text-white hover:bg-orange-600/70"
@@ -369,7 +375,7 @@ export default function InventoryPage() {
             </button>
             <button
               onClick={() => setActiveTab("fragments")}
-              className={`flex-1 py-3 rounded-full font-bold text-sm transition-all ${
+              className={`flex-1 py-3 rounded-full font-bold text-sm transition-all active:scale-95 ${
                 activeTab === "fragments"
                   ? "bg-white text-orange-600 shadow-lg"
                   : "bg-orange-600/50 text-white hover:bg-orange-600/70"
@@ -386,7 +392,7 @@ export default function InventoryPage() {
                 <button
                   key={filter}
                   onClick={() => setSelectedFilter(filter)}
-                  className={`px-4 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all ${
+                  className={`px-4 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all active:scale-95 ${
                     selectedFilter === filter
                       ? "bg-white text-orange-600 shadow-lg scale-105"
                       : "bg-orange-600/50 text-white hover:bg-orange-600/70"
@@ -412,10 +418,11 @@ export default function InventoryPage() {
                 </div>
               ) : filteredInventory.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4">
-                  {filteredInventory.map((car) => (
+                  {filteredInventory.map((car, index) => (
                     <div
                       key={car.id}
-                      className={`relative bg-gradient-to-br ${car.rarityColor} rounded-2xl p-3 shadow-xl`}
+                      className={`relative bg-gradient-to-br ${car.rarityColor} rounded-2xl p-3 shadow-xl transition-transform hover:scale-[1.02] active:scale-[0.98] inventory-card animate-rise`}
+                      style={{ animationDelay: `${index * 60}ms` }}
                     >
                       {/* Rarity Badge */}
                       <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 z-10">
@@ -488,10 +495,11 @@ export default function InventoryPage() {
                 </div>
               ) : fragmentsData.length > 0 ? (
                 <div className="space-y-4">
-                  {fragmentsData.map((brandData) => (
+                  {fragmentsData.map((brandData, index) => (
                     <div
                       key={brandData.brand}
-                      className={`bg-gradient-to-br ${rarityColorMap[brandData.rarity] || "from-gray-500 to-gray-600"} rounded-2xl p-4 shadow-xl`}
+                      className={`bg-gradient-to-br ${rarityColorMap[brandData.rarity] || "from-gray-500 to-gray-600"} rounded-2xl p-4 shadow-xl transition-transform hover:scale-[1.01] active:scale-[0.99] inventory-card animate-rise`}
+                      style={{ animationDelay: `${index * 80}ms` }}
                     >
                       {/* Brand Header */}
                       <div className="flex items-center justify-between mb-3">
@@ -520,10 +528,10 @@ export default function InventoryPage() {
                           return (
                             <div
                               key={typeId}
-                              className={`flex flex-col items-center p-2 rounded-xl ${
+                              className={`flex flex-col items-center p-2 rounded-xl transition-transform ${
                                 hasFragment
-                                  ? "bg-white/30"
-                                  : "bg-black/30"
+                                  ? "bg-white/30 hover:scale-105 active:scale-95"
+                                  : "bg-black/30 opacity-70"
                               }`}
                             >
                               <span className="text-2xl mb-1">
@@ -552,7 +560,7 @@ export default function InventoryPage() {
                         <button
                           onClick={() => handleAssemble(brandData.brand)}
                           disabled={assembling}
-                          className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 disabled:from-gray-400 disabled:to-gray-500 text-orange-900 font-black py-3 rounded-full shadow-lg transform hover:scale-105 transition-all"
+                          className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 disabled:from-gray-400 disabled:to-gray-500 text-orange-900 font-black py-3 rounded-full shadow-lg transform hover:scale-105 active:scale-95 transition-all inventory-assemble"
                         >
                           {assembling ? "Assembling..." : `🔧 Assemble ${brandData.brand}`}
                         </button>

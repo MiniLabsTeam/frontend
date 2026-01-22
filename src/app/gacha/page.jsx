@@ -32,6 +32,8 @@ export default function GachaPage() {
   const sliderRef = useRef(null);
   const startXRef = useRef(0);
   const isDraggingRef = useRef(false);
+  const progressPercent = Math.min(100, Math.round(slideProgress * 100));
+  const isSlideReady = slideProgress >= 1;
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -103,7 +105,7 @@ export default function GachaPage() {
       setSlideProgress(progress);
 
       // If slid far enough, trigger spin
-      if (progress >= 0.85) {
+      if (progress >= 1) {
         isDraggingRef.current = false;
         triggerSpin();
       }
@@ -112,7 +114,7 @@ export default function GachaPage() {
     const handleGlobalEnd = () => {
       if (!isDraggingRef.current) return;
       isDraggingRef.current = false;
-      if (slideProgress < 0.85 && !hasSpun) {
+      if (slideProgress < 1 && !hasSpun) {
         setSlideProgress(0);
       }
     };
@@ -299,6 +301,7 @@ export default function GachaPage() {
                     filter: isSpinning ? "blur(8px)" : "none",
                   }}
                 />
+                <div className="gacha-orbit" aria-hidden="true" />
               </div>
 
               {/* Info Box */}
@@ -309,6 +312,8 @@ export default function GachaPage() {
                     <span className="text-orange-400 font-bold">Peluang mendapatkan Lamborghini Aventador (Legend)</span> naik 50% dari total peluang Legend.* (Artinya, jika kamu dapat Legend, ada peluang 50% itu adalah mobil tersebut)
                   </p>
                 </div>
+
+
               </div>
 
               {/* Cost Display */}
@@ -331,11 +336,19 @@ export default function GachaPage() {
               {/* Slide to Open */}
               <div className="relative mt-8">
                 <p className="text-center text-orange-400 font-bold text-sm mb-2">
-                  SLIDE TO OPEN
+                  {isSlideReady ? "BOOST READY" : "SLIDE TO OPEN"}
                 </p>
 
                 {/* Slider Track */}
-                <div className="relative h-16 bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 rounded-full overflow-hidden shadow-xl">
+                <div
+                  className={`relative h-16 bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 rounded-full overflow-hidden shadow-xl gacha-track ${isSlideReady ? "gacha-track-ready" : ""}`}
+                >
+                  <div className="gacha-track-fill" style={{ width: `${progressPercent}%` }} />
+                  <div
+                    className="gacha-track-sheen"
+                    style={{ opacity: Math.min(0.9, slideProgress + 0.15) }}
+                    aria-hidden="true"
+                  />
                   {/* Arrow Pattern */}
                   <div className="absolute inset-0 flex items-center justify-end pr-4">
                     <div className="flex gap-1">
@@ -354,16 +367,21 @@ export default function GachaPage() {
                   {/* Slider Button */}
                   <div
                     ref={sliderRef}
-                    className="absolute top-2 left-2 w-12 h-12 bg-yellow-400 rounded-full shadow-2xl flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none"
+                    className={`absolute top-2 left-2 w-12 h-12 bg-yellow-400 rounded-full shadow-2xl flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none ${slideProgress === 0 && !isSpinning ? "gacha-slider-idle" : ""} ${isSlideReady ? "gacha-slider-ready" : ""}`}
                     style={{
                       transform: `translateX(${slideProgress * 250}px)`,
                       transition: isDraggingRef.current ? 'none' : 'transform 0.3s ease-out',
+                      boxShadow: `0 0 ${12 + slideProgress * 26}px rgba(255, 204, 85, 0.65)`,
                     }}
                     onTouchStart={handleStart}
                     onMouseDown={handleStart}
                   >
                     <span className="text-2xl pointer-events-none">❯</span>
                   </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-orange-200/80">
+                  <span>{progressPercent}%</span>
+                  <span>{isSlideReady ? "Unlocking" : "Keep Sliding"}</span>
                 </div>
               </div>
 
@@ -375,7 +393,20 @@ export default function GachaPage() {
             </div>
           ) : (
             /* After Spin - Result Screen */
-            <div className="w-full max-w-sm text-center">
+            <div className="w-full max-w-sm text-center relative overflow-hidden">
+              <div className="gacha-reward-glow" aria-hidden="true" />
+              <div className="gacha-confetti" aria-hidden="true">
+                {Array.from({ length: 14 }).map((_, index) => (
+                  <span
+                    key={index}
+                    className="gacha-confetti-piece"
+                    style={{
+                      "--confetti-left": `${(index % 7) * 13 + 6}%`,
+                      "--confetti-delay": `${index * 90}ms`,
+                    }}
+                  />
+                ))}
+              </div>
               {/* Congratulations Text */}
               <h2 className="text-3xl font-black mb-6 bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent uppercase animate-pulse">
                 Congratulations<br />You Got
