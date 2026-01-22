@@ -7,7 +7,6 @@ import LoadingAnimation from "@/components/LoadingAnimation";
 
 const background =
   "/assets/backgrounds/view-car-running-high-speed%20%282%29.jpg";
-const logo = "/assets/iconApp/MiniGarageIconTransparant.png";
 const launchButton = "/assets/images/1.png";
 const fireIcon = "/assets/icons/fire.png";
 
@@ -176,20 +175,8 @@ export default function Home() {
         </div>
 
         <div className="relative z-10 mx-auto max-w-4xl">
-          <div
-            className="-mt-12 flex justify-center sm:-mt-16 md:-mt-20"
-            data-reveal
-            style={{ "--reveal-delay": "0ms" }}
-          >
-            <img
-              src={logo}
-              alt="MiniGarage"
-              className="minigarage-logo-float w-56 drop-shadow-[0_16px_40px_rgba(0,0,0,0.8)] sm:w-72 md:w-96"
-            />
-          </div>
-
           <h1
-            className="minigarage-title minigarage-gradient-text mt-[240px] mb-2 text-2xl font-black leading-tight sm:mt-[280px] sm:mb-3 sm:text-4xl md:mt-[320px] md:text-6xl"
+            className="minigarage-title minigarage-gradient-text mt-16 mb-2 text-2xl font-black leading-tight sm:mt-20 sm:mb-3 sm:text-4xl md:mt-24 md:text-6xl"
             data-reveal
             style={{ "--reveal-delay": "120ms" }}
           >

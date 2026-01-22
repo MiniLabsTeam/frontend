@@ -486,15 +486,6 @@ export default function MarketplacePage() {
             </button>
           </div>
 
-          {/* Logo */}
-          <div className="flex justify-center mb-4">
-            <img
-              src="/assets/iconApp/MiniGarageIconTransparant.png"
-              alt="MiniGarage"
-              className="h-16 object-contain drop-shadow-2xl"
-            />
-          </div>
-
           {/* Title */}
           <h1 className="text-4xl font-black text-white mb-4">🛒 Marketplace</h1>
 

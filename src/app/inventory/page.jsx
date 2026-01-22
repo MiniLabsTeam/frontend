@@ -349,15 +349,6 @@ export default function InventoryPage() {
             </button>
           </div>
 
-          {/* Logo */}
-          <div className="flex justify-center mb-4">
-            <img
-              src="/assets/iconApp/MiniGarageIconTransparant.png"
-              alt="MiniGarage"
-              className="h-16 object-contain drop-shadow-2xl"
-            />
-          </div>
-
           {/* Title */}
           <h1 className="text-4xl font-black text-orange-200 mb-4">Inventory</h1>
 

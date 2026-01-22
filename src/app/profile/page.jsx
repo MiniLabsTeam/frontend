@@ -255,15 +255,6 @@ export default function ProfilePage() {
       <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto">
         {/* Header */}
         <header className="px-6 pt-4 pb-6">
-          {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <img
-              src="/assets/iconApp/MiniGarageIconTransparant.png"
-              alt="MiniGarage"
-              className="h-24 sm:h-28 object-contain drop-shadow-2xl"
-            />
-          </div>
-
           {/* User Info Card */}
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 mb-4 profile-card">
             <div className="flex items-center justify-between mb-3">

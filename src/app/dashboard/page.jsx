@@ -1,76 +1,60 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
-import NetworkModal from "@/components/shared/NetworkModal";
-import { claimFaucet, checkFaucetCooldown, formatCooldownTime } from "@/lib/mockidrx";
-
-// Car data
-const carCollection = [
-  {
-    id: 1,
-    name: "ULTIMATE STRIKE",
-    image: "/assets/car/Blaze Runner.png",
-    rarity: "Basic",
-    stats: "85/1000",
-  },
-  {
-    id: 2,
-    name: "TURBO PHANTOM",
-    image: "/assets/car/Turbo Phantom.png",
-    rarity: "RARE",
-    stats: "92/1000",
-  },
-  {
-    id: 3,
-    name: "CHROME VIPER",
-    image: "/assets/car/Chrome Viper.png",
-    rarity: "EPIC",
-    stats: "78/1000",
-  },
-  {
-    id: 4,
-    name: "HIGH SPEED",
-    image: "/assets/car/High Speed.png",
-    rarity: "LEGEND",
-    stats: "95/1000",
-  },
-  {
-    id: 5,
-    name: "NEON DRIFTER",
-    image: "/assets/car/Neon Drifter.png",
-    rarity: "RARE",
-    stats: "88/1000",
-  },
-  {
-    id: 6,
-    name: "SPEED DEMON",
-    image: "/assets/car/Speed Demon.png",
-    rarity: "EPIC",
-    stats: "90/1000",
-  },
-];
 
 export default function Dashboard() {
   const { authenticated, ready, getAccessToken } = usePrivy();
-  const { isConnected, walletAddress, getBalance, currencySymbol, chainId, embeddedWallet } = useWallet();
+  const { walletAddress } = useWallet();
   const router = useRouter();
-  const [currentCarIndex, setCurrentCarIndex] = useState(0);
-  const [balance, setBalance] = useState(0);
-  const [mockIDRXBalance, setMockIDRXBalance] = useState(0);
-  const [loadingBalance, setLoadingBalance] = useState(false);
-  const [loadingMockIDRX, setLoadingMockIDRX] = useState(false);
-  const [showNetworkModal, setShowNetworkModal] = useState(false);
-  const [showTips, setShowTips] = useState(false);
-  const swipeStartRef = useRef({ x: 0, y: 0, time: 0, active: false });
 
-  // Faucet states
-  const [claimingFaucet, setClaimingFaucet] = useState(false);
-  const [faucetCooldown, setFaucetCooldown] = useState(0);
-  const [showClaimSuccess, setShowClaimSuccess] = useState(false);
+  // State
+  const [mockIDRXBalance, setMockIDRXBalance] = useState(0);
+  const [loadingMockIDRX, setLoadingMockIDRX] = useState(false);
+  const [stats, setStats] = useState({
+    totalMinted: 0,
+    lastHourMinted: 0,
+    totalCars: 0,
+    totalUsers: 0,
+    popularSeries: { name: "Economy", count: 0 }
+  });
+  const [currentCarIndex, setCurrentCarIndex] = useState(0);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [supplyData, setSupplyData] = useState([]);
+
+  // Rare pool showcase cars
+  const showcaseCars = [
+    {
+      id: 1,
+      name: "ULTIMATE STRIKE",
+      image: "/assets/car/Blaze Runner.png",
+      rarity: "Legendary",
+      speed: 92,
+      power: 95,
+      drift: 88,
+    },
+    {
+      id: 2,
+      name: "TURBO PHANTOM",
+      image: "/assets/car/Turbo Phantom.png",
+      rarity: "Epic",
+      speed: 88,
+      power: 90,
+      drift: 85,
+    },
+    {
+      id: 3,
+      name: "CHROME VIPER",
+      image: "/assets/car/Chrome Viper.png",
+      rarity: "Rare",
+      speed: 85,
+      power: 87,
+      drift: 82,
+    },
+  ];
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -79,425 +63,365 @@ export default function Dashboard() {
     }
   }, [ready, authenticated, router]);
 
-  // Fetch ETH balance when wallet is connected
-  useEffect(() => {
-    if (isConnected) {
-      fetchBalance();
-    }
-  }, [isConnected]);
-
-  // Fetch MockIDRX balance from backend
-  useEffect(() => {
-    if (authenticated) {
-      fetchMockIDRXBalance();
-    }
-  }, [authenticated]);
-
-  const fetchBalance = async () => {
-    try {
-      setLoadingBalance(true);
-      const bal = await getBalance();
-      setBalance(bal);
-    } catch (error) {
-      console.error("Failed to fetch balance:", error);
-      setBalance(0);
-    } finally {
-      setLoadingBalance(false);
-    }
-  };
-
-  const fetchMockIDRXBalance = async () => {
+  // Fetch MockIDRX balance
+  const fetchMockIDRXBalance = useCallback(async () => {
     try {
       setLoadingMockIDRX(true);
       const authToken = await getAccessToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/overview`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
+        headers: { Authorization: `Bearer ${authToken}` },
       });
       const data = await response.json();
       setMockIDRXBalance(data.user?.mockIDRX || 0);
     } catch (error) {
       console.error("Failed to fetch MockIDRX balance:", error);
-      setMockIDRXBalance(0);
     } finally {
       setLoadingMockIDRX(false);
     }
-  };
+  }, [getAccessToken]);
 
-  const handleNextCar = () => {
-    setCurrentCarIndex((prev) => (prev + 1) % carCollection.length);
-  };
-
-  const handlePrevCar = () => {
-    setCurrentCarIndex((prev) => (prev - 1 + carCollection.length) % carCollection.length);
-  };
-
-  const handleSwipeStart = (event) => {
-    const point = event.touches ? event.touches[0] : event;
-    swipeStartRef.current = {
-      x: point.clientX,
-      y: point.clientY,
-      time: Date.now(),
-      active: true,
-    };
-  };
-
-  const handleSwipeEnd = (event) => {
-    if (!swipeStartRef.current.active) return;
-    const point = event.changedTouches ? event.changedTouches[0] : event;
-    const deltaX = point.clientX - swipeStartRef.current.x;
-    const deltaY = point.clientY - swipeStartRef.current.y;
-    const duration = Date.now() - swipeStartRef.current.time;
-
-    swipeStartRef.current.active = false;
-
-    if (duration > 800 || Math.abs(deltaX) < 45 || Math.abs(deltaY) > 60) return;
-
-    if (deltaX < 0) {
-      handleNextCar();
-    } else {
-      handlePrevCar();
-    }
-  };
-
-  const handleSwipeCancel = () => {
-    swipeStartRef.current.active = false;
-  };
-
-  // Check faucet cooldown
-  const checkCooldown = async () => {
-    if (!embeddedWallet || !walletAddress) return;
-
+  // Fetch dashboard stats
+  const fetchStats = useCallback(async () => {
     try {
-      const seconds = await checkFaucetCooldown(embeddedWallet, walletAddress);
-      setFaucetCooldown(seconds);
+      const authToken = await getAccessToken();
+
+      // Fetch supply status
+      const supplyRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/supply/status`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const supplyData = await supplyRes.json();
+
+      // Calculate total minted
+      const totalMinted = supplyData.series?.reduce((sum, s) => sum + s.currentMinted, 0) || 0;
+
+      // Find most popular series
+      const popularSeries = supplyData.series?.reduce((max, s) =>
+        s.currentMinted > max.currentMinted ? s : max
+      , { series: "Economy", currentMinted: 0 });
+
+      setStats({
+        totalMinted,
+        lastHourMinted: Math.floor(Math.random() * 10) + 1, // Mock for demo
+        totalCars: totalMinted,
+        totalUsers: Math.floor(totalMinted * 0.7), // Estimate
+        popularSeries: { name: popularSeries.series, count: popularSeries.currentMinted }
+      });
+
+      // Store supply data for tier progress bars
+      setSupplyData(supplyData.series || []);
+
     } catch (error) {
-      console.error("Failed to check cooldown:", error);
+      console.error("Failed to fetch stats:", error);
     }
-  };
+  }, [getAccessToken]);
 
-  // Handle claim faucet
-  const handleClaimFaucet = async () => {
-    if (!embeddedWallet || claimingFaucet) return;
+  // Fetch recent activity (mock for now)
+  const fetchRecentActivity = useCallback(() => {
+    const mockActivity = [
+      { id: 1, user: "User8@@", action: "minted a Hypercar", time: "2m ago", avatar: "🏎️" },
+      { id: 2, user: "CryptoRacer", action: "assembled Economy", time: "5m ago", avatar: "🚗" },
+      { id: 3, user: "NFTCollector", action: "listed Sport NFT", time: "8m ago", avatar: "💰" },
+    ];
+    setRecentActivity(mockActivity);
+  }, []);
 
-    try {
-      setClaimingFaucet(true);
-      const result = await claimFaucet(embeddedWallet);
-
-      if (result.success) {
-        setShowClaimSuccess(true);
-        setTimeout(() => setShowClaimSuccess(false), 3000);
-
-        // Refresh balance and cooldown
-        fetchMockIDRXBalance();
-        checkCooldown();
-      } else {
-        alert(result.error || "Failed to claim faucet");
-      }
-    } catch (error) {
-      console.error("Claim faucet error:", error);
-      alert("Claim gagal! Coba lagi.");
-    } finally {
-      setClaimingFaucet(false);
-    }
-  };
-
-  // Check cooldown on load and every minute
   useEffect(() => {
-    if (isConnected && walletAddress && embeddedWallet) {
-      checkCooldown();
-      const interval = setInterval(checkCooldown, 60000); // Check every minute
+    if (authenticated) {
+      fetchMockIDRXBalance();
+      fetchStats();
+      fetchRecentActivity();
+
+      // Refresh stats every 30 seconds
+      const interval = setInterval(() => {
+        fetchStats();
+        fetchRecentActivity();
+      }, 30000);
+
       return () => clearInterval(interval);
     }
-  }, [isConnected, walletAddress, embeddedWallet]);
+  }, [authenticated, fetchMockIDRXBalance, fetchStats, fetchRecentActivity]);
+
+  // Auto-rotate showcase cars
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentCarIndex((prev) => (prev + 1) % showcaseCars.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (!ready || !authenticated) {
     return null;
   }
 
-  const currentCar = carCollection[currentCarIndex];
+  const currentCar = showcaseCars[currentCarIndex];
 
   return (
-    <main className="relative min-h-screen bg-gradient-to-b from-gray-900 via-orange-900/30 to-gray-900 text-white overflow-hidden">
-      {/* Background effect */}
-      <div className="absolute inset-0 bg-[url('/assets/backgrounds/view-car-running-high-speed%20(1).jpg')] bg-cover bg-center opacity-30" />
+    <main className="relative min-h-screen bg-gradient-to-b from-orange-400 via-orange-500 to-orange-600 text-white overflow-hidden">
+      {/* Checkered Pattern Background */}
+      <div
+        className="absolute inset-0 opacity-30"
+        style={{
+          backgroundImage: `
+            repeating-linear-gradient(45deg, transparent, transparent 30px, rgba(255,255,255,0.15) 30px, rgba(255,255,255,0.15) 60px),
+            repeating-linear-gradient(-45deg, transparent, transparent 30px, rgba(255,255,255,0.15) 30px, rgba(255,255,255,0.15) 60px)
+          `
+        }}
+      />
 
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col h-screen max-w-md mx-auto">
+      <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
         {/* Header */}
-        <header className="px-4 pt-3 pb-2">
-          {/* Top Bar - Single row with balance on left, wallet + help on right */}
-          <div className="flex items-center justify-between gap-2">
+        <header className="px-4 pt-3 pb-4">
+          <div className="flex items-center justify-between gap-2 mb-4">
             {/* MockIDRX Balance Badge */}
             <button
-              type="button"
               onClick={fetchMockIDRXBalance}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full px-3 py-1.5 shadow-lg transition-transform hover:scale-[1.02] active:scale-95"
-              aria-label="Refresh IDRX balance"
-              title="Tap to refresh balance"
+              className="flex items-center gap-1.5 bg-yellow-400 rounded-full px-3 py-1.5 shadow-lg hover:scale-105 transition-transform"
             >
               <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center text-yellow-300 font-black text-xs">
                 💰
               </div>
               <span className="font-black text-sm text-orange-900">
-                {loadingMockIDRX ? "..." : Math.floor(mockIDRXBalance)}
+                {loadingMockIDRX ? "..." : Math.floor(mockIDRXBalance).toLocaleString()}
               </span>
-              <span className="text-xs font-bold text-orange-900 opacity-80">IDRX</span>
+              <span className="text-xs font-bold text-orange-900 opacity-80">IDR$</span>
             </button>
 
-            {/* Wallet Status + Help Button */}
-            <div className="flex items-center gap-2">
-              {isConnected ? (
-                <div className="bg-green-500/20 border border-green-500 rounded-full px-3 py-1.5 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-green-400 text-xs font-bold">
-                    {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
-                  </span>
-                </div>
-              ) : authenticated ? (
-                <div className="bg-yellow-500/20 border border-yellow-500 rounded-full px-3 py-1.5 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                  <span className="text-yellow-400 text-xs font-bold">Creating wallet...</span>
-                </div>
-              ) : (
-                <div className="bg-red-500/20 border border-red-500 rounded-full px-3 py-1.5 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-red-500 rounded-full" />
-                  <span className="text-red-400 text-xs font-bold">Not logged in</span>
-                </div>
-              )}
+            {/* Wallet Address Badge */}
+            {walletAddress && (
+              <div className="bg-green-500/20 border-2 border-green-500 rounded-full px-3 py-1.5 flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-green-400 text-xs font-bold">
+                  Gobizz...{walletAddress.slice(-4)}
+                </span>
+              </div>
+            )}
 
-              {/* Help Icon */}
-              <button
-                type="button"
-                onClick={() => setShowTips(true)}
-                className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center hover:bg-gray-700 transition-colors"
-                aria-label="Open quick tips"
-              >
-                <span className="text-white text-xl font-bold">?</span>
-              </button>
-            </div>
+            {/* Notification Icon */}
+            <button className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
+              <span className="text-white text-lg">🔔</span>
+            </button>
           </div>
         </header>
 
-        {/* Search Bar */}
-        <div className="px-4 mt-3 mb-4">
-          <div className="relative h-11 rounded-full overflow-hidden shadow-xl group transition-shadow focus-within:shadow-orange-500/40">
-            {/* Gradient Background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-600 transition-transform duration-300 group-focus-within:scale-[1.02] group-focus-within:brightness-110" />
-
-            {/* Checkered Flag Pattern */}
-            <div className="absolute right-0 top-0 bottom-0 w-24">
-              <div
-                className="w-full h-full"
-                style={{
-                  background: `
-                    linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000),
-                    linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000),
-                    #fff
-                  `,
-                  backgroundSize: '10px 10px',
-                  backgroundPosition: '0 0, 5px 5px'
-                }}
-              />
-            </div>
-
-            {/* Input */}
-            <input
-              type="text"
-              placeholder="Search..."
-              className="relative z-10 w-full h-full bg-transparent text-white placeholder-white/90 px-4 pr-28 font-bold text-sm outline-none focus:placeholder-white/70"
-            />
-          </div>
-        </div>
-
-        {/* Faucet Claim Button */}
-        {isConnected && (
-          <div className="px-4 mb-4">
-            <button
-              onClick={handleClaimFaucet}
-              disabled={claimingFaucet || faucetCooldown > 0}
-              className={`w-full rounded-xl p-4 flex items-center justify-between transition-all ${
-                faucetCooldown > 0
-                  ? 'bg-gray-700/50 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-green-500/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                  <span className="text-2xl">💰</span>
+        {/* Content Container */}
+        <div className="flex-1 px-4 space-y-4 overflow-y-auto">
+          {/* Total Minted Card */}
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-5 shadow-2xl border-2 border-yellow-400 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full -mr-16 -mt-16" />
+            <div className="relative">
+              <p className="text-gray-400 text-xs font-bold mb-1">TOTAL MINTED</p>
+              <div className="flex items-end justify-between">
+                <div>
+                  <h2 className="text-5xl font-black text-white mb-1">
+                    {stats.totalMinted.toLocaleString()}
+                  </h2>
+                  <p className="text-yellow-400 text-sm font-bold">
+                    NFTs
+                  </p>
+                  <p className="text-orange-400 text-xs mt-2">
+                    🔥 Last hour: <span className="font-bold">{stats.lastHourMinted}</span>
+                  </p>
                 </div>
-                <div className="text-left">
-                  <div className="font-black text-white text-sm">
-                    {faucetCooldown > 0 ? 'Faucet Cooldown' : claimingFaucet ? 'Claiming...' : 'Claim Free IDRX'}
-                  </div>
-                  <div className="text-xs text-white/80">
-                    {faucetCooldown > 0
-                      ? `Next claim: ${formatCooldownTime(faucetCooldown)}`
-                      : '1,000,000 IDRX per day'
-                    }
-                  </div>
+                <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center text-3xl">
+                  🚗
                 </div>
               </div>
-              <div className="text-right">
-                {claimingFaucet ? (
-                  <div className="animate-spin w-6 h-6 border-2 border-white border-t-transparent rounded-full" />
-                ) : faucetCooldown > 0 ? (
-                  <span className="text-2xl">⏰</span>
-                ) : (
-                  <span className="text-2xl">🎁</span>
-                )}
-              </div>
-            </button>
-
-            {/* Success Message */}
-            {showClaimSuccess && (
-              <div className="mt-2 p-3 bg-green-500/20 border border-green-500 rounded-lg flex items-center gap-2">
-                <span className="text-xl">✅</span>
-                <span className="text-green-400 text-sm font-bold">Claimed 1,000,000 IDRX!</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ALL CAR Label */}
-        <div className="px-4 mb-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-red-500 text-lg font-black uppercase tracking-wide">
-              ALL CAR
-            </h2>
-            <div className="bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full w-8 h-8 flex items-center justify-center shadow-lg">
-              <span className="text-white text-lg font-black">
-                {carCollection.length}
-              </span>
             </div>
           </div>
-        </div>
 
-        {/* Car Card */}
-        <div className="flex-1 px-4 pb-24 overflow-y-auto">
-          <div className="bg-gradient-to-br from-red-900 via-red-800 to-black rounded-3xl p-4 shadow-2xl border-4 border-orange-500 dashboard-card">
-            {/* Car Image Container */}
-            <div
-              className="bg-gradient-to-br from-red-600 via-red-700 to-black rounded-2xl p-6 mb-4 relative overflow-hidden cursor-grab active:cursor-grabbing"
-              onTouchStart={handleSwipeStart}
-              onTouchEnd={handleSwipeEnd}
-              onMouseDown={handleSwipeStart}
-              onMouseUp={handleSwipeEnd}
-              onMouseLeave={handleSwipeCancel}
-            >
-              {/* Glow effect */}
-              <div className="absolute inset-0 bg-gradient-to-t from-orange-500/20 to-transparent" />
-
-              {/* Car Image */}
-              <img
-                key={currentCar.id}
-                src={currentCar.image}
-                alt={currentCar.name}
-                className="w-full h-48 object-contain relative z-10 drop-shadow-2xl transform hover:scale-110 transition-transform duration-300 animate-rise"
-              />
-
-              {/* Stats Badge */}
-              <div className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm rounded-lg px-3 py-1.5 z-20">
-                <p className="text-orange-400 text-xs font-bold">
-                  {currentCar.rarity} {currentCar.stats}
-                </p>
-              </div>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-gray-900 rounded-xl p-4 shadow-lg">
+              <p className="text-gray-400 text-xs font-bold mb-1">CARS</p>
+              <p className="text-white text-2xl font-black">{stats.totalCars}</p>
             </div>
+            <div className="bg-gray-900 rounded-xl p-4 shadow-lg">
+              <p className="text-gray-400 text-xs font-bold mb-1">USERS</p>
+              <p className="text-white text-2xl font-black">{stats.totalUsers}</p>
+            </div>
+            <div className="bg-gray-900 rounded-xl p-4 shadow-lg">
+              <p className="text-yellow-400 text-xs font-bold mb-1">ECONOMY</p>
+              <p className="text-white text-2xl font-black">{stats.popularSeries.count}</p>
+            </div>
+          </div>
 
-            {/* Car Name */}
-            <h3 className="text-white text-xl font-black uppercase tracking-wider mb-4 text-center bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
-              {currentCar.name}
+          {/* Tier Supply Progress */}
+          <div className="bg-gray-900/80 rounded-2xl p-4 shadow-2xl">
+            <h3 className="text-white font-black text-sm mb-3 tracking-wide">
+              NFT SUPPLY BY TIER
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              {supplyData.map((tier) => {
+                const percentage = tier.maxSupply > 0 ? (tier.currentMinted / tier.maxSupply) * 100 : 0;
+
+                // Tier color configurations
+                const tierColors = {
+                  Economy: {
+                    bg: "bg-gradient-to-br from-gray-700 to-gray-800",
+                    text: "text-gray-300",
+                    bar: "bg-gray-500",
+                    indicator: "🟢"
+                  },
+                  Sport: {
+                    bg: "bg-gradient-to-br from-blue-900 to-blue-950",
+                    text: "text-blue-400",
+                    bar: "bg-blue-500",
+                    indicator: "🔵"
+                  },
+                  Supercar: {
+                    bg: "bg-gradient-to-br from-purple-900 to-purple-950",
+                    text: "text-purple-400",
+                    bar: "bg-purple-500",
+                    indicator: "🟣"
+                  },
+                  Hypercar: {
+                    bg: "bg-gradient-to-br from-yellow-900 to-orange-950",
+                    text: "text-yellow-400",
+                    bar: "bg-yellow-500",
+                    indicator: "🟡"
+                  }
+                };
+
+                const config = tierColors[tier.series] || tierColors.Economy;
+
+                return (
+                  <div key={tier.series} className={`${config.bg} rounded-2xl p-4 shadow-xl border border-gray-700/50`}>
+                    {/* Tier Name with Indicator */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={`text-xs font-black ${config.text} tracking-wider`}>
+                        {tier.series.toUpperCase()}
+                      </span>
+                      {tier.soldOut && (
+                        <span className="text-xs">🔒</span>
+                      )}
+                      {tier.almostSoldOut && !tier.soldOut && (
+                        <span className="text-xs">{config.indicator}</span>
+                      )}
+                    </div>
+
+                    {/* Big Number */}
+                    <div className="mb-3">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-white text-4xl font-black">
+                          {tier.currentMinted}
+                        </span>
+                        <span className="text-gray-500 text-sm font-bold">
+                          /{tier.maxSupply}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="relative w-full h-2 bg-gray-800/50 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${config.bar} transition-all duration-500 ease-out`}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Rare Pool Showcase */}
+          <div className="bg-gray-900/80 rounded-2xl p-4 shadow-2xl">
+            <h3 className="text-white font-black text-sm mb-3 tracking-wide">
+              RARE POOL SHOWCASE
             </h3>
 
+            {/* Car Display */}
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 mb-3">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-400 text-xs font-bold">{currentCar.rarity.toUpperCase()}</span>
+                <span className="text-gray-400 text-xs">/1000</span>
+              </div>
+
+              <div className="relative h-32 mb-3 flex items-center justify-center">
+                <img
+                  src={currentCar.image}
+                  alt={currentCar.name}
+                  className="max-h-full max-w-full object-contain drop-shadow-2xl"
+                  onError={(e) => {
+                    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect fill='%23333' width='200' height='150'/%3E%3Ctext fill='%23999' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='monospace' font-size='16'%3ECar%3C/text%3E%3C/svg%3E";
+                  }}
+                />
+              </div>
+
+              <h4 className="text-white font-black text-center mb-3">
+                {currentCar.name}
+              </h4>
+
+              {/* Stats Badges */}
+              <div className="flex justify-center gap-2">
+                <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg px-3 py-1">
+                  <p className="text-white text-xs font-bold">{currentCar.speed}</p>
+                </div>
+                <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg px-3 py-1">
+                  <p className="text-white text-xs font-bold">{currentCar.power}</p>
+                </div>
+                <div className="bg-gradient-to-r from-yellow-500 to-amber-600 rounded-lg px-3 py-1">
+                  <p className="text-white text-xs font-bold">{currentCar.drift}</p>
+                </div>
+              </div>
+            </div>
+
             {/* Carousel Dots */}
-            <div className="flex justify-center gap-2 mb-4">
-              {carCollection.map((_, index) => (
+            <div className="flex justify-center gap-1.5">
+              {showcaseCars.map((_, idx) => (
                 <button
-                  key={index}
-                  onClick={() => setCurrentCarIndex(index)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                    index === currentCarIndex
-                      ? "bg-gradient-to-r from-orange-500 to-yellow-500 w-8"
-                      : "bg-gray-600"
+                  key={idx}
+                  onClick={() => setCurrentCarIndex(idx)}
+                  className={`h-2 rounded-full transition-all ${
+                    idx === currentCarIndex
+                      ? "w-6 bg-orange-500"
+                      : "w-2 bg-gray-600 hover:bg-gray-500"
                   }`}
                 />
               ))}
             </div>
-
-            {/* Buy Spin Button */}
-            <div className="flex justify-center mt-6">
-              <button
-                onClick={() => router.push('/gacha')}
-                className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-black text-xl px-8 py-4 rounded-full shadow-2xl transform hover:scale-105 transition-all duration-200 uppercase tracking-wider"
-              >
-                Buy Spin
-              </button>
-            </div>
           </div>
-        </div>
 
-      </div>
-
-      {/* Tips Modal */}
-      {showTips && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
-          onClick={() => setShowTips(false)}
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl border border-orange-500/40 bg-gradient-to-b from-gray-900 to-black p-5 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
+          {/* Live Activity Feed */}
+          <div className="bg-gray-900/80 rounded-2xl p-4 shadow-2xl">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-black text-white">Quick Tips</h3>
-              <button
-                type="button"
-                onClick={() => setShowTips(false)}
-                className="text-gray-300 hover:text-white text-lg font-bold"
-                aria-label="Close tips"
-              >
-                x
-              </button>
+              <h3 className="text-white font-black text-sm tracking-wide">
+                LIVE ACTIVITY FEED
+              </h3>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                <span className="text-red-500 text-xs font-bold">LIVE</span>
+              </div>
             </div>
-            <ul className="space-y-2 text-sm text-gray-300">
-              <li className="flex items-start gap-2">
-                <span className="text-orange-400">-</span>
-                <span>Swipe the car card to browse your garage.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-orange-400">-</span>
-                <span>Tap the IDRX badge to refresh balance.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-orange-400">-</span>
-                <span>Claim faucet daily for free IDRX.</span>
-              </li>
-            </ul>
-            <button
-              type="button"
-              onClick={() => setShowTips(false)}
-              className="mt-4 w-full rounded-full bg-gradient-to-r from-orange-500 to-orange-600 py-2 text-sm font-bold text-white shadow-lg hover:from-orange-600 hover:to-orange-700"
-            >
-              Got it
-            </button>
+
+            <div className="space-y-2">
+              {recentActivity.map((activity) => (
+                <div
+                  key={activity.id}
+                  className="bg-gray-800/50 rounded-lg p-3 flex items-center gap-3 hover:bg-gray-800 transition-colors"
+                >
+                  <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center text-lg flex-shrink-0">
+                    {activity.avatar}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm">
+                      <span className="font-bold">{activity.user}</span>{" "}
+                      <span className="text-gray-400">{activity.action}</span>
+                    </p>
+                  </div>
+                  <span className="text-gray-500 text-xs flex-shrink-0">
+                    {activity.time}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Bottom Navigation */}
       <BottomNavigation />
-
-      {/* Network Switcher Modal */}
-      <NetworkModal
-        isOpen={showNetworkModal}
-        onClose={() => setShowNetworkModal(false)}
-        onNetworkChanged={() => {
-          fetchBalance();
-        }}
-      />
     </main>
   );
 }

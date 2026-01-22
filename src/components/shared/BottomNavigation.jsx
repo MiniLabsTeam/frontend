@@ -9,7 +9,7 @@ export default function BottomNavigation() {
   const navItems = [
     { id: "home", icon: "🏠", label: "Home", path: "/dashboard" },
     { id: "marketplace", icon: "🛒", label: "Market", path: "/marketplace" },
-    { id: "claim", icon: "🔥", label: "CLAIM", path: "/dashboard" },
+    { id: "gacha", icon: "🎰", label: "GACHA", path: "/gacha" },
     { id: "invent", icon: "📦", label: "Invent", path: "/inventory" },
     { id: "profile", icon: "👤", label: "Profile", path: "/profile" },
   ];
