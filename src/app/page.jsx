@@ -188,7 +188,7 @@ export default function Home() {
             data-reveal
             style={{ "--reveal-delay": "240ms" }}
           >
-            Collect. Race. Dominate.
+            Collect. Build. Own.
           </p>
 
           <div

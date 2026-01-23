@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import BottomNavigation from "@/components/shared/BottomNavigation";
+import SetUsernameModal from "@/components/SetUsernameModal";
 import { useWallet } from "@/hooks/useWallet";
 
 export default function Dashboard() {
@@ -28,6 +29,13 @@ export default function Dashboard() {
     totalCars: 0,
     totalFragments: 0
   });
+  const [userInfo, setUserInfo] = useState({
+    email: null,
+    username: null,
+    walletAddress: null,
+    usernameSet: false
+  });
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
 
   // Rare pool showcase cars
   const showcaseCars = [
@@ -80,6 +88,20 @@ export default function Dashboard() {
       const overviewData = await overviewResponse.json();
       setMockIDRXBalance(overviewData.user?.mockIDRX || 0);
 
+      // Store user info (email/username)
+      const userData = {
+        email: overviewData.user?.email || null,
+        username: overviewData.user?.username || null,
+        walletAddress: overviewData.user?.walletAddress || null,
+        usernameSet: overviewData.user?.usernameSet || false
+      };
+      setUserInfo(userData);
+
+      // Show username modal if username not set
+      if (!userData.usernameSet) {
+        setShowUsernameModal(true);
+      }
+
       // Fetch fragments for available (unused) fragments count
       const fragmentsResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/fragments`, {
         headers: { Authorization: `Bearer ${authToken}` },
@@ -118,7 +140,7 @@ export default function Dashboard() {
       // Find most popular series
       const popularSeries = supplyData.series?.reduce((max, s) =>
         s.currentMinted > max.currentMinted ? s : max
-      , { series: "Economy", currentMinted: 0 });
+      , { series: "Economy", currentMinted: 0 }) || { series: "Economy", currentMinted: 0 };
 
       setStats({
         totalMinted,
@@ -150,6 +172,42 @@ export default function Dashboard() {
       setRecentActivity([]);
     }
   }, [getAccessToken]);
+
+  // Handle username submission
+  const handleSetUsername = async (username) => {
+    try {
+      const authToken = await getAccessToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/user/set-username`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ username }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to set username');
+      }
+
+      // Update local state
+      setUserInfo(prev => ({
+        ...prev,
+        username: data.user.username,
+        usernameSet: true
+      }));
+
+      setShowUsernameModal(false);
+
+      // Refresh data from backend to ensure sync
+      await fetchMockIDRXBalance();
+    } catch (error) {
+      console.error('Set username error:', error);
+      throw error;
+    }
+  };
 
   useEffect(() => {
     if (authenticated) {
@@ -210,15 +268,15 @@ export default function Dashboard() {
               <span className="font-black text-sm text-orange-900">
                 {loadingMockIDRX ? "..." : Math.floor(mockIDRXBalance).toLocaleString()}
               </span>
-              <span className="text-xs font-bold text-orange-900 opacity-80">IDR$</span>
+              <span className="text-xs font-bold text-orange-900 opacity-80">IDRX</span>
             </button>
 
-            {/* Wallet Address Badge */}
-            {walletAddress && (
+            {/* User Info Badge */}
+            {(userInfo.username || userInfo.email || walletAddress) && (
               <div className="bg-green-500/20 border-2 border-green-500 rounded-full px-3 py-1.5 flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                 <span className="text-green-400 text-xs font-bold">
-                  Gobizz...{walletAddress.slice(-4)}
+                  {userInfo.username || (userInfo.email ? userInfo.email.split('@')[0] : null) || `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
                 </span>
               </div>
             )}
@@ -444,6 +502,13 @@ export default function Dashboard() {
 
       {/* Bottom Navigation */}
       <BottomNavigation />
+
+      {/* Set Username Modal */}
+      <SetUsernameModal
+        isOpen={showUsernameModal}
+        onClose={() => {}} // Cannot close - must set username
+        onSubmit={handleSetUsername}
+      />
     </main>
   );
 }

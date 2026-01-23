@@ -52,6 +52,16 @@ export default function InventoryPage() {
   // Tab state
   const [activeTab, setActiveTab] = useState("cars"); // "cars" or "fragments"
 
+  // Redeem/claim physical state
+  const [showShippingModal, setShowShippingModal] = useState(false);
+  const [showRedeemModal, setShowRedeemModal] = useState(false);
+  const [selectedCar, setSelectedCar] = useState(null);
+  const [shippingInfo, setShippingInfo] = useState({ name: "", phone: "", address: "" });
+  const [hasShippingInfo, setHasShippingInfo] = useState(false);
+  const [loadingShipping, setLoadingShipping] = useState(false);
+  const [redeeming, setRedeeming] = useState(false);
+  const [redeemResult, setRedeemResult] = useState(null);
+
   const filters = ["semua", "legendary", "epic", "rare", "common"];
 
   // Redirect if not authenticated
@@ -151,11 +161,124 @@ export default function InventoryPage() {
     }
   };
 
+  // Fetch shipping info
+  const fetchShippingInfo = async () => {
+    try {
+      const authToken = await getAccessToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/redeem/shipping-info`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await response.json();
+
+      setHasShippingInfo(data.hasShippingInfo);
+      if (data.hasShippingInfo) {
+        setShippingInfo(data.shippingInfo);
+      }
+    } catch (error) {
+      console.error("Failed to fetch shipping info:", error);
+    }
+  };
+
+  // Save shipping info
+  const handleSaveShipping = async () => {
+    if (!shippingInfo.name || !shippingInfo.phone || !shippingInfo.address) {
+      alert("Please fill all fields");
+      return;
+    }
+
+    try {
+      setLoadingShipping(true);
+      const authToken = await getAccessToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/redeem/shipping-info`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(shippingInfo),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to save shipping info");
+      }
+
+      setHasShippingInfo(true);
+      setShowShippingModal(false);
+
+      // Proceed to redeem if car was selected
+      if (selectedCar) {
+        setShowRedeemModal(true);
+      }
+    } catch (error) {
+      console.error("Save shipping error:", error);
+      alert(error.message || "Failed to save shipping info");
+    } finally {
+      setLoadingShipping(false);
+    }
+  };
+
+  // Handle claim physical button click
+  const handleClaimPhysical = async (car) => {
+    setSelectedCar(car);
+
+    // Check if user has shipping info
+    if (!hasShippingInfo) {
+      setShowShippingModal(true);
+    } else {
+      setShowRedeemModal(true);
+    }
+  };
+
+  // Confirm redeem/burn NFT
+  const handleConfirmRedeem = async () => {
+    if (!selectedCar || redeeming) return;
+
+    try {
+      setRedeeming(true);
+      const authToken = await getAccessToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/redeem/claim-physical`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ tokenId: selectedCar.tokenId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to claim physical car");
+      }
+
+      setShowRedeemModal(false);
+      setRedeemResult({
+        success: true,
+        message: data.message,
+        car: data.car,
+      });
+
+      // Refresh inventory
+      await fetchInventory();
+    } catch (error) {
+      console.error("Redeem error:", error);
+      setRedeemResult({
+        success: false,
+        message: error.message || "Failed to claim physical car",
+      });
+    } finally {
+      setRedeeming(false);
+    }
+  };
+
   // Fetch data when authenticated
   useEffect(() => {
     if (authenticated) {
       fetchInventory();
       fetchFragments();
+      fetchShippingInfo();
     }
   }, [authenticated]);
 
@@ -442,7 +565,7 @@ export default function InventoryPage() {
                       </div>
 
                       {/* Car Info */}
-                      <div className="text-center px-1">
+                      <div className="text-center px-1 mb-2">
                         <p className="text-white text-xs font-black uppercase truncate">
                           {car.modelName}
                         </p>
@@ -450,6 +573,20 @@ export default function InventoryPage() {
                           {car.series}
                         </p>
                       </div>
+
+                      {/* Claim Physical Button */}
+                      {!car.isRedeemed ? (
+                        <button
+                          onClick={() => handleClaimPhysical(car)}
+                          className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-2 px-3 rounded-lg text-[10px] shadow-lg transform hover:scale-105 active:scale-95 transition-all"
+                        >
+                          🔥 CLAIM PHYSICAL
+                        </button>
+                      ) : (
+                        <div className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white font-bold py-2 px-3 rounded-lg text-[10px] text-center">
+                          ✅ REDEEMED
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -699,6 +836,183 @@ export default function InventoryPage() {
             >
               {processingOption ? "Processing..." : "Close"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Shipping Info Modal */}
+      {showShippingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-2xl max-w-md w-full p-6 border-4 border-yellow-400">
+            <div className="text-center mb-6">
+              <div className="text-6xl mb-3">📦</div>
+              <h2 className="text-2xl font-black text-white mb-2">
+                Shipping Information
+              </h2>
+              <p className="text-white/90 text-sm">
+                Please provide your shipping details to claim the physical car
+              </p>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-white font-bold text-sm mb-2">
+                  Recipient Name
+                </label>
+                <input
+                  type="text"
+                  value={shippingInfo.name}
+                  onChange={(e) => setShippingInfo({...shippingInfo, name: e.target.value})}
+                  placeholder="Enter full name"
+                  className="w-full px-4 py-3 rounded-lg bg-white/90 text-gray-900 font-semibold placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-white font-bold text-sm mb-2">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={shippingInfo.phone}
+                  onChange={(e) => setShippingInfo({...shippingInfo, phone: e.target.value})}
+                  placeholder="+1 (555) 000-0000"
+                  className="w-full px-4 py-3 rounded-lg bg-white/90 text-gray-900 font-semibold placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-white font-bold text-sm mb-2">
+                  Complete Address
+                </label>
+                <textarea
+                  value={shippingInfo.address}
+                  onChange={(e) => setShippingInfo({...shippingInfo, address: e.target.value})}
+                  placeholder="Street, City, State, ZIP Code, Country"
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-lg bg-white/90 text-gray-900 font-semibold placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowShippingModal(false);
+                  setSelectedCar(null);
+                }}
+                disabled={loadingShipping}
+                className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveShipping}
+                disabled={loadingShipping}
+                className="flex-1 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-orange-900 font-black py-3 rounded-xl shadow-lg disabled:opacity-50"
+              >
+                {loadingShipping ? "Saving..." : "Save & Continue"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Redeem Confirmation Modal */}
+      {showRedeemModal && selectedCar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-2xl max-w-md w-full p-6 border-4 border-yellow-400">
+            <div className="text-center mb-6">
+              <div className="text-6xl mb-3">⚠️</div>
+              <h2 className="text-2xl font-black text-white mb-2">
+                Confirm Redemption
+              </h2>
+              <p className="text-white/90 text-sm mb-4">
+                Are you sure you want to claim the physical car? This will BURN your NFT permanently!
+              </p>
+
+              <div className="bg-white/20 rounded-xl p-4 mb-4">
+                <p className="text-yellow-300 font-black text-lg mb-1">
+                  {selectedCar.modelName}
+                </p>
+                <p className="text-white/90 text-sm mb-2">
+                  {selectedCar.series} • Token #{selectedCar.tokenId}
+                </p>
+                <div className="text-left bg-black/30 rounded-lg p-3 text-sm">
+                  <p className="text-white font-bold mb-1">Shipping to:</p>
+                  <p className="text-white/90">{shippingInfo.name}</p>
+                  <p className="text-white/90">{shippingInfo.phone}</p>
+                  <p className="text-white/80 text-xs mt-1">{shippingInfo.address}</p>
+                </div>
+              </div>
+
+              <div className="bg-yellow-400 rounded-lg p-3 mb-4">
+                <p className="text-orange-900 font-black text-xs">
+                  ⚠️ WARNING: This action cannot be undone. Your NFT will be burned and you will receive the physical car.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowRedeemModal(false);
+                  setSelectedCar(null);
+                }}
+                disabled={redeeming}
+                className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRedeem}
+                disabled={redeeming}
+                className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-3 rounded-xl shadow-lg disabled:opacity-50"
+              >
+                {redeeming ? "Processing..." : "🔥 BURN & CLAIM"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Redeem Result Modal */}
+      {redeemResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className={`bg-gradient-to-br ${redeemResult.success ? "from-green-500 to-emerald-600" : "from-red-500 to-red-600"} rounded-2xl shadow-2xl max-w-md w-full p-6 border-4 border-yellow-400`}>
+            <div className="text-center">
+              <div className="text-6xl mb-4">
+                {redeemResult.success ? "🎉" : "😔"}
+              </div>
+              <h2 className="text-2xl font-black text-white mb-2">
+                {redeemResult.success ? "Redemption Successful!" : "Redemption Failed"}
+              </h2>
+              <p className="text-white/90 mb-4">
+                {redeemResult.message}
+              </p>
+              {redeemResult.success && redeemResult.car && (
+                <div className="bg-white/20 rounded-xl p-4 mb-4">
+                  <p className="text-yellow-300 font-black text-lg mb-1">
+                    {redeemResult.car.modelName}
+                  </p>
+                  <p className="text-white/90 text-sm">
+                    {redeemResult.car.series}
+                  </p>
+                  <p className="text-white/80 text-xs mt-2">
+                    Your physical car will be shipped to your address within 7-14 business days.
+                  </p>
+                </div>
+              )}
+              <button
+                onClick={() => {
+                  setRedeemResult(null);
+                  setSelectedCar(null);
+                }}
+                className="w-full bg-white text-orange-600 font-black py-3 rounded-xl hover:bg-gray-100 transition-all"
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       )}

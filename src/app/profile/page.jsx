@@ -19,6 +19,11 @@ export default function ProfilePage() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const toastTimerRef = useRef(null);
+  const [userInfo, setUserInfo] = useState({
+    username: null,
+    email: null,
+    usernameSet: false
+  });
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -73,6 +78,13 @@ export default function ProfilePage() {
       });
       const data = await response.json();
       setMockIDRXBalance(data.user?.mockIDRX || 0);
+
+      // Store user info from backend
+      setUserInfo({
+        username: data.user?.username || null,
+        email: data.user?.email || null,
+        usernameSet: data.user?.usernameSet || false
+      });
     } catch (error) {
       console.error("Failed to fetch MockIDRX balance:", error);
       setMockIDRXBalance(0);
@@ -101,23 +113,35 @@ export default function ProfilePage() {
     return null;
   }
 
-  // Get user info - Priority: Twitter/Discord > Email > Wallet Address
-  const userEmail = user?.email?.address || "";
+  // Get user info - Priority: Custom Username > Twitter/Discord > Email > Wallet Address
+  const userEmail = user?.email?.address || userInfo.email || "";
 
   // Determine account type and username
   let userName = "Racer";
   let accountType = "Guest";
 
-  if (user?.twitter?.username) {
+  // Priority 1: Custom username from database
+  if (userInfo.usernameSet && userInfo.username) {
+    userName = userInfo.username;
+    accountType = "Username";
+  }
+  // Priority 2: Twitter username
+  else if (user?.twitter?.username) {
     userName = user.twitter.username;
     accountType = "Twitter";
-  } else if (user?.discord?.username) {
+  }
+  // Priority 3: Discord username
+  else if (user?.discord?.username) {
     userName = user.discord.username;
     accountType = "Discord";
-  } else if (userEmail) {
+  }
+  // Priority 4: Email username
+  else if (userEmail) {
     userName = userEmail.split('@')[0];
     accountType = "Email";
-  } else if (walletAddress) {
+  }
+  // Priority 5: Wallet address (fallback)
+  else if (walletAddress) {
     userName = `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
     accountType = "Wallet";
   }
@@ -211,28 +235,28 @@ export default function ProfilePage() {
     {
       id: "help",
       icon: "💬",
-      title: "Bantuan",
+      title: "Help & Support",
       subtitle: "customer services",
       onClick: () => handleComingSoon("Customer service")
     },
     {
       id: "info",
       icon: "ℹ️",
-      title: "Informasi",
-      subtitle: "redeem voucher",
-      onClick: () => handleComingSoon("Redeem voucher")
+      title: "Information",
+      subtitle: "Your Information",
+      onClick: () => handleComingSoon("Your Information Comming soon")
     },
     {
       id: "terms",
       icon: "📄",
-      title: "Syarat dan ketentuan",
+      title: "Terms and Conditions",
       subtitle: "",
       onClick: () => handleComingSoon("Terms and conditions")
     },
     {
       id: "privacy",
       icon: "🔒",
-      title: "Kebijakan Privasi",
+      title: "Privacy Policy",
       subtitle: "",
       onClick: () => handleComingSoon("Privacy policy")
     },
@@ -266,6 +290,7 @@ export default function ProfilePage() {
                   <h2 className="text-xl font-black">{userName}</h2>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full uppercase font-bold">
+                      {accountType === "Username" && "👤 "}
                       {accountType === "Twitter" && "🐦 "}
                       {accountType === "Discord" && "💬 "}
                       {accountType === "Email" && "✉️ "}
