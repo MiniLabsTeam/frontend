@@ -3,17 +3,27 @@
 import { useState, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
+import {
+  Wallet, Package, Dices, Gift, Gem, ChevronRight, Lock
+} from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
+import { useWallet } from "@/hooks/useWallet";
 import { getGachaBoxes } from "@/lib/gachaApi";
 
 export default function GachaPage() {
   const { authenticated, ready, getAccessToken } = usePrivy();
+  const { walletAddress } = useWallet();
   const router = useRouter();
 
   // Gacha data from backend
   const [gachaBoxes, setGachaBoxes] = useState([]);
   const [userMockIDRX, setUserMockIDRX] = useState(0);
   const [loadingGachaData, setLoadingGachaData] = useState(true);
+  const [userInfo, setUserInfo] = useState({
+    username: null,
+    email: null,
+    usernameSet: false
+  });
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -33,6 +43,18 @@ export default function GachaPage() {
 
       setGachaBoxes(data.boxes);
       setUserMockIDRX(data.userMockIDRX);
+
+      // Fetch user info from overview
+      const overviewResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/overview`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const overviewData = await overviewResponse.json();
+      setUserInfo({
+        username: overviewData.user?.username || null,
+        email: overviewData.user?.email || null,
+        usernameSet: overviewData.user?.usernameSet || false
+      });
+
       setLoadingGachaData(false);
     } catch (error) {
       console.error("Failed to fetch gacha data:", error);
@@ -120,15 +142,25 @@ export default function GachaPage() {
         <header className="px-4 pt-6 pb-4">
           <div className="flex items-center justify-between gap-2 mb-6">
             {/* User MockIDRX Balance */}
-            <div className="flex items-center gap-1.5 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full px-4 py-2 shadow-lg">
-              <div className="w-7 h-7 bg-orange-600 rounded-full flex items-center justify-center text-yellow-300 font-black text-sm">
-                💰
+            <div className="flex items-center gap-1.5 bg-yellow-400 rounded-full px-3 py-1.5 shadow-lg">
+              <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center">
+                <Wallet size={14} className="text-yellow-300" strokeWidth={3} />
               </div>
-              <span className="font-black text-base text-orange-900">
+              <span className="font-black text-sm text-orange-900">
                 {loadingGachaData ? "..." : userMockIDRX.toLocaleString()}
               </span>
               <span className="text-xs font-bold text-orange-900 opacity-80">IDRX</span>
             </div>
+
+            {/* User Info Badge */}
+            {(userInfo.username || userInfo.email || walletAddress) && (
+              <div className="bg-emerald-500 border-2 border-emerald-400 rounded-full px-3 py-1.5 flex items-center gap-2 shadow-lg">
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                <span className="text-white text-xs font-bold">
+                  {userInfo.username || (userInfo.email ? userInfo.email.split('@')[0] : null) || `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Page Title */}
@@ -198,7 +230,7 @@ export default function GachaPage() {
                         </div>
                       </div>
                       <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">💰</span>
+                        <Wallet size={24} className="text-orange-600" strokeWidth={2.5} />
                       </div>
                     </div>
                   </div>

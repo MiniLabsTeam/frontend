@@ -3,16 +3,18 @@
 import { useState, useRef, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter, useParams } from "next/navigation";
+import { Wallet } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { getGachaBoxes, openGachaBox, getRarityConfig } from "@/lib/gachaApi";
 import { burnMockIDRX } from "@/lib/mockidrx";
+import { toast } from "sonner";
 
 export default function GachaTierPage() {
   const { authenticated, ready, getAccessToken } = usePrivy();
   const router = useRouter();
   const params = useParams();
   const tierType = params.tier; // standard, premium, or legendary
-  const { embeddedWallet } = useWallet();
+  const { embeddedWallet, walletAddress } = useWallet();
 
   const [isSpinning, setIsSpinning] = useState(false);
   const [hasSpun, setHasSpun] = useState(false);
@@ -24,6 +26,11 @@ export default function GachaTierPage() {
   const [userMockIDRX, setUserMockIDRX] = useState(0);
   const [loadingGachaData, setLoadingGachaData] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [userInfo, setUserInfo] = useState({
+    username: null,
+    email: null,
+    usernameSet: false
+  });
 
   const sliderRef = useRef(null);
   const startXRef = useRef(0);
@@ -50,6 +57,18 @@ export default function GachaTierPage() {
 
       setGachaBoxes(data.boxes);
       setUserMockIDRX(data.userMockIDRX);
+
+      // Fetch user info from overview
+      const overviewResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/overview`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const overviewData = await overviewResponse.json();
+      setUserInfo({
+        username: overviewData.user?.username || null,
+        email: overviewData.user?.email || null,
+        usernameSet: overviewData.user?.usernameSet || false
+      });
+
       setLoadingGachaData(false);
     } catch (error) {
       console.error("Failed to fetch gacha data:", error);
@@ -181,8 +200,10 @@ export default function GachaTierPage() {
       // Show error message
       if (error.message.includes("Insufficient MockIDRX")) {
         setErrorMessage("Insufficient MockIDRX tokens! You need more IDRX to open this box.");
+        toast.error("Insufficient IDRX balance!");
       } else {
         setErrorMessage(error.message || "Failed to open gacha box. Please try again.");
+        toast.error("Gacha failed. Please try again.");
       }
     }
   };
@@ -255,15 +276,28 @@ export default function GachaTierPage() {
               <span className="text-white text-xl">‹</span>
             </button>
 
-            {/* User MockIDRX Balance (from backend) */}
-            <div className="flex items-center gap-1.5 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full px-3 py-1.5 shadow-lg">
-              <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center text-yellow-300 font-black text-xs">
-                💰
+            {/* Right Side: Balance + Username */}
+            <div className="flex items-center gap-2">
+              {/* User MockIDRX Balance (from backend) */}
+              <div className="flex items-center gap-1.5 bg-yellow-400 rounded-full px-3 py-1.5 shadow-lg">
+                <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center">
+                  <Wallet size={14} className="text-yellow-300" strokeWidth={3} />
+                </div>
+                <span className="font-black text-sm text-orange-900">
+                  {loadingGachaData ? "..." : userMockIDRX.toLocaleString()}
+                </span>
+                <span className="text-xs font-bold text-orange-900 opacity-80">IDRX</span>
               </div>
-              <span className="font-black text-sm text-orange-900">
-                {loadingGachaData ? "..." : userMockIDRX.toLocaleString()}
-              </span>
-              <span className="text-xs font-bold text-orange-900 opacity-80">IDRX</span>
+
+              {/* User Info Badge */}
+              {(userInfo.username || userInfo.email || walletAddress) && (
+                <div className="bg-emerald-500 border-2 border-emerald-400 rounded-full px-3 py-1.5 flex items-center gap-2 shadow-lg">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  <span className="text-white text-xs font-bold">
+                    {userInfo.username || (userInfo.email ? userInfo.email.split('@')[0] : null) || `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -321,7 +355,7 @@ export default function GachaTierPage() {
                 <p className="text-orange-400 font-bold text-sm mb-2">COST</p>
                 <div className="flex items-center justify-center gap-2">
                   <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
-                    <span className="text-2xl">💰</span>
+                    <Wallet size={24} className="text-orange-600" strokeWidth={2.5} />
                   </div>
                   <span className="text-6xl font-black text-orange-400">
                     {currentBox?.costCoins.toLocaleString() || 0}

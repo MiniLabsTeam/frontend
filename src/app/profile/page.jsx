@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
+import {
+  Car, User, Twitter, MessageCircle, Mail, CreditCard,
+  MapPin, Globe, Compass, MessageSquare, Info,
+  FileText, Lock, ChevronRight, Wallet
+} from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
 import NetworkModal from "@/components/shared/NetworkModal";
 import ShippingInfoModal from "@/components/ShippingInfoModal";
+import { toast } from "sonner";
+
 
 export default function ProfilePage() {
   const { authenticated, ready, user, logout, getAccessToken } = usePrivy();
@@ -17,9 +24,6 @@ export default function ProfilePage() {
   const [loadingBalance, setLoadingBalance] = useState(false);
   const [loadingMockIDRX, setLoadingMockIDRX] = useState(false);
   const [showNetworkModal, setShowNetworkModal] = useState(false);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-  const toastTimerRef = useRef(null);
   const [userInfo, setUserInfo] = useState({
     username: null,
     email: null,
@@ -52,14 +56,6 @@ export default function ProfilePage() {
       fetchMockIDRXBalance();
     }
   }, [authenticated]);
-
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current) {
-        clearTimeout(toastTimerRef.current);
-      }
-    };
-  }, []);
 
   const fetchBalance = async () => {
     try {
@@ -110,17 +106,6 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     await logout();
     router.push("/");
-  };
-
-  const triggerToast = (message) => {
-    setToastMessage(message);
-    setShowToast(true);
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-    }
-    toastTimerRef.current = setTimeout(() => {
-      setShowToast(false);
-    }, 2200);
   };
 
   if (!ready || !authenticated) {
@@ -188,42 +173,42 @@ export default function ProfilePage() {
 
   const handleCopyAddress = async () => {
     if (!hasWallet) {
-      triggerToast("Wallet not connected yet");
+      toast.error("Wallet not connected yet");
       return;
     }
     if (!navigator?.clipboard) {
-      triggerToast("Copy not supported");
+      toast.error("Copy not supported");
       return;
     }
     try {
       await navigator.clipboard.writeText(walletAddress);
-      triggerToast("Wallet address copied");
+      toast.success("Wallet address copied!");
     } catch (error) {
       console.error("Failed to copy wallet address:", error);
-      triggerToast("Copy failed");
+      toast.error("Copy failed");
     }
   };
 
   const handleOpenExplorer = () => {
     if (!hasWallet) {
-      triggerToast("Wallet not connected yet");
+      toast.error("Wallet not connected yet");
       return;
     }
     if (!explorerBaseUrl) {
-      triggerToast("Explorer not available");
+      toast.error("Explorer not available");
       return;
     }
     window.open(`${explorerBaseUrl}/address/${walletAddress}`, "_blank", "noopener,noreferrer");
   };
 
   const handleComingSoon = (label) => {
-    triggerToast(`${label} coming soon`);
+    toast.info(`${label} coming soon`);
   };
 
   const menuItems = [
     {
       id: "address",
-      icon: "📍",
+      Icon: MapPin,
       title: "Wallet Address",
       subtitle: shortAddress,
       hint: "Tap to copy",
@@ -231,7 +216,7 @@ export default function ProfilePage() {
     },
     {
       id: "network",
-      icon: "🌐",
+      Icon: Globe,
       title: "Network",
       subtitle: chainLabel,
       hint: "Tap to switch",
@@ -239,7 +224,7 @@ export default function ProfilePage() {
     },
     {
       id: "explorer",
-      icon: "🧭",
+      Icon: Compass,
       title: "View on Explorer",
       subtitle: explorerBaseUrl ? chainLabel : "Explorer unavailable",
       hint: "Open in browser",
@@ -248,28 +233,28 @@ export default function ProfilePage() {
     },
     {
       id: "help",
-      icon: "💬",
+      Icon: MessageSquare,
       title: "Help & Support",
       subtitle: "customer services",
       onClick: () => handleComingSoon("Customer service")
     },
     {
       id: "info",
-      icon: "ℹ️",
+      Icon: Info,
       title: "Information",
       subtitle: "Your Information",
       onClick: () => setShowShippingModal(true)
     },
     {
       id: "terms",
-      icon: "📄",
+      Icon: FileText,
       title: "Terms and Conditions",
       subtitle: "",
       onClick: () => handleComingSoon("Terms and conditions")
     },
     {
       id: "privacy",
-      icon: "🔒",
+      Icon: Lock,
       title: "Privacy Policy",
       subtitle: "",
       onClick: () => handleComingSoon("Privacy policy")
@@ -297,18 +282,18 @@ export default function ProfilePage() {
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 mb-4 profile-card">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-3xl">
-                  🏎️
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                  <Car size={32} className="text-white" strokeWidth={2} />
                 </div>
                 <div>
                   <h2 className="text-xl font-black">{userName}</h2>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full uppercase font-bold">
-                      {accountType === "Username" && "👤 "}
-                      {accountType === "Twitter" && "🐦 "}
-                      {accountType === "Discord" && "💬 "}
-                      {accountType === "Email" && "✉️ "}
-                      {accountType === "Wallet" && "💳 "}
+                    <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full uppercase font-bold flex items-center gap-1">
+                      {accountType === "Username" && <User size={10} strokeWidth={3} />}
+                      {accountType === "Twitter" && <Twitter size={10} strokeWidth={3} />}
+                      {accountType === "Discord" && <MessageCircle size={10} strokeWidth={3} />}
+                      {accountType === "Email" && <Mail size={10} strokeWidth={3} />}
+                      {accountType === "Wallet" && <CreditCard size={10} strokeWidth={3} />}
                       {accountType}
                     </span>
                     {userEmail && (
@@ -329,8 +314,8 @@ export default function ProfilePage() {
                 aria-label="Refresh IDRX balance"
                 title="Tap to refresh IDRX balance"
               >
-                <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center text-yellow-300 font-black text-sm">
-                  💰
+                <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center">
+                  <Wallet size={16} className="text-yellow-300" strokeWidth={3} />
                 </div>
                 <span className="font-black text-lg text-orange-900">
                   {loadingMockIDRX ? "..." : Math.floor(mockIDRXBalance)}
@@ -359,32 +344,35 @@ export default function ProfilePage() {
 
         {/* Menu Items */}
         <div className="flex-1 px-6 space-y-3">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={item.onClick}
-              disabled={item.disabled}
-              className={`group w-full bg-orange-500/50 backdrop-blur-sm rounded-xl p-4 transition-all transform hover:scale-[1.02] active:scale-95 ${
-                item.disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-orange-500/70"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-start gap-3 text-left">
-                  <span className="text-2xl">{item.icon}</span>
-                  <div>
-                    <h3 className="font-bold text-white">{item.title}</h3>
-                    {item.subtitle && (
-                      <p className="text-sm text-white/80">{item.subtitle}</p>
-                    )}
-                    {item.hint && (
-                      <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">{item.hint}</span>
-                    )}
+          {menuItems.map((item) => {
+            const IconComponent = item.Icon;
+            return (
+              <button
+                key={item.id}
+                onClick={item.onClick}
+                disabled={item.disabled}
+                className={`group w-full bg-orange-500/50 backdrop-blur-sm rounded-xl p-4 transition-all transform hover:scale-[1.02] active:scale-95 ${
+                  item.disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-orange-500/70"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-start gap-3 text-left">
+                    <IconComponent size={24} className="text-white" strokeWidth={2} />
+                    <div>
+                      <h3 className="font-bold text-white">{item.title}</h3>
+                      {item.subtitle && (
+                        <p className="text-sm text-white/80">{item.subtitle}</p>
+                      )}
+                      {item.hint && (
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">{item.hint}</span>
+                      )}
+                    </div>
                   </div>
+                  <ChevronRight size={24} className="text-white transition-transform group-hover:translate-x-1" strokeWidth={2} />
                 </div>
-                <span className="text-2xl text-white transition-transform group-hover:translate-x-1">›</span>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
 
         {/* Logout Button */}
@@ -407,12 +395,6 @@ export default function ProfilePage() {
           />
         </div>
       </div>
-
-      {showToast && (
-        <div className="profile-toast animate-rise" role="status" aria-live="polite">
-          {toastMessage}
-        </div>
-      )}
 
       {/* Bottom Navigation */}
       <BottomNavigation />

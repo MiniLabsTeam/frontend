@@ -2,12 +2,25 @@
 
 import { PrivyProvider } from "@privy-io/react-auth";
 import { base, baseSepolia, mainnet } from "viem/chains";
+import { Toaster } from "sonner";
 
 export default function Providers({ children }) {
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "cmjxyscmx03pulf0cadbpdmvq";
 
   return (
-    <PrivyProvider
+    <>
+      <Toaster
+        position="top-center"
+        richColors
+        toastOptions={{
+          style: {
+            background: "linear-gradient(to bottom, #1f1f1f, #0a0a0a)",
+            border: "1px solid #f97316",
+            color: "#fff",
+          },
+        }}
+      />
+      <PrivyProvider
       appId={appId}
       config={{
         loginMethods: ["email", "wallet", "google", "twitter", "discord"],
@@ -28,5 +41,6 @@ export default function Providers({ children }) {
     >
       {children}
     </PrivyProvider>
+    </>
   );
 }

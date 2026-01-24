@@ -2,6 +2,7 @@
 
 import { useWallet } from "@/hooks/useWallet";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 /**
  * Network Switcher Modal
@@ -112,7 +113,7 @@ export default function NetworkModal({ isOpen, onClose, onNetworkChanged }) {
 
     } catch (error) {
       console.error("Failed to switch network:", error);
-      alert("Failed to switch network: " + error.message);
+      toast.error("Failed to switch network: " + error.message);
     } finally {
       setSwitching(false);
     }
