@@ -497,6 +497,7 @@ export default function GachaTierPage() {
               </button>
             </div>
           )}
+          )}
         </div>
       </div>
     </main>

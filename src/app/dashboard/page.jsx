@@ -7,6 +7,7 @@ import { Wallet, Bell, Car, Flame, Lock, Circle, Activity } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import SetUsernameModal from "@/components/SetUsernameModal";
 import { useWallet } from "@/hooks/useWallet";
+import { PullToRefresh } from "@/components/shared";
 
 export default function Dashboard() {
   const { authenticated, ready, getAccessToken } = usePrivy();
@@ -274,6 +275,15 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [recentActivity.length]);
 
+  // Handle pull to refresh
+  const handleRefresh = async () => {
+    await Promise.all([
+      fetchMockIDRXBalance(),
+      fetchStats(),
+      fetchRecentActivity()
+    ]);
+  };
+
   if (!ready || !authenticated) {
     return null;
   }
@@ -281,7 +291,7 @@ export default function Dashboard() {
   const currentCar = showcaseCars[currentCarIndex];
 
   return (
-    <main className="relative min-h-screen bg-gradient-to-b from-orange-400 via-orange-500 to-orange-600 text-white overflow-hidden">
+    <main className={`relative min-h-screen bg-gradient-to-b from-orange-400 via-orange-500 to-orange-600 text-white overflow-hidden ${showUsernameModal ? 'pointer-events-none blur-sm' : ''}`}>
       {/* Checkered Pattern Background */}
       <div
         className="absolute inset-0 opacity-30"
@@ -294,8 +304,9 @@ export default function Dashboard() {
       />
 
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
-        {/* Header */}
+      <PullToRefresh onRefresh={handleRefresh}>
+        <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
+          {/* Header */}
         <header className="px-4 pt-3 pb-4">
           <div className="flex items-center justify-between gap-2 mb-4">
             {/* MockIDRX Balance Badge */}
@@ -562,7 +573,8 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      </PullToRefresh>
 
       {/* Bottom Navigation */}
       <BottomNavigation />

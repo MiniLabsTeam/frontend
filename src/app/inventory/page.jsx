@@ -12,6 +12,7 @@ import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
 import NetworkModal from "@/components/shared/NetworkModal";
 import { toast } from "sonner";
+import { PullToRefresh, SwipeCard } from "@/components/shared";
 
 // Rarity color mapping
 const rarityColorMap = {
@@ -482,6 +483,16 @@ export default function InventoryPage() {
     }
   };
 
+  // Handle pull to refresh
+  const handleRefresh = async () => {
+    await Promise.all([
+      fetchInventory(),
+      fetchFragments(),
+      fetchMockIDRXBalance(),
+      fetchActiveListings()
+    ]);
+  };
+
   if (!ready || !authenticated) {
     return null;
   }
@@ -500,8 +511,9 @@ export default function InventoryPage() {
       />
 
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
-        {/* Header */}
+      <PullToRefresh onRefresh={handleRefresh}>
+        <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
+          {/* Header */}
         <header className="px-4 pt-3 pb-4">
           <div className="flex items-center justify-between gap-2 mb-4">
             {/* MockIDRX Balance Badge */}
@@ -592,11 +604,31 @@ export default function InventoryPage() {
               ) : filteredInventory.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4">
                   {filteredInventory.map((car, index) => (
-                    <div
+                    <SwipeCard
                       key={car.id}
-                      className={`relative bg-gradient-to-br ${car.rarityColor} rounded-2xl p-3 shadow-xl transition-transform hover:scale-[1.02] active:scale-[0.98] inventory-card animate-rise`}
-                      style={{ animationDelay: `${index * 60}ms` }}
+                      onView={() => {
+                        // View car details (can navigate to detail page)
+                        toast.info(`Viewing ${car.modelName}`);
+                      }}
+                      onShare={() => {
+                        // Share car
+                        if (navigator.share) {
+                          navigator.share({
+                            title: car.modelName,
+                            text: `Check out my ${car.rarity} car: ${car.modelName}!`,
+                            url: window.location.href,
+                          });
+                        } else {
+                          toast.success("Link copied to clipboard!");
+                          navigator.clipboard.writeText(window.location.href);
+                        }
+                      }}
+                      className="h-full"
                     >
+                      <div
+                        className={`relative bg-gradient-to-br ${car.rarityColor} rounded-2xl p-3 shadow-xl transition-transform inventory-card animate-rise h-full`}
+                        style={{ animationDelay: `${index * 60}ms` }}
+                      >
                       {/* Rarity Badge */}
                       <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 z-10">
                         <span className="text-white text-[10px] font-black uppercase">
@@ -657,7 +689,8 @@ export default function InventoryPage() {
                           ✅ REDEEMED
                         </div>
                       )}
-                    </div>
+                      </div>
+                    </SwipeCard>
                   ))}
                 </div>
               ) : (
@@ -844,7 +877,8 @@ export default function InventoryPage() {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </PullToRefresh>
 
       {/* Bottom Navigation */}
       <BottomNavigation />

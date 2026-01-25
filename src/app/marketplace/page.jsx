@@ -11,6 +11,7 @@ import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
 import { BrowserProvider, Contract, parseUnits } from "ethers";
 import { toast } from "sonner";
+import { PullToRefresh } from "@/components/shared";
 
 // Rarity color mapping
 const rarityColorMap = {
@@ -449,6 +450,15 @@ export default function MarketplacePage() {
     }
   };
 
+  // Handle pull to refresh
+  const handleRefresh = async () => {
+    if (activeTab === "browse") {
+      await fetchListings();
+    } else {
+      await fetchMyListings();
+    }
+  };
+
   if (!ready || !authenticated) {
     return null;
   }
@@ -467,8 +477,9 @@ export default function MarketplacePage() {
       />
 
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
-        {/* Header */}
+      <PullToRefresh onRefresh={handleRefresh}>
+        <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
+          {/* Header */}
         <header className="px-3 sm:px-4 pt-3 pb-3 sm:pb-4">
           <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
             {/* MockIDRX Balance Badge */}
@@ -768,6 +779,7 @@ export default function MarketplacePage() {
           </div>
         )}
       </div>
+      </PullToRefresh>
 
       {/* Buy Modal */}
       {showBuyModal && selectedListing && (
