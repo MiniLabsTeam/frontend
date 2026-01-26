@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
-import { Wallet, Bell, Car, Flame, Lock, Circle, Activity, BadgeCheck, Droplet } from "lucide-react";
+import { Wallet, Car, Flame, Lock, Circle, Activity, BadgeCheck, Droplet } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import SetUsernameModal from "@/components/SetUsernameModal";
 import { useWallet } from "@/hooks/useWallet";
