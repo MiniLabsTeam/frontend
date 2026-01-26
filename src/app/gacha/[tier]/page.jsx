@@ -6,7 +6,7 @@ import { useRouter, useParams } from "next/navigation";
 import { Wallet } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { getGachaBoxes, openGachaBox, getRarityConfig } from "@/lib/gachaApi";
-import { payForSpin } from "@/lib/mockidrx";
+import { payForSpin, ensureServerWalletApproval } from "@/lib/mockidrx";
 import { toast } from "sonner";
 
 export default function GachaTierPage() {
@@ -152,9 +152,29 @@ export default function GachaTierPage() {
 
       console.log("📦 Selected box:", selectedBox);
 
-      // Step 1: User pays for spin by transferring to treasury (GASLESS!)
+      // Step 1: Get auth token
+      const authToken = await getAccessToken();
+
+      // Step 2: Ensure server wallet approval first
+      console.log('🔍 Checking server wallet approval...');
+      const approvalResult = await ensureServerWalletApproval(
+        embeddedWallet,
+        walletAddress,
+        selectedBox.costCoins
+      );
+
+      if (!approvalResult.approved) {
+        throw new Error(approvalResult.error || "Failed to approve server wallet");
+      }
+
+      if (approvalResult.txHash) {
+        console.log('✅ Approval successful:', approvalResult.txHash);
+        toast.success("Server wallet approved! You can now use gasless transactions.");
+      }
+
+      // Step 3: User pays for spin by transferring to treasury (GASLESS!)
       console.log(`💳 Paying ${selectedBox.costCoins} IDRX for spin (gasless)...`);
-      const paymentResult = await payForSpin(embeddedWallet, selectedBox.costCoins);
+      const paymentResult = await payForSpin(embeddedWallet, selectedBox.costCoins, authToken);
 
       if (!paymentResult.success) {
         throw new Error(paymentResult.error || "Failed to pay for spin");
@@ -162,10 +182,7 @@ export default function GachaTierPage() {
 
       console.log("✅ Payment successful:", paymentResult.txHash);
 
-      // Step 2: Get auth token
-      const authToken = await getAccessToken();
-
-      // Step 3: Call backend API with payment TX hash for verification
+      // Step 4: Call backend API with payment TX hash for verification
       const result = await openGachaBox(tierType, paymentResult.txHash, authToken);
 
       // Simulate spinning animation (2 seconds)

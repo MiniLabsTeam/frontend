@@ -3,8 +3,8 @@
  * Direct interaction dengan MockIDRX smart contract
  */
 
-const MOCKIDRX_ADDRESS = "0x57ADEa3A1F286bF386544Ec6ac53C3Ba2085217c"; // New contract with treasury
-const BACKEND_WALLET_ADDRESS = "0x92F9778c18D43b9721E58A7a634cb65eeA80661d";
+const MOCKIDRX_ADDRESS = "0x998f8B20397445C10c1B60DCa1EebFbda4cA7847"; // MockIDRXv2 with Server Wallet Gasless Support
+const BACKEND_WALLET_ADDRESS = "0xAb4cBeFaeb226BC23F6399E0327F40e362cdDC3B"; // Server wallet for gasless transactions
 
 export { BACKEND_WALLET_ADDRESS };
 
@@ -363,40 +363,51 @@ export async function checkAllowance(embeddedWallet, ownerAddress, spenderAddres
 }
 
 /**
- * Pay for spin by transferring to treasury
+ * Pay for spin by transferring to treasury (GASLESS!)
  * @param {Object} embeddedWallet - Privy embedded wallet
  * @param {number} amount - Amount to pay (in IDRX units)
+ * @param {string} authToken - Privy access token for backend authentication
  * @returns {Promise<{success: boolean, txHash?: string, error?: string}>}
  */
-export async function payForSpin(embeddedWallet, amount) {
+export async function payForSpin(embeddedWallet, amount, authToken) {
   try {
     if (!embeddedWallet) {
       throw new Error("Wallet not connected");
     }
 
-    const { BrowserProvider, Contract, parseUnits } = await import("ethers");
-    const ethereumProvider = await embeddedWallet.getEthereumProvider();
-    const provider = new BrowserProvider(ethereumProvider);
-    const signer = await provider.getSigner();
+    if (!authToken) {
+      throw new Error("Authentication token required");
+    }
 
-    const contract = new Contract(MOCKIDRX_ADDRESS, MOCKIDRX_ABI, signer);
-    const decimals = await contract.decimals();
-    const amountInWei = parseUnits(amount.toString(), decimals);
+    console.log(`[payForSpin] Sending gasless transaction for ${amount} IDRX...`);
 
-    // Call payForSpin - transfer to treasury (NO APPROVAL NEEDED!)
-    // User pays small gas fee (~$0.0001 on Base Sepolia)
-    const tx = await contract.payForSpin(amountInWei);
-    const receipt = await tx.wait();
+    // Call backend gasless endpoint
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/gasless/pay-for-spin`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ amount }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || data.details || 'Failed to pay for spin');
+    }
+
+    console.log(`[payForSpin] Success! TX Hash: ${data.txHash}`);
 
     return {
       success: true,
-      txHash: receipt.hash
+      txHash: data.txHash
     };
   } catch (error) {
-    console.error("PayForSpin error:", error);
+    console.error("PayForSpin gasless error:", error);
 
     let errorMessage = "Failed to pay for spin";
-    if (error.message?.includes("Insufficient balance")) {
+    if (error.message?.includes("Insufficient balance") || error.message?.includes("Insufficient MockIDRX")) {
       errorMessage = "Insufficient MockIDRX balance";
     } else if (error.message?.includes("user rejected")) {
       errorMessage = "Transaction cancelled";
@@ -424,4 +435,52 @@ export function formatCooldownTime(seconds) {
     return `${hours}h ${minutes}m`;
   }
   return `${minutes}m`;
+}
+
+/**
+ * Ensure user has approved server wallet for gasless transactions
+ * If not approved or insufficient allowance, prompts user to approve
+ * @param {Object} embeddedWallet - Privy embedded wallet
+ * @param {string} userAddress - User wallet address
+ * @param {number} minAllowance - Minimum required allowance (default: 10000 = 100.00 IDRX)
+ * @returns {Promise<{approved: boolean, txHash?: string, error?: string}>}
+ */
+export async function ensureServerWalletApproval(embeddedWallet, userAddress, minAllowance = 10000) {
+  try {
+    // Check current allowance
+    const currentAllowance = await checkAllowance(embeddedWallet, userAddress, BACKEND_WALLET_ADDRESS);
+
+    console.log(`[ensureApproval] Current allowance: ${currentAllowance} IDRX, Required: ${minAllowance} IDRX`);
+
+    // If allowance is sufficient, return success
+    if (currentAllowance >= minAllowance) {
+      return {
+        approved: true,
+        message: "Already approved"
+      };
+    }
+
+    // Need to approve - request large amount for many spins (100,000 IDRX)
+    console.log('[ensureApproval] Requesting approval for 100,000 IDRX...');
+    const approveResult = await approveMockIDRX(embeddedWallet, BACKEND_WALLET_ADDRESS, 10000000);
+
+    if (!approveResult.success) {
+      return {
+        approved: false,
+        error: approveResult.error
+      };
+    }
+
+    return {
+      approved: true,
+      txHash: approveResult.txHash,
+      message: "Approval successful! You can now use gasless transactions."
+    };
+  } catch (error) {
+    console.error("Ensure approval error:", error);
+    return {
+      approved: false,
+      error: error.message || "Failed to check/approve server wallet"
+    };
+  }
 }

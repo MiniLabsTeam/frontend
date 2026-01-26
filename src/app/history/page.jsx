@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
-import { Clock, TrendingUp, Package, ShoppingCart, DollarSign, Tag, Sparkles } from "lucide-react";
+import { Clock, TrendingUp, Package, ShoppingCart, DollarSign, Tag, Sparkles, Wrench, BadgeDollarSign } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import { toast } from "sonner";
 
@@ -62,8 +62,10 @@ export default function HistoryPage() {
   const filteredActivities = activities.filter(activity => {
     if (filter === 'all') return true;
     if (filter === 'gacha') return activity.type === 'gacha';
+    if (filter === 'assembly') return activity.type === 'assembly';
     if (filter === 'redeem') return activity.type === 'redeem';
     if (filter === 'marketplace') return ['listed', 'sold', 'purchased'].includes(activity.type);
+    if (filter === 'buyback') return activity.type === 'buyback';
     return true;
   });
 
@@ -75,6 +77,8 @@ export default function HistoryPage() {
       case 'listed': return { Icon: Tag, color: 'text-blue-400' };
       case 'sold': return { Icon: DollarSign, color: 'text-emerald-400' };
       case 'purchased': return { Icon: ShoppingCart, color: 'text-purple-400' };
+      case 'buyback': return { Icon: BadgeDollarSign, color: 'text-orange-400' };
+      case 'assembly': return { Icon: Wrench, color: 'text-cyan-400' };
       default: return { Icon: Clock, color: 'text-gray-400' };
     }
   };
@@ -116,10 +120,14 @@ export default function HistoryPage() {
 
         {/* Summary Cards */}
         {summary && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3 mb-4 sm:mb-6">
             <div className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-lg sm:rounded-xl p-3 sm:p-4">
               <div className="text-yellow-400 text-[10px] sm:text-xs font-bold mb-1 uppercase">Gacha Wins</div>
               <div className="text-xl sm:text-2xl font-black text-white">{summary.totalMints || 0}</div>
+            </div>
+            <div className="bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 rounded-lg sm:rounded-xl p-3 sm:p-4">
+              <div className="text-cyan-400 text-[10px] sm:text-xs font-bold mb-1 uppercase">Assembled</div>
+              <div className="text-xl sm:text-2xl font-black text-white">{summary.totalAssemblies || 0}</div>
             </div>
             <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-lg sm:rounded-xl p-3 sm:p-4">
               <div className="text-green-400 text-[10px] sm:text-xs font-bold mb-1 uppercase">Redeemed</div>
@@ -133,9 +141,13 @@ export default function HistoryPage() {
               <div className="text-emerald-400 text-[10px] sm:text-xs font-bold mb-1 uppercase">Sold</div>
               <div className="text-xl sm:text-2xl font-black text-white">{summary.totalSales || 0}</div>
             </div>
-            <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-lg sm:rounded-xl p-3 sm:p-4 col-span-2 sm:col-span-1">
+            <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-lg sm:rounded-xl p-3 sm:p-4">
               <div className="text-purple-400 text-[10px] sm:text-xs font-bold mb-1 uppercase">Purchased</div>
               <div className="text-xl sm:text-2xl font-black text-white">{summary.totalPurchases || 0}</div>
+            </div>
+            <div className="bg-gradient-to-br from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-lg sm:rounded-xl p-3 sm:p-4">
+              <div className="text-orange-400 text-[10px] sm:text-xs font-bold mb-1 uppercase">Admin Buyback</div>
+              <div className="text-xl sm:text-2xl font-black text-white">{summary.totalBuybacks || 0}</div>
             </div>
           </div>
         )}
@@ -145,8 +157,10 @@ export default function HistoryPage() {
           {[
             { key: 'all', label: 'All', icon: TrendingUp },
             { key: 'gacha', label: 'Gacha', icon: Sparkles },
+            { key: 'assembly', label: 'Assembly', icon: Wrench },
             { key: 'redeem', label: 'Redeemed', icon: Package },
             { key: 'marketplace', label: 'Marketplace', icon: ShoppingCart },
+            { key: 'buyback', label: 'Buyback', icon: BadgeDollarSign },
           ].map(({ key, label, icon: Icon }) => (
             <button
               key={key}
