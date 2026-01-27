@@ -71,34 +71,28 @@ export default function Dashboard() {
     toast.success('Welcome to MiniGarage! 🎉');
   };
 
-  // Rare pool showcase cars
+  // Rare pool showcase cars - Images matched with rarity tiers (based on backend gacha config)
   const showcaseCars = [
     {
       id: 1,
-      name: "ULTIMATE STRIKE",
-      image: "/assets/car/Blaze Runner.png",
+      name: "BUGATTI CHIRON",
+      image: "/assets/car/Cars_Diecast/02-Bugatti-Chiron.png",
       rarity: "Legendary",
-      speed: 92,
-      power: 95,
-      drift: 88,
+      series: "Hypercar",
     },
     {
       id: 2,
-      name: "TURBO PHANTOM",
-      image: "/assets/car/Turbo Phantom.png",
+      name: "FERRARI F8 TURBO",
+      image: "/assets/car/Cars_Diecast/07-Ferrari-F8-Turbo.png",
       rarity: "Epic",
-      speed: 88,
-      power: 90,
-      drift: 85,
+      series: "Supercar",
     },
     {
       id: 3,
-      name: "CHROME VIPER",
-      image: "/assets/car/Chrome Viper.png",
+      name: "BMW M3 GTR",
+      image: "/assets/car/Cars_Diecast/04-BMW-M3-GTR.png",
       rarity: "Rare",
-      speed: 85,
-      power: 87,
-      drift: 82,
+      series: "Sport",
     },
   ];
 
@@ -651,39 +645,49 @@ export default function Dashboard() {
               </h3>
 
               {/* Car Display */}
-              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 mb-3">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-400 text-xs font-bold">{currentCar.rarity.toUpperCase()}</span>
-                  <span className="text-gray-400 text-xs">/1000</span>
+              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 mb-3 relative overflow-hidden">
+                {/* Rarity Badge - Styled based on rarity */}
+                <div className="flex justify-center mb-2">
+                  {currentCar.rarity === "Legendary" && (
+                    <span className="px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-600 text-black shadow-lg shadow-yellow-500/30 animate-pulse">
+                      ⭐ {currentCar.rarity}
+                    </span>
+                  )}
+                  {currentCar.rarity === "Epic" && (
+                    <span className="px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-gradient-to-r from-purple-500 via-violet-600 to-purple-700 text-white shadow-lg shadow-purple-500/30">
+                      💎 {currentCar.rarity}
+                    </span>
+                  )}
+                  {currentCar.rarity === "Rare" && (
+                    <span className="px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-gradient-to-r from-blue-400 via-cyan-500 to-blue-600 text-white shadow-lg shadow-blue-500/30">
+                      🔷 {currentCar.rarity}
+                    </span>
+                  )}
                 </div>
 
-                <div className="relative h-32 mb-3 flex items-center justify-center">
+                {/* Car Image - Bigger with transparent bg */}
+                <div className="relative h-44 mb-3 flex items-center justify-center">
                   <img
                     src={currentCar.image}
                     alt={currentCar.name}
-                    className="max-h-full max-w-full object-contain drop-shadow-2xl"
+                    className="max-h-full max-w-full object-contain drop-shadow-2xl scale-110 hover:scale-115 transition-transform duration-300"
+                    style={{ 
+                      filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.5))',
+                      background: 'transparent'
+                    }}
                     onError={(e) => {
                       e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect fill='%23333' width='200' height='150'/%3E%3Ctext fill='%23999' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='monospace' font-size='16'%3ECar%3C/text%3E%3C/svg%3E";
                     }}
                   />
                 </div>
 
-                <h4 className="text-white font-black text-center mb-3">
+                {/* Car Name & Series */}
+                <h4 className="text-white font-black text-center text-lg">
                   {currentCar.name}
                 </h4>
-
-                {/* Stats Badges */}
-                <div className="flex justify-center gap-2">
-                  <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg px-3 py-1">
-                    <p className="text-white text-xs font-bold">{currentCar.speed}</p>
-                  </div>
-                  <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg px-3 py-1">
-                    <p className="text-white text-xs font-bold">{currentCar.power}</p>
-                  </div>
-                  <div className="bg-gradient-to-r from-yellow-500 to-amber-600 rounded-lg px-3 py-1">
-                    <p className="text-white text-xs font-bold">{currentCar.drift}</p>
-                  </div>
-                </div>
+                <p className="text-gray-400 text-xs text-center font-medium">
+                  {currentCar.series} Series
+                </p>
               </div>
 
               {/* Carousel Dots */}
