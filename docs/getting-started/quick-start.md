@@ -103,7 +103,7 @@ Navigate to **"Gacha"** page and select a tier:
 {% hint style="warning" %}
 ⚠️ **You Need Small Amount Base Sepolia For Approve Transaction**
 
-Get Base Sepolia ETH from: https://faucet.base.org
+Get Base Sepolia ETH from: [https://console.optimism.io/faucet](https://console.optimism.io/faucet)
 {% endhint %}
 
 {% hint style="info" %}
@@ -243,6 +243,8 @@ Complete these milestones:
 * Refresh the page
 * Check Base Sepolia explorer: [https://sepolia.basescan.org](https://sepolia.basescan.org)
 
+
+
 ### Gacha animation is stuck
 
 **Solution:**
@@ -257,11 +259,12 @@ Complete these milestones:
 
 * This is normal! 80% chance for fragments
 * Collect 5 same-tier fragments to craft a complete car
-* Or trade fragments on marketplace
+
+
 
 ***
 
-## 📱 Mobile Installation (PWA)
+## 📱 Mobile Installation (Base APP)
 
 ### iOS (Safari)
 
