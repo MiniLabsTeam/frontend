@@ -8,6 +8,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { getGachaBoxes, openGachaBox, getRarityConfig } from "@/lib/gachaApi";
 import { payForSpin, ensureServerWalletApproval } from "@/lib/mockidrx";
 import { toast } from "sonner";
+import GachaRoulette from "@/components/GachaRoulette";
 
 export default function GachaTierPage() {
   const { authenticated, ready, getAccessToken } = usePrivy();
@@ -20,6 +21,60 @@ export default function GachaTierPage() {
   const [hasSpun, setHasSpun] = useState(false);
   const [reward, setReward] = useState(null);
   const [slideProgress, setSlideProgress] = useState(0);
+  const [showAnimation, setShowAnimation] = useState(false);
+
+  // Dummy assets for the reel
+  // Helper to map name to image
+  const getAssetImage = (name) => {
+    const n = name?.toLowerCase() || "";
+    // Fragments
+    if (n.includes("body")) return "/assets/Fragments/Body.png";
+    if (n.includes("chassis") || n.includes("chasis")) return "/assets/Fragments/Chasis.png";
+    if (n.includes("engine")) return "/assets/Fragments/Engine.png";
+    if (n.includes("interior")) return "/assets/Fragments/Interior.png";
+    if (n.includes("wheel")) return "/assets/Fragments/Wheels.png";
+
+    // Cars (Best effort mapping based on filenames)
+    if (n.includes("porsche 911 turbo")) return "/assets/car_no_background/01-Porche-911-Turbo-removebg-preview.png";
+    if (n.includes("bugatti")) return "/assets/car_no_background/02-Bugatti-Chiron-removebg-preview.png";
+    if (n.includes("jesko")) return "/assets/car_no_background/03-Koenigsegg_Jesko-removebg-preview.png";
+    if (n.includes("m3 gtr")) return "/assets/car_no_background/04-BMW-M3-GTR-removebg-preview.png";
+    if (n.includes("huracan")) return "/assets/car_no_background/05-Lamborghini-Huracan-removebg-preview.png";
+    if (n.includes("audi rs")) return "/assets/car_no_background/06-Audi-RS-Superwagon-removebg-preview.png";
+    if (n.includes("ferrari f8")) return "/assets/car_no_background/07-Ferrari-F8-Turbo-removebg-preview.png";
+    if (n.includes("huayra")) return "/assets/car_no_background/08-Pagain-Huayra-removebg-preview.png";
+    if (n.includes("mercedes amg gt")) return "/assets/car_no_background/11-Mercedes-AMG-GT-removebg-preview.png"; // Specific check before generic AMG
+    if (n.includes("mercedes amg")) return "/assets/car_no_background/09-Mercede-AMG-removebg-preview.png";
+    if (n.includes("civic")) return "/assets/car_no_background/10-Honda-Civic-removebg-preview.png";
+    if (n.includes("corolla")) return "/assets/car_no_background/12-Toyota-Corrola-removebg-preview.png";
+    if (n.includes("porsche 911")) return "/assets/car_no_background/13-Proche-911-removebg-preview.png";
+    if (n.includes("720s")) return "/assets/car_no_background/14-McLAREN-720s-removebg-preview.png";
+
+    return "/assets/car/Chrome Viper.png";
+  };
+
+  // Dummy assets for the reel (Mixed Cars and Fragments)
+  const dummyAssets = [
+    { name: "Porsche 911 Turbo", rarity: "Legendary" },
+    { name: "Engine Part", rarity: "Rare" },
+    { name: "Bugatti Chiron", rarity: "Legendary" },
+    { name: "Wheels Set", rarity: "Common" },
+    { name: "Koenigsegg Jesko", rarity: "Legendary" },
+    { name: "Chasis Kit", rarity: "Uncommon" },
+    { name: "BMW M3 GTR", rarity: "Epic" },
+    { name: "Interior Trim", rarity: "Common" },
+    { name: "Lamborghini Huracan", rarity: "Epic" },
+    { name: "Body Kit", rarity: "Rare" },
+    { name: "Audi RS", rarity: "Rare" },
+    { name: "Ferrari F8", rarity: "Epic" },
+    { name: "Pagani Huayra", rarity: "Legendary" },
+    { name: "Mercedes AMG", rarity: "Rare" },
+    { name: "Honda Civic", rarity: "Common" },
+    { name: "Mercedes AMG GT", rarity: "Rare" },
+    { name: "Toyota Corolla", rarity: "Common" },
+    { name: "Porsche 911", rarity: "Rare" },
+    { name: "McLaren 720s", rarity: "Epic" },
+  ].map(item => ({ ...item, image: getAssetImage(item.name) }));
 
   // Gacha data from backend
   const [gachaBoxes, setGachaBoxes] = useState([]);
@@ -185,30 +240,37 @@ export default function GachaTierPage() {
       // Step 4: Call backend API with payment TX hash for verification
       const result = await openGachaBox(tierType, paymentResult.txHash, authToken);
 
-      // Simulate spinning animation (2 seconds)
-      setTimeout(() => {
-        // Map backend reward to frontend format
-        const rarityConfig = getRarityConfig(result.reward.rarity);
+      // Map backend reward to frontend format
+      const rarityConfig = getRarityConfig(result.reward.rarity);
 
-        const rewardData = {
-          tokenId: result.reward.tokenId,
-          name: result.reward.modelName,
-          series: result.reward.series,
-          rarity: rarityConfig.label,
-          rarityColor: rarityConfig.color,
-          txHash: result.reward.txHash,
-          image: "/assets/car/Chrome Viper.png", // Default image, dapat disesuaikan
-        };
+      let rewardName = "";
+      if (result.reward.rewardType === "car") {
+        rewardName = result.reward.modelName;
+      } else {
+        // Construct full name for fragment (e.g., "Honda Civic Engine")
+        rewardName = `${result.reward.brand} ${result.reward.fragmentName}`;
+      }
 
-        setReward(rewardData);
-        setHasSpun(true);
-        setIsSpinning(false);
+      const rewardData = {
+        tokenId: result.reward.tokenId, // TokenId might be undefined for fragments if not sent, but txHash is there
+        name: rewardName,
+        series: result.reward.series,
+        rarity: rarityConfig.label,
+        rarityColor: rarityConfig.color,
+        txHash: result.reward.txHash,
+        image: getAssetImage(rewardName),
+      };
 
-        // Update user MockIDRX balance
-        setUserMockIDRX(result.mockIDRX.remaining);
+      setReward(rewardData);
 
-        console.log("✅ Gacha Success:", result);
-      }, 2000);
+      // Update user MockIDRX balance
+      setUserMockIDRX(result.mockIDRX.remaining);
+
+      console.log("✅ Gacha Success:", result);
+
+      // Trigger Animation
+      setShowAnimation(true);
+      setIsSpinning(false);
     } catch (error) {
       console.error("❌ Gacha failed:", error);
       setIsSpinning(false);
@@ -230,6 +292,7 @@ export default function GachaTierPage() {
     fetchGachaData();
     // Reset state for next spin
     setHasSpun(false);
+    setShowAnimation(false);
     setReward(null);
     setSlideProgress(0);
     setErrorMessage("");
@@ -340,7 +403,7 @@ export default function GachaTierPage() {
 
         {/* Content Area */}
         <div className="flex-1 flex items-center justify-center px-4 pb-20">
-          {!hasSpun ? (
+          {!hasSpun && !showAnimation ? (
             /* Before Spin Screen */
             <div className="w-full max-w-sm">
               {/* Car Preview */}
@@ -434,10 +497,23 @@ export default function GachaTierPage() {
               </div>
 
               {isSpinning && (
-                <p className="text-center text-yellow-400 font-bold mt-4 animate-pulse">
-                  SPINNING...
-                </p>
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center rounded-2xl z-50">
+                  <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                  <p className="text-orange-400 font-bold animate-pulse">PROCESSING PAYMENT...</p>
+                </div>
               )}
+            </div>
+          ) : showAnimation ? (
+            /* Animation Screen */
+            <div className="w-full max-w-4xl flex items-center justify-center">
+              <GachaRoulette
+                reward={reward}
+                availableItems={dummyAssets}
+                onComplete={() => {
+                  setShowAnimation(false);
+                  setHasSpun(true);
+                }}
+              />
             </div>
           ) : (
             /* After Spin - Result Screen */
