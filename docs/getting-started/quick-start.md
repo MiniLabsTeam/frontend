@@ -98,6 +98,7 @@ sequenceDiagram
 ### Choose Your Tier
 
 Navigate to **"Gacha"** page and select a tier:
+⚠️ You Need Small Amount Base Sepolia For Approve Transcation
 
 <table data-card-size="large" data-view="cards"><thead><tr><th></th><th></th><th></th></tr></thead><tbody><tr><td><strong>🥉 Common</strong></td><td>Cost: 25K IDRX</td><td>50% drop rate</td></tr><tr><td><strong>🥈 Rare</strong></td><td>Cost: 25K IDRX</td><td>30% drop rate</td></tr><tr><td><strong>🥇 Epic</strong></td><td>Cost: 25K IDRX</td><td>15% drop rate</td></tr><tr><td><strong>💎 Legendary</strong></td><td>Cost: 25K IDRX</td><td>5% drop rate</td></tr></tbody></table>
 
