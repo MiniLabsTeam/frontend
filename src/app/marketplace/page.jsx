@@ -692,32 +692,32 @@ export default function MarketplacePage() {
                     ))}
                   </div>
                 ) : (
-                <div className="flex items-center justify-center h-full min-h-[280px]">
-                  <div className="text-center px-4">
-                    <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                      <ShoppingBag size={40} className="text-white/40" strokeWidth={1.5} />
+                  <div className="flex items-center justify-center h-full min-h-[280px]">
+                    <div className="text-center px-4">
+                      <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                        <ShoppingBag size={40} className="text-white/40" strokeWidth={1.5} />
+                      </div>
+                      <h3 className="text-white text-xl font-black mb-2">
+                        No Listings Found
+                      </h3>
+                      <p className="text-white/60 text-sm mb-6 max-w-[220px] mx-auto">
+                        {seriesFilter !== "all"
+                          ? "Try a different series filter or check back later"
+                          : "Be the first to list your car on the marketplace!"}
+                      </p>
+                      <button
+                        onClick={handleSellClick}
+                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-3 px-6 rounded-full shadow-lg transform hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto"
+                      >
+                        <Tag size={18} strokeWidth={2.5} />
+                        Sell Your Car
+                      </button>
                     </div>
-                    <h3 className="text-white text-xl font-black mb-2">
-                      No Listings Found
-                    </h3>
-                    <p className="text-white/60 text-sm mb-6 max-w-[220px] mx-auto">
-                      {seriesFilter !== "all"
-                        ? "Try a different series filter or check back later"
-                        : "Be the first to list your car on the marketplace!"}
-                    </p>
-                    <button
-                      onClick={handleSellClick}
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-3 px-6 rounded-full shadow-lg transform hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto"
-                    >
-                      <Tag size={18} strokeWidth={2.5} />
-                      Sell Your Car
-                    </button>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
           {/* My Listings */}
           {activeTab === "my-listings" && (
@@ -731,63 +731,74 @@ export default function MarketplacePage() {
                     </div>
                   </div>
                 ) : (
-                <div className="space-y-3">
-                  {myListingsFilter === "all"
-                    ? myListings.all.map((listing) => (
-                      <ListingCard
-                        key={listing.id}
-                        listing={listing}
-                        onCancel={handleCancelListing}
-                        onClick={() => {
-                          setSelectedListing(listing);
-                          setShowDetailModal(true);
-                        }}
-                      />
-                    ))
-                    : myListings[myListingsFilter]?.map((listing) => (
-                      <ListingCard
-                        key={listing.id}
-                        listing={listing}
-                        onCancel={handleCancelListing}
-                        onClick={() => {
-                          setSelectedListing(listing);
-                          setShowDetailModal(true);
-                        }}
-                      />
-                    ))}
-                  {((myListingsFilter === "all" && myListings.all.length === 0) ||
-                    (myListingsFilter !== "all" && myListings[myListingsFilter]?.length === 0)) && (
-                      <div className="flex items-center justify-center min-h-[280px]">
-                        <div className="text-center px-4">
-                          <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                            <List size={40} className="text-white/40" strokeWidth={1.5} />
+                  <div className="space-y-3">
+                    {myListingsFilter === "all"
+                      ? myListings.all.map((listing) => (
+                        <ListingCard
+                          key={listing.id}
+                          listing={listing}
+                          onCancel={handleCancelListing}
+                          onClick={() => {
+                            setSelectedListing(listing);
+                            setShowDetailModal(true);
+                          }}
+                        />
+                      ))
+                      : myListings[myListingsFilter]?.map((listing) => (
+                        <ListingCard
+                          key={listing.id}
+                          listing={listing}
+                          onCancel={handleCancelListing}
+                          onClick={() => {
+                            setSelectedListing(listing);
+                            setShowDetailModal(true);
+                          }}
+                        />
+                      ))}
+                    {((myListingsFilter === "all" && myListings.all.length === 0) ||
+                      (myListingsFilter !== "all" && myListings[myListingsFilter]?.length === 0)) && (
+                        <div className="flex items-center justify-center min-h-[280px]">
+                          <div className="text-center px-4">
+                            <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                              <List size={40} className="text-white/40" strokeWidth={1.5} />
+                            </div>
+                            <h3 className="text-white text-xl font-black mb-2">
+                              {myListingsFilter === "all" ? "No Listings Yet" : `No ${myListingsFilter.charAt(0).toUpperCase() + myListingsFilter.slice(1)} Listings`}
+                            </h3>
+                            <p className="text-white/60 text-sm mb-6 max-w-[220px] mx-auto">
+                              {myListingsFilter === "all"
+                                ? "Start selling your cars to earn IDRX!"
+                                : `You don't have any ${myListingsFilter} listings`}
+                            </p>
+                            {myListingsFilter === "all" && (
+                              <button
+                                onClick={handleSellClick}
+                                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-3 px-6 rounded-full shadow-lg transform hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto"
+                              >
+                                <Tag size={18} strokeWidth={2.5} />
+                                List Your First Car
+                              </button>
+                            )}
                           </div>
-                          <h3 className="text-white text-xl font-black mb-2">
-                            {myListingsFilter === "all" ? "No Listings Yet" : `No ${myListingsFilter.charAt(0).toUpperCase() + myListingsFilter.slice(1)} Listings`}
-                          </h3>
-                          <p className="text-white/60 text-sm mb-6 max-w-[220px] mx-auto">
-                            {myListingsFilter === "all"
-                              ? "Start selling your cars to earn IDRX!"
-                              : `You don't have any ${myListingsFilter} listings`}
-                          </p>
-                          {myListingsFilter === "all" && (
-                            <button
-                              onClick={handleSellClick}
-                              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-3 px-6 rounded-full shadow-lg transform hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto"
-                            >
-                              <Tag size={18} strokeWidth={2.5} />
-                              List Your First Car
-                            </button>
-                          )}
                         </div>
-                      </div>
-                    )}
-                </div>
-              )}
+                      )}
+
+                    {((myListingsFilter === "all" && myListings.all?.length > 0) ||
+                      (myListingsFilter !== "all" && myListings[myListingsFilter]?.length > 0)) && (
+                        <button
+                          onClick={handleSellClick}
+                          className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-3 px-6 rounded-2xl shadow-lg transform hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 mt-4"
+                        >
+                          <Tag size={18} strokeWidth={2.5} />
+                          Sell NFT
+                        </button>
+                      )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
       </PullToRefresh>
 
       {/* Buy Modal */}
