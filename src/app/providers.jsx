@@ -49,7 +49,7 @@ export default function Providers({ children }) {
             accentColor: "#ff7a59",
           },
           embeddedWallets: {
-            createOnLogin: "all-users", // Auto-create wallet for all users
+            createOnLogin: "users-without-wallets", // Only ensure wallet exists if user doesn't have one
             requireUserPasswordOnCreate: false, // No password needed
             noPromptOnSignature: true, // No popup for signing (smooth UX)
           },

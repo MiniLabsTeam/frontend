@@ -14,14 +14,8 @@ import { toast } from "sonner";
 
 export default function Dashboard() {
   const { authenticated, ready, getAccessToken } = usePrivy();
-  const { walletAddress } = useWallet();
-  const { wallets } = useWallets();
+  const { walletAddress, embeddedWallet } = useWallet();
   const router = useRouter();
-
-  // Get embedded wallet instance from Privy
-  const embeddedWallet = wallets.find(
-    wallet => wallet.walletClientType === 'privy'
-  );
 
   // State
   const [mockIDRXBalance, setMockIDRXBalance] = useState(0);
@@ -490,11 +484,10 @@ export default function Dashboard() {
             <button
               onClick={handleClaimFaucet}
               disabled={faucetCooldown > 0 || claimingFaucet}
-              className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 shadow-xl transition-all font-bold ${
-                faucetCooldown > 0 || claimingFaucet
-                  ? 'bg-gray-400 cursor-not-allowed opacity-60'
-                  : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:scale-[1.02] hover:shadow-2xl'
-              }`}
+              className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 shadow-xl transition-all font-bold ${faucetCooldown > 0 || claimingFaucet
+                ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:scale-[1.02] hover:shadow-2xl'
+                }`}
             >
               <Droplet size={16} className="text-white" strokeWidth={3} />
               <span className="text-sm text-white">
@@ -671,7 +664,7 @@ export default function Dashboard() {
                     src={currentCar.image}
                     alt={currentCar.name}
                     className="max-h-full max-w-full object-contain drop-shadow-2xl scale-110 hover:scale-115 transition-transform duration-300"
-                    style={{ 
+                    style={{
                       filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.5))',
                       background: 'transparent'
                     }}
