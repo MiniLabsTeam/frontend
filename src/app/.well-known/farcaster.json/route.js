@@ -20,9 +20,9 @@ export async function GET() {
       subtitle: "NFT Car Collection on Base",
       description: "Collect, race, and own digital collectible cars as NFTs on Base blockchain. Your personal garage of legendary racing machines.",
       screenshotUrls: [
-        `${URL}/screenshots/screenshot1.png`,
-        `${URL}/screenshots/screenshot2.png`,
-        `${URL}/screenshots/screenshot3.png`
+        `${URL}/screenshots/home.png`,
+        `${URL}/screenshots/gacha.png`,
+        `${URL}/screenshots/inventory.png`
       ],
       iconUrl: `${URL}/icons/icon-512.png`,
       splashImageUrl: `${URL}/icons/icon-512.png`,
