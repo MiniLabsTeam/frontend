@@ -14,6 +14,12 @@ import { toast } from "sonner";
 import { PullToRefresh } from "@/components/shared";
 import { RARITY_CONFIG } from "@/constants";
 import { getCarImagePath, handleImageError } from "@/utils/imageHelpers";
+import { validateNetwork, waitForTransaction, formatBlockchainError } from "@/utils/blockchain";
+import { validatePrice } from "@/utils/validation";
+import ProgressSteps from "@/components/shared/ProgressSteps";
+import ErrorBanner from "@/components/shared/ErrorBanner";
+import { useNFTApprovals } from "@/hooks/useNFTApprovals";
+import ApprovalManager from "@/components/shared/ApprovalManager";
 
 export default function MarketplacePage() {
   const { authenticated, ready, getAccessToken } = usePrivy();
@@ -50,7 +56,18 @@ export default function MarketplacePage() {
   const [sellCar, setSellCar] = useState(null);
   const [sellPrice, setSellPrice] = useState("");
   const [sellError, setSellError] = useState("");
+  const [sellPriceError, setSellPriceError] = useState("");
   const [myCars, setMyCars] = useState([]);
+
+  // Transaction lock to prevent concurrent transactions
+  const [transactionInProgress, setTransactionInProgress] = useState(false);
+
+  // NFT approval tracking
+  const { trackApproval, clearApproval, getOrphanedApprovals } = useNFTApprovals();
+
+  // Progress tracking
+  const [buyProgress, setBuyProgress] = useState(1);
+  const [sellProgress, setSellProgress] = useState(1);
 
   // Balance and user info
   const [mockIDRXBalance, setMockIDRXBalance] = useState(0);
@@ -94,6 +111,7 @@ export default function MarketplacePage() {
       setListings(data.listings || []);
     } catch (error) {
       console.error("Failed to fetch listings:", error);
+      toast.error("Failed to load marketplace listings. Pull to refresh.");
       setListings([]);
     } finally {
       setLoadingListings(false);
@@ -125,6 +143,7 @@ export default function MarketplacePage() {
       }
     } catch (error) {
       console.error("Failed to fetch my listings:", error);
+      toast.error("Failed to load your listings. Pull to refresh.");
       setMyListings({ active: [], sold: [], cancelled: [], all: [] });
     } finally {
       setLoadingMyListings(false);
@@ -150,6 +169,7 @@ export default function MarketplacePage() {
       setMyCars(data.cars || []);
     } catch (error) {
       console.error("Failed to fetch cars:", error);
+      toast.error("Failed to load your cars.");
       setMyCars([]);
     }
   }, [getAccessToken]);
@@ -175,6 +195,7 @@ export default function MarketplacePage() {
       });
     } catch (error) {
       console.error("Failed to fetch balance:", error);
+      toast.error("Failed to load balance. Click refresh to try again.");
     }
   }, [getAccessToken]);
 
@@ -204,8 +225,18 @@ export default function MarketplacePage() {
   const handleBuyApprove = async () => {
     if (!embeddedWallet || !selectedListing) return;
 
+    // Prevent concurrent transactions
+    if (transactionInProgress) {
+      toast.error("Another transaction is in progress");
+      return;
+    }
+
+    setTransactionInProgress(true);
+
     try {
       setBuyStep("buying");
+      setBuyProgress(1);
+      setBuyError("");
 
       console.log("Starting purchase:", {
         listingId: selectedListing.id,
@@ -214,9 +245,10 @@ export default function MarketplacePage() {
         seller: selectedListing.seller
       });
 
-      // Check user balance
-      if (mockIDRXBalance < selectedListing.price) {
-        throw new Error(`Insufficient balance. You have ${mockIDRXBalance} IDRX but need ${selectedListing.price} IDRX`);
+      // Step 1: Validate network FIRST
+      const networkValidation = await validateNetwork(embeddedWallet);
+      if (!networkValidation.valid) {
+        throw new Error(networkValidation.error);
       }
 
       // Get backend wallet address from env
@@ -225,18 +257,10 @@ export default function MarketplacePage() {
         throw new Error("Backend wallet address not configured");
       }
 
-      // Get Ethereum provider dari Privy
+      // Get Ethereum provider
       const ethereumProvider = await embeddedWallet.getEthereumProvider();
       const provider = new BrowserProvider(ethereumProvider);
       const signer = await provider.getSigner();
-
-      // Verify we're on Base Sepolia
-      const network = await provider.getNetwork();
-      console.log("Current network:", network.chainId.toString());
-
-      if (network.chainId !== 84532n) {
-        throw new Error("Please switch to Base Sepolia network (Chain ID: 84532)");
-      }
 
       const mockIDRXAddress = process.env.NEXT_PUBLIC_MOCKIDRX_CONTRACT_ADDRESS;
       const mockIDRXABI = [
@@ -246,23 +270,32 @@ export default function MarketplacePage() {
 
       const mockIDRXContract = new Contract(mockIDRXAddress, mockIDRXABI, signer);
 
-      // Double check balance on-chain
+      // Step 2: Check balance on-chain (single source of truth)
+      setBuyProgress(2);
       const balance = await mockIDRXContract.balanceOf(await signer.getAddress());
-      const balanceFormatted = parseFloat(balance) / 1e2;
+      const balanceFormatted = parseFloat(formatUnits(balance, 2));
       console.log("On-chain IDRX balance:", balanceFormatted);
 
       if (balanceFormatted < selectedListing.price) {
-        throw new Error(`Insufficient on-chain balance. You have ${balanceFormatted} IDRX`);
+        throw new Error(`Insufficient balance. You have ${balanceFormatted} IDRX but need ${selectedListing.price} IDRX`);
       }
 
+      // Step 3: Approve IDRX spend with retry logic
+      setBuyProgress(3);
       console.log("Approving IDRX spend...");
       const priceWei = parseUnits(selectedListing.price.toString(), 2);
       const approveTx = await mockIDRXContract.approve(backendWallet, priceWei);
       console.log("Approve tx sent:", approveTx.hash);
-      await approveTx.wait();
-      console.log("Approve tx confirmed");
 
-      // Call backend to buy
+      const approveReceipt = await waitForTransaction(approveTx, provider);
+      console.log("Approve tx confirmed:", approveReceipt.status === 1 ? "Success" : "Failed");
+
+      if (approveReceipt.status !== 1) {
+        throw new Error("Approval transaction failed on-chain");
+      }
+
+      // Step 4: Call backend to execute purchase
+      setBuyProgress(4);
       console.log("Calling backend to execute purchase...");
       const authToken = await getAccessToken();
       const response = await fetch(
@@ -286,15 +319,17 @@ export default function MarketplacePage() {
       setBuyTxHash(data.purchase.txHash);
       setBuyStep("success");
 
-      // Refresh data
-      setTimeout(() => {
-        fetchListings();
-        fetchBalance();
-      }, 2000);
+      // Step 5: Refresh data (wait for confirmation, no setTimeout)
+      await Promise.all([fetchListings(), fetchBalance()]);
+      toast.success("Purchase successful!");
     } catch (error) {
       console.error("Buy error:", error);
-      setBuyError(error.message || "Purchase failed");
+      const errorMessage = formatBlockchainError(error);
+      setBuyError(errorMessage);
+      toast.error(errorMessage);
       setBuyStep("error");
+    } finally {
+      setTransactionInProgress(false);
     }
   };
 
@@ -324,18 +359,33 @@ export default function MarketplacePage() {
   };
 
   const handleSellSetPrice = () => {
-    if (!sellPrice || parseFloat(sellPrice) <= 0) {
-      setSellError("Please enter a valid price");
+    // Validate price with real-time validation helper
+    const validation = validatePrice(sellPrice);
+    if (!validation.valid) {
+      setSellPriceError(validation.error);
+      setSellError(validation.error);
       return;
     }
+    setSellPriceError("");
+    setSellError("");
     setSellStep("approve");
   };
 
   const handleSellApprove = async () => {
     if (!embeddedWallet || !sellCar || !sellPrice) return;
 
+    // Prevent concurrent transactions
+    if (transactionInProgress) {
+      toast.error("Another transaction is in progress");
+      return;
+    }
+
+    setTransactionInProgress(true);
+
     try {
       setSellStep("listing");
+      setSellProgress(1);
+      setSellError("");
 
       // Validate tokenId
       if (!sellCar.tokenId || sellCar.tokenId < 0) {
@@ -348,24 +398,22 @@ export default function MarketplacePage() {
         series: sellCar.series
       });
 
+      // Step 1: Validate network FIRST
+      const networkValidation = await validateNetwork(embeddedWallet);
+      if (!networkValidation.valid) {
+        throw new Error(networkValidation.error);
+      }
+
       // Get backend wallet address
       const backendWallet = process.env.NEXT_PUBLIC_BACKEND_WALLET_ADDRESS;
       if (!backendWallet) {
         throw new Error("Backend wallet address not configured");
       }
 
-      // Get Ethereum provider dari Privy
+      // Get Ethereum provider
       const ethereumProvider = await embeddedWallet.getEthereumProvider();
       const provider = new BrowserProvider(ethereumProvider);
       const signer = await provider.getSigner();
-
-      // Verify we're on Base Sepolia (chainId 84532)
-      const network = await provider.getNetwork();
-      console.log("Current network:", network.chainId.toString());
-
-      if (network.chainId !== 84532n) {
-        throw new Error("Please switch to Base Sepolia network (Chain ID: 84532)");
-      }
 
       const carAddress = process.env.NEXT_PUBLIC_CAR_CONTRACT_ADDRESS;
       const carABI = [
@@ -375,7 +423,8 @@ export default function MarketplacePage() {
 
       const carContract = new Contract(carAddress, carABI, signer);
 
-      // Verify ownership before approving
+      // Step 2: Verify ownership before approving
+      setSellProgress(2);
       try {
         const owner = await carContract.ownerOf(sellCar.tokenId);
         const userAddress = await signer.getAddress();
@@ -390,13 +439,24 @@ export default function MarketplacePage() {
         throw new Error("Failed to verify NFT ownership. Make sure you own this NFT.");
       }
 
+      // Step 3: Approve NFT with retry logic
+      setSellProgress(3);
       console.log("Sending approve transaction...");
       const approveTx = await carContract.approve(backendWallet, sellCar.tokenId);
       console.log("Approve tx sent:", approveTx.hash);
-      await approveTx.wait();
-      console.log("Approve tx confirmed");
 
-      // Create listing
+      // Track approval in case listing fails
+      trackApproval(sellCar.tokenId, backendWallet, approveTx.hash);
+
+      const approveReceipt = await waitForTransaction(approveTx, provider);
+      console.log("Approve tx confirmed:", approveReceipt.status === 1 ? "Success" : "Failed");
+
+      if (approveReceipt.status !== 1) {
+        throw new Error("Approval transaction failed on-chain");
+      }
+
+      // Step 4: Create listing
+      setSellProgress(4);
       const authToken = await getAccessToken();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/list`,
@@ -419,19 +479,25 @@ export default function MarketplacePage() {
         throw new Error(data.error || "Listing failed");
       }
 
+      // Clear approval tracking on success
+      clearApproval(sellCar.tokenId);
+
       setSellStep("success");
 
-      // Refresh data
-      setTimeout(() => {
-        fetchListings();
-        if (activeTab === "my-listings") {
-          fetchMyListings();
-        }
-      }, 2000);
+      // Step 5: Refresh data (wait for confirmation, no setTimeout)
+      await fetchListings();
+      if (activeTab === "my-listings") {
+        await fetchMyListings();
+      }
+      toast.success("Listing created successfully!");
     } catch (error) {
       console.error("Sell error:", error);
-      setSellError(error.message || "Listing failed");
+      const errorMessage = formatBlockchainError(error);
+      setSellError(errorMessage);
+      toast.error(errorMessage);
       setSellStep("error");
+    } finally {
+      setTransactionInProgress(false);
     }
   };
 
@@ -809,6 +875,7 @@ export default function MarketplacePage() {
           balance={mockIDRXBalance}
           onClose={() => setShowBuyModal(false)}
           onApprove={handleBuyApprove}
+          buyProgress={buyProgress}
         />
       )}
 
@@ -819,12 +886,23 @@ export default function MarketplacePage() {
           car={sellCar}
           price={sellPrice}
           error={sellError}
+          priceError={sellPriceError}
           cars={myCars}
           onClose={handleCloseSellModal}
           onSelectCar={handleSellSelectCar}
-          onSetPrice={(price) => setSellPrice(price)}
+          onSetPrice={(price) => {
+            setSellPrice(price);
+            // Real-time validation
+            const validation = validatePrice(price);
+            if (!validation.valid) {
+              setSellPriceError(validation.error);
+            } else {
+              setSellPriceError("");
+            }
+          }}
           onConfirmPrice={handleSellSetPrice}
           onApprove={handleSellApprove}
+          sellProgress={sellProgress}
         />
       )}
 
@@ -927,7 +1005,7 @@ function ListingCard({ listing, onCancel, onClick }) {
 }
 
 // Buy Modal Component
-function BuyModal({ listing, step, error, txHash, balance, onClose, onApprove }) {
+function BuyModal({ listing, step, error, txHash, balance, onClose, onApprove, buyProgress }) {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto animate-backdrop-in">
       <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-3xl p-6 max-w-sm w-full shadow-2xl my-8 animate-modal-in">
@@ -980,11 +1058,17 @@ function BuyModal({ listing, step, error, txHash, balance, onClose, onApprove })
         )}
         {step === "buying" && (
           <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-white mx-auto mb-4"></div>
-            <h3 className="text-2xl font-black text-white mb-2">Processing...</h3>
-            <p className="text-white/80 text-sm">
-              Approving IDRX and completing purchase...
-            </p>
+            <h3 className="text-2xl font-black text-white mb-4">Processing Purchase</h3>
+            <ProgressSteps
+              steps={[
+                "Validating network",
+                "Checking balance",
+                "Approving IDRX",
+                "Completing purchase"
+              ]}
+              currentStep={buyProgress}
+              className="mb-4"
+            />
           </div>
         )}
         {step === "success" && (
@@ -1040,12 +1124,14 @@ function SellModal({
   car,
   price,
   error,
+  priceError,
   cars,
   onClose,
   onSelectCar,
   onSetPrice,
   onConfirmPrice,
   onApprove,
+  sellProgress,
 }) {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto animate-backdrop-in">
@@ -1108,8 +1194,8 @@ function SellModal({
                 placeholder="Enter price..."
                 className="w-full bg-white/20 border-2 border-white/30 rounded-xl px-4 py-3 text-white font-bold placeholder-white/50 outline-none focus:border-white"
               />
-              {error && (
-                <p className="text-red-200 text-xs mt-2">{error}</p>
+              {priceError && (
+                <p className="text-red-200 text-xs mt-2">{priceError}</p>
               )}
             </div>
             <div className="flex gap-2">
@@ -1162,11 +1248,17 @@ function SellModal({
         )}
         {step === "listing" && (
           <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-white mx-auto mb-4"></div>
-            <h3 className="text-2xl font-black text-white mb-2">Creating Listing...</h3>
-            <p className="text-white/80 text-sm">
-              Approving NFT and creating listing...
-            </p>
+            <h3 className="text-2xl font-black text-white mb-4">Creating Listing</h3>
+            <ProgressSteps
+              steps={[
+                "Validating network",
+                "Verifying ownership",
+                "Approving NFT",
+                "Creating listing"
+              ]}
+              currentStep={sellProgress}
+              className="mb-4"
+            />
           </div>
         )}
         {step === "success" && (
