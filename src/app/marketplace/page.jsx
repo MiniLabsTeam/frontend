@@ -108,7 +108,27 @@ export default function MarketplacePage() {
       if (!response.ok) throw new Error("Failed to fetch listings");
 
       const data = await response.json();
-      setListings(data.listings || []);
+      const rawListings = Array.isArray(data.listings) ? data.listings : [];
+
+      // Fetch metadata for images
+      const enrichedListingsPromises = rawListings.map(async (listing) => {
+        try {
+          const metadataResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/metadata/cars/${listing.car.tokenId}`
+          );
+          const metadata = await metadataResponse.json();
+          return {
+            ...listing,
+            image: metadata.image || null
+          };
+        } catch (error) {
+          console.error(`Failed to fetch metadata for ${listing.car.tokenId}`, error);
+          return listing;
+        }
+      });
+
+      const enrichedListings = await Promise.all(enrichedListingsPromises);
+      setListings(enrichedListings);
     } catch (error) {
       console.error("Failed to fetch listings:", error);
       toast.error("Failed to load marketplace listings. Pull to refresh.");
@@ -124,27 +144,63 @@ export default function MarketplacePage() {
       setLoadingMyListings(true);
       const authToken = await getAccessToken();
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/my-listings?status=${myListingsFilter}`,
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
-      );
+      let rawListings = [];
 
-      if (!response.ok) throw new Error("Failed to fetch my listings");
-
-      const data = await response.json();
       if (myListingsFilter === "all") {
-        setMyListings(data.listings);
+        const statuses = ["active", "sold", "cancelled"];
+        const responses = await Promise.all(
+          statuses.map(status =>
+            fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/my-listings?status=${status}`,
+              {
+                headers: { Authorization: `Bearer ${authToken}` },
+              }
+            ).then(res => res.ok ? res.json() : { listings: [] })
+          )
+        );
+        rawListings = responses.flatMap(data => Array.isArray(data.listings) ? data.listings : []);
       } else {
-        setMyListings({ [myListingsFilter]: data.listings, all: [] });
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/my-listings?status=${myListingsFilter}`,
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          }
+        );
+
+        if (!response.ok) throw new Error("Failed to fetch my listings");
+        const data = await response.json();
+        rawListings = Array.isArray(data.listings) ? data.listings : [];
+      }
+
+      // Fetch metadata for images
+      const enrichedListingsPromises = rawListings.map(async (listing) => {
+        try {
+          const metadataResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/metadata/cars/${listing.car.tokenId}`
+          );
+          const metadata = await metadataResponse.json();
+          return {
+            ...listing,
+            image: metadata.image || null
+          };
+        } catch (error) {
+          console.error(`Failed to fetch metadata for ${listing.car.tokenId}`, error);
+          return listing;
+        }
+      });
+
+      const enrichedListings = await Promise.all(enrichedListingsPromises);
+
+      if (myListingsFilter === "all") {
+        setMyListings(prev => ({ ...prev, all: enrichedListings }));
+      } else {
+        setMyListings(prev => ({ ...prev, [myListingsFilter]: enrichedListings }));
       }
     } catch (error) {
       console.error("Failed to fetch my listings:", error);
       toast.error("Failed to load your listings. Pull to refresh.");
-      setMyListings({ active: [], sold: [], cancelled: [], all: [] });
     } finally {
       setLoadingMyListings(false);
     }
@@ -166,7 +222,27 @@ export default function MarketplacePage() {
       if (!response.ok) throw new Error("Failed to fetch cars");
 
       const data = await response.json();
-      setMyCars(data.cars || []);
+      const rawCars = data.cars || [];
+
+      // Fetch metadata for images
+      const enrichedCarsPromises = rawCars.map(async (car) => {
+        try {
+          const metadataResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/metadata/cars/${car.tokenId}`
+          );
+          const metadata = await metadataResponse.json();
+          return {
+            ...car,
+            image: metadata.image || null
+          };
+        } catch (error) {
+          console.error(`Failed to fetch metadata for car ${car.tokenId}`, error);
+          return car;
+        }
+      });
+
+      const enrichedCars = await Promise.all(enrichedCarsPromises);
+      setMyCars(enrichedCars);
     } catch (error) {
       console.error("Failed to fetch cars:", error);
       toast.error("Failed to load your cars.");
@@ -355,7 +431,7 @@ export default function MarketplacePage() {
 
   const handleSellSelectCar = (car) => {
     setSellCar(car);
-    setSellStep("price");
+    setSellStep(car ? "price" : "select");
   };
 
   const handleSellSetPrice = () => {
@@ -730,10 +806,9 @@ export default function MarketplacePage() {
                           </span>
                         </div>
 
-                        {/* Car Image */}
                         <div className="aspect-square flex items-center justify-center mb-2">
                           <img
-                            src={getCarImagePath(listing.car.modelName)}
+                            src={listing.image || getCarImagePath(listing.car.modelName)}
                             alt={listing.car.modelName}
                             className="w-full h-full object-contain drop-shadow-2xl"
                             onError={handleImageError}
@@ -964,7 +1039,7 @@ function ListingCard({ listing, onCancel, onClick }) {
         {/* Car Image */}
         <div className="w-24 h-24 flex-shrink-0">
           <img
-            src={getCarImagePath(listing.car.modelName)}
+            src={listing.image || getCarImagePath(listing.car.modelName)}
             alt={listing.car.modelName}
             className="w-full h-full object-contain drop-shadow-xl"
             onError={handleImageError}
@@ -1160,12 +1235,10 @@ function SellModal({
                   >
                     <div className="flex gap-3 items-center">
                       <img
-                        src={getCarImagePath(c.modelName)}
+                        src={c.image || getCarImagePath(c.modelName)}
                         alt={c.modelName}
                         className="w-16 h-16 object-contain"
-                        onError={(e) => {
-                          e.target.src = "/assets/car/placeholder.png";
-                        }}
+                        onError={handleImageError}
                       />
                       <div>
                         <p className="text-white font-bold text-sm">{c.modelName}</p>
@@ -1333,7 +1406,7 @@ function DetailModal({ listing, balance, onClose, onBuy, onCancel }) {
         {/* Car Image */}
         <div className="bg-white/10 rounded-2xl p-6 mb-4">
           <img
-            src={getCarImagePath(listing.car.modelName)}
+            src={listing.image || getCarImagePath(listing.car.modelName)}
             alt={listing.car.modelName}
             className="w-full h-48 object-contain drop-shadow-2xl"
             onError={handleImageError}
