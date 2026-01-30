@@ -91,8 +91,6 @@ MiniGarage uses a dual-market approach: **Collectors-first, Gamers-second** (gro
 ![Gamer to Collector Conversion Loop](conversion.png)
 
 
----
-
 ## 🌍 Market Size & Real Communities
 
 **🇮🇩 Indonesia as Launch Market**
