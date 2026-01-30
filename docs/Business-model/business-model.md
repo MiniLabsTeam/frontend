@@ -88,14 +88,7 @@ MiniGarage uses a dual-market approach: **Collectors-first, Gamers-second** (gro
 > **Key Insight:** Gamers already spend money — MiniGarage gives them exit liquidity.
 
 #### Gamer → Collector Conversion Loop
-```mermaid
-flowchart LR
-    A[Gamer enters via Gacha] --> B[Owns NFT]
-    B --> C[Trades on Marketplace]
-    C --> D[Builds Collection]
-    D --> E[Becomes Collector]
-    E --> F[Redeems Physical RWA]
-```
+![Gamer to Collector Conversion Loop](conversion.png)
 *Gamers enter for fun, Collectors stay for value.*
 
 ---
