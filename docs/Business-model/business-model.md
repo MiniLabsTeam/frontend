@@ -89,7 +89,7 @@ MiniGarage uses a dual-market approach: **Collectors-first, Gamers-second** (gro
 
 #### Gamer → Collector Conversion Loop
 ![Gamer to Collector Conversion Loop](conversion.png)
-*Gamers enter for fun, Collectors stay for value.*
+
 
 ---
 
