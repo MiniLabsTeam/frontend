@@ -13,151 +13,180 @@ The platform is designed to be **easy to access**, **fair to play**, and **trust
 MiniGarage uses a gacha system where **every outcome results in on-chain ownership**.
 
 ![Gacha](gacha-system.png)
-Key Properties
+**Key Properties:**
+*   ✅ Every gacha roll produces an NFT
+*   ✅ Assets are owned by the user, not the platform
+*   ✅ NFTs remain valid even if the app is unavailable
 
-Every gacha roll produces an NFT
+---
 
-Assets are owned by the user, not the platform
+## 2. 🧩 Fragment Crafting (Guaranteed Progression)
 
-NFTs remain valid even if the app is unavailable
-
-2. 🧩 Fragment Crafting (Guaranteed Progression) (Live on Testnet)
 MiniGarage avoids pure RNG frustration by introducing fragment-based progression.
 
-Traditional Gacha:
-Roll → Random Result → No Guarantee ❌
+*   **Traditional Gacha:** Roll → Random Result → No Guarantee ❌
+*   **MiniGarage:** Roll → Fragment → Progress → Guaranteed Car ✅
 
-MiniGarage:
-Roll → Fragment → Progress → Guaranteed Car ✅
-How It Works
+### How It Works
 
-Gacha may return a fragment instead of a full car
+1.  Gacha may return a fragment instead of a full car.
+2.  Collect a full set of fragments of the same tier.
+3.  Assemble fragments to mint a guaranteed car NFT.
+4.  Fragments are tradeable NFTs.
 
-Collect a full set of fragments of the same tier
+> This ensures that every roll contributes toward a meaningful outcome.
 
-Assemble fragments to mint a guaranteed car NFT
+---
 
-Fragments are tradeable NFTs
+## 3. 🏪 Peer-to-Peer Marketplace
 
-This ensures that every roll contributes toward a meaningful outcome.
-
-3. 🏪 Peer-to-Peer Marketplace (Live on Testnet)
 Collectors can trade NFTs directly with each other inside the MiniGarage ecosystem.
 
 ![Marketplace-Characteristics](marketplace.png)
 
-Peer-to-peer trading
+**Marketplace Characteristics:**
+*   Peer-to-peer trading.
+*   No inflation of supply.
+*   Transparent price discovery.
+*   Gas-abstracted transactions.
 
-No inflation of supply
+> Marketplace activity does not affect total NFT supply.
 
-Transparent price discovery
+---
 
-Gas-abstracted transactions
+## 4. 🌍 Real-World Asset (RWA) Bridge (Roadmap)
 
-Marketplace activity does not affect total NFT supply.
-
-4. 🌍 Real-World Asset (RWA) Bridge (Roadmap)
 Each NFT car is designed to represent a limited physical collectible.
 
-Planned RWA Flow
+**Planned RWA Flow:**
+`NFT Ownership` → `Burn NFT` → `Claim Physical Asset`
 
-NFT Ownership → Burn NFT → Claim Physical Asset
-Design Principles
+**Design Principles:**
+*   NFT minting is capped by real-world asset supply.
+*   Each NFT can be redeemed only once.
+*   Redemption requires on-chain burning.
+*   Prevents double-claims and oversupply.
 
-NFT minting is capped by real-world asset supply
+> This model connects digital collecting with real-world scarcity in a verifiable way.
 
-Each NFT can be redeemed only once
+---
 
-Redemption requires on-chain burning
+## 5. ⚡ Gas-Abstracted Experience with IDRX
 
-Prevents double-claims and oversupply
-
-This model connects digital collecting with real-world scarcity in a verifiable way.
-
-5. ⚡ Gas-Abstracted Experience with IDRX (Live on Testnet)
 MiniGarage abstracts gas fees using an in-app token model.
 
-Action	User Experience
-Open Gacha	Gasless
-Mint NFT	Sponsored
-Trade NFT	Gasless
-Assemble Fragments	Gasless
-Users interact with MiniGarage without handling ETH, gas fees, or failed transactions.
+<table data-card-size="large" data-view="cards">
+<thead><tr><th></th><th></th><th></th></tr></thead>
+<tbody>
+<tr>
+<td><strong>Action</strong></td>
+<td><strong>User Experience</strong></td>
+</tr>
+<tr>
+<td>Open Gacha</td>
+<td>✅ <strong>Gasless</strong></td>
+</tr>
+<tr>
+<td>Mint NFT</td>
+<td>✅ <strong>Sponsored</strong></td>
+</tr>
+<tr>
+<td>Trade NFT</td>
+<td>✅ <strong>Gasless</strong></td>
+</tr>
+<tr>
+<td>Assemble Fragments</td>
+<td>✅ <strong>Gasless</strong></td>
+</tr>
+</tbody>
+</table>
 
-6. 🔐 Seamless Access via Base Mini App (Live)
+**Result:** Users interact with MiniGarage without handling ETH, gas fees, or failed transactions.
+
+---
+
+## 6. 🔐 Seamless Access via Base Mini App
+
 MiniGarage runs as a Base Mini App, allowing instant access without traditional dApp friction.
 
-Supported Access Methods
+**Supported Access Methods:**
+*   Farcaster
+*   Email
+*   External Wallet
 
-Farcaster
+**Why Mini Apps Matter:**
+*   No browser extension required.
+*   Native social discovery (Farcaster).
+*   Faster onboarding for non-crypto users.
+*   Designed for consumer-scale adoption.
 
-Email
+> Users can start collecting within seconds, not minutes.
 
-External Wallet
+---
 
-Why Mini Apps Matter
+## 7. 🎨 Curated Car Collection
 
-No browser extension required
-
-Native social discovery (Farcaster)
-
-Faster onboarding for non-crypto users
-
-Designed for consumer-scale adoption
-
-Users can start collecting within seconds, not minutes.
-
-7. 🎨 Curated Car Collection (Live on Testnet)
 MiniGarage features a curated set of car models across multiple rarity tiers.
 
-Design Focus
+**Design Focus:**
+*   Distinct visual identity per tier.
+*   High-quality assets.
+*   Clear rarity differentiation.
+*   Structured supply per model.
 
-Distinct visual identity per tier
+**Each car NFT includes:**
+*   Tier classification.
+*   Visual metadata.
+*   On-chain ownership record.
 
-High-quality assets
+---
 
-Clear rarity differentiation
+## 🔮 Future Enhancements (Roadmap)
 
-Structured supply per model
-
-Each car NFT includes:
-
-Tier classification
-
-Visual metadata
-
-On-chain ownership record
-
-🔮 Future Enhancements (Roadmap)
 Planned features to strengthen long-term trust and engagement:
 
-Physical Redemption (RWA)
+*   Physical Redemption (RWA).
+*   ERC-6551 NFT Identity (serial number, provenance, redemption status).
+*   Achievements & Collector Badges.
+*   Social & Community Features.
 
-ERC-6551 NFT Identity (serial number, provenance, redemption status)
+> These features are not part of the current MVP and will be introduced progressively.
 
-Achievements & Collector Badges
+---
 
-Social & Community Features
+## 🎯 Why These Features Matter
 
-These features are not part of the current MVP and will be introduced progressively.
-
-🎯 Why These Features Matter
 MiniGarage is built around three principles:
 
-Easy Access  → Base Mini App
-Fair Play    → Gacha + Fragments
-Real Value   → NFT Ownership + RWA
+<table data-card-size="large" data-view="cards">
+<thead><tr><th></th><th></th></tr></thead>
+<tbody>
+<tr>
+<td><strong>Easy Access</strong></td>
+<td>Base Mini App</td>
+</tr>
+<tr>
+<td><strong>Fair Play</strong></td>
+<td>Gacha + Fragments</td>
+</tr>
+<tr>
+<td><strong>Real Value</strong></td>
+<td>NFT Ownership + RWA</td>
+</tr>
+</tbody>
+</table>
+
 This combination creates a collectible experience that is:
+*   Accessible to mainstream users.
+*   Fair to long-term collectors.
+*   Grounded in real-world scarcity.
 
-Accessible to mainstream users
+---
 
-Fair to long-term collectors
+## Next: Architecture
 
-Grounded in real-world scarcity
-
-Next: Architecture
 Learn how MiniGarage is structured on-chain and off-chain →
 
 {% content-ref url="../technical/architecture.md" %}
-architecture.md
+[architecture.md](../technical/architecture.md)
 {% endcontent-ref %}
