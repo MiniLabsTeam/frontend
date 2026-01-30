@@ -152,32 +152,79 @@ This ensures MiniGarage remains compatible with future network upgrades.
 
 ### Base vs Polygon
 
-| Aspect | Base | Polygon |
-|:---|:---|:---|
-| **Fees** | Low & predictable | Low |
-| **Speed** | ~2s blocks | ~2s blocks |
-| **Ecosystem Focus** | Consumer & Social | Broad |
-| **Backing** | Coinbase | Independent |
+<table data-card-size="large" data-view="cards">
+<thead><tr><th></th><th></th></tr></thead>
+<tbody>
+<tr>
+<td><strong>Base</strong></td>
+<td>
+✅ <strong>Fees:</strong> Low & predictable<br>
+✅ <strong>Backing:</strong> Coinbase (Trusted)<br>
+✅ <strong>Focus:</strong> Consumer & Social
+</td>
+</tr>
+<tr>
+<td><strong>Polygon</strong></td>
+<td>
+✅ <strong>Fees:</strong> Low<br>
+⚠️ <strong>Backing:</strong> Independent<br>
+⚠️ <strong>Focus:</strong> Broad / General
+</td>
+</tr>
+</tbody>
+</table>
 
 **Summary:** Base was chosen for its strong consumer focus and ecosystem momentum.
 
 ### Base vs Arbitrum
 
-| Aspect | Base | Arbitrum |
-|:---|:---|:---|
-| **Fees** | Lower on average | Slightly higher |
-| **UX Focus** | Consumer-first | DeFi-heavy |
-| **Coinbase Integration** | Native | None |
+<table data-card-size="large" data-view="cards">
+<thead><tr><th></th><th></th></tr></thead>
+<tbody>
+<tr>
+<td><strong>Base</strong></td>
+<td>
+✅ <strong>Fees:</strong> Lower on average<br>
+✅ <strong>UX Focus:</strong> Consumer-first<br>
+✅ <strong>Integration:</strong> Native Coinbase
+</td>
+</tr>
+<tr>
+<td><strong>Arbitrum</strong></td>
+<td>
+⚠️ <strong>Fees:</strong> Slightly higher<br>
+⚠️ <strong>UX Focus:</strong> DeFi-heavy<br>
+❌ <strong>Integration:</strong> None
+</td>
+</tr>
+</tbody>
+</table>
 
 **Summary:** Base better matches MiniGarage’s onboarding and UX goals.
 
 ### Base vs Ethereum L1
 
-| Aspect | Base | Ethereum L1 |
-|:---|:---|:---|
-| **Fees** | ~$0.01–$0.05 | $5–$50 |
-| **Speed** | ~2s | ~12–15s |
-| **Consumer Suitability** | High | Low |
+<table data-card-size="large" data-view="cards">
+<thead><tr><th></th><th></th></tr></thead>
+<tbody>
+<tr>
+<td><strong>Base</strong></td>
+<td>
+✅ <strong>Fees:</strong> $0.01 – $0.05<br>
+✅ <strong>Speed:</strong> ~2s<br>
+✅ <strong>Suitability:</strong> High for Gaming
+</td>
+</tr>
+<tr>
+<td><strong>Ethereum L1</strong></td>
+<td>
+❌ <strong>Fees:</strong> $5 – $50+<br>
+⚠️ <strong>Speed:</strong> ~12–15s<br>
+❌ <strong>Suitability:</strong> Low for Gaming
+</td>
+</tr>
+</tbody>
+</table>
 
 **Summary:** Base delivers Ethereum-level security with drastically lower cost and latency.
 
@@ -203,44 +250,88 @@ D --> E[Production Launch]
 
 ### Base Sepolia (Current)
 
-| Parameter | Value |
-|:---|:---|
-| **Chain ID** | 84532 |
-| **RPC** | https://sepolia.base.org |
-| **Explorer** | https://sepolia.basescan.org |
-| **Block Time** | ~2 seconds |
+<table data-card-size="large" data-view="cards">
+<thead><tr><th></th><th></th></tr></thead>
+<tbody>
+<tr>
+<td><strong>Chain ID</strong></td>
+<td>84532</td>
+</tr>
+<tr>
+<td><strong>RPC</strong></td>
+<td>https://sepolia.base.org</td>
+</tr>
+<tr>
+<td><strong>Explorer</strong></td>
+<td>https://sepolia.basescan.org</td>
+</tr>
+<tr>
+<td><strong>Block Time</strong></td>
+<td>~2 seconds</td>
+</tr>
+</tbody>
+</table>
 
 ### Base Mainnet (Target)
 
-| Parameter | Value |
-|:---|:---|
-| **Chain ID** | 8453 |
-| **RPC** | https://mainnet.base.org |
-| **Explorer** | https://basescan.org |
-| **Block Time** | ~2 seconds |
+<table data-card-size="large" data-view="cards">
+<thead><tr><th></th><th></th></tr></thead>
+<tbody>
+<tr>
+<td><strong>Chain ID</strong></td>
+<td>8453</td>
+</tr>
+<tr>
+<td><strong>RPC</strong></td>
+<td>https://mainnet.base.org</td>
+</tr>
+<tr>
+<td><strong>Explorer</strong></td>
+<td>https://basescan.org</td>
+</tr>
+<tr>
+<td><strong>Block Time</strong></td>
+<td>~2 seconds</td>
+</tr>
+</tbody>
+</table>
 
 ---
 
 ## 🎯 Why Base Fits MiniGarage
 
-| MiniGarage Needs | Base Capabilities |
-|:---|:---|
-| Low-cost transactions | Affordable L2 fees |
-| Fast interactions | Short block times |
-| Easy onboarding | Coinbase ecosystem |
-| Developer velocity | EVM compatibility |
-| Future scalability | OP Stack / Superchain |
+<table data-card-size="large" data-view="cards">
+<thead><tr><th></th><th></th></tr></thead>
+<tbody>
+<tr>
+<td><strong>MiniGarage Needs</strong></td>
+<td><strong>Base Capabilities</strong></td>
+</tr>
+<tr>
+<td>Low-cost transactions</td>
+<td>✅ Affordable L2 fees</td>
+</tr>
+<tr>
+<td>Fast interactions</td>
+<td>✅ Short block times</td>
+</tr>
+<tr>
+<td>Easy onboarding</td>
+<td>✅ Coinbase ecosystem</td>
+</tr>
+<tr>
+<td>Developer velocity</td>
+<td>✅ EVM compatibility</td>
+</tr>
+<tr>
+<td>Future scalability</td>
+<td>✅ OP Stack / Superchain</td>
+</tr>
+</tbody>
+</table>
 
 {% hint style="info" %}
 Base enables MiniGarage to focus on building a smooth collecting experience without exposing users to blockchain complexity.
 {% endhint %}
 
----
-
-## Next: Key Features
-
-Learn how MiniGarage’s gacha, fragment system, and RWA mechanics work →
-
-{% content-ref url="key-features.md" %}
-[key-features.md](key-features.md)
-{% endcontent-ref %}
+%}
