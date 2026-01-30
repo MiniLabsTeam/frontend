@@ -1,283 +1,168 @@
 # 🗺️ Roadmap
 
-MiniGarage development journey and future plans.
+MiniGarage development roadmap after Hackathon MVP.
 
 ---
 
-## 🎯 Hackathon MVP (Now) ✅
+## 🎯 Hackathon MVP (Completed) ✅
 
-**Status:** COMPLETED
+**Timeline:** Dec 2025 – Jan 2026  
 
-**Timeline:** December 2025 - January 2026
+This phase validates the **core product loop**:
 
-### Features Delivered
+> **Gacha → Fragment → Assembly → Trade → Ownership**
 
-#### Core Gameplay
-- ✅ **4-Tier Gacha System** - Standard, Rare, Premium, Legendary boxes
-- ✅ **Fragment Assembly** - Collect 5 parts → Forge car NFT
-- ✅ **100+ Car Collection** - Economy, Sport, Supercar, Hypercar series
-- ✅ **Rarity System** - Common, Rare, Epic, Legendary with visual indicators
+### Delivered
 
-#### User Experience
-- ✅ **Social Login** - Email, Google, Twitter, Discord via Privy
-- ✅ **Embedded Wallet** - No MetaMask required
-- ✅ **PWA Support** - Install as mobile app
-- ✅ **Pull-to-Refresh** - Native mobile feel
-- ✅ **Smooth Animations** - Gacha reveal, loading states
+- ✅ IDRX-based Gacha System  
+- ✅ Fragment Assembly (burn fragments → mint car NFT)  
+- ✅ Car NFT & Fragment NFT smart contracts  
+- ✅ Base Mini App integration  
+- ✅ Backend-coordinated marketplace (MVP)  
+- ✅ MockIDRX on Base Sepolia  
+- ✅ Gas-sponsored transactions (user-friendly UX)
 
-#### Economy
-- ✅ **Daily Faucet** - 1M IDRX every 24 hours
-- ✅ **MockIDRX Token** - ERC-20 on Base Sepolia
-- ✅ **Admin Buyback** - Instant sell for fixed prices
-- ✅ **Marketplace MVP** - P2P trading with 2.5% fee
-
-#### Management
-- ✅ **Inventory System** - Filter by rarity, view stats
-- ✅ **Transaction History** - Activity feed
-- ✅ **User Profile** - Username, wallet info, shipping details
-
-#### Infrastructure
-- ✅ **Base Sepolia Deployment** - All contracts live and verified
-- ✅ **Next.js PWA** - Deployed on Vercel
-- ✅ **Backend API** - Node.js + PostgreSQL
-- ✅ **Responsive Design** - Mobile-first approach
+> **Outcome:**  
+> A fully playable Web3 collectible game with real ownership and on-chain assets.
 
 ---
 
-## 🚀 Post-Hackathon Alpha (2-4 Weeks)
+## 🚀 Post-Hackathon Roadmap
 
-**Focus:** Polish, Security, Community
-
-### Security Enhancements
-
-- [ ] **Smart Contract Audit** - External security review
-- [ ] **Bug Bounty Program** - Community-driven security testing
-- [ ] **Rate Limiting** - Prevent abuse
-- [ ] **Multi-sig Wallet** - For admin functions
-- [ ] **Incident Response Plan** - Handle exploits quickly
-
-### UX Improvements
-
-- [ ] **Onboarding Tutorial** - Interactive first-time guide
-- [ ] **Achievement System** - Badges for milestones
-- [ ] **Collection Progress** - % complete for each series
-- [ ] **Wishlist Feature** - Mark cars you want
-- [ ] **Gift System** - Send cars to friends
-
-### Marketplace V2
-
-- [ ] **Advanced Filters** - Sort by stats, date listed
-- [ ] **Price History Charts** - Track market trends
-- [ ] **Offer System** - Make offers on unlisted cars
-- [ ] **Bulk Listing** - List multiple cars at once
-- [ ] **Favoriting** - Save interesting listings
-
-### Community Features
-
-- [ ] **Leaderboards** - Top collectors, traders
-- [ ] **Public Profiles** - Showcase collections
-- [ ] **Social Sharing** - Share pulls on Twitter
-- [ ] **Discord Bot** - Price checks, alerts
-- [ ] **Newsletter** - Weekly drops & events
+Post-hackathon development is split into **three clear quarters** to ensure
+security, scalability, and long-term RWA viability.
 
 ---
 
-## 🌟 Beta / Mainnet Prep (1-3 Months)
+## 🟢 Q1 2026 — Alpha Stabilization
 
-**Focus:** Mainnet Deployment, Scale
+**Focus:** Security, UX polish, and early community traction
 
-### Mainnet Migration
-
-- [ ] **Base Mainnet Deployment** - Chain ID 8453
-- [ ] **IDRX Strategy** - Partner with official IDRX or custom solution
-- [ ] **Gas Sponsorship** - Meta-transactions for new users
-- [ ] **Contract Upgrades** - UUPS proxy pattern
-- [ ] **Emergency Pause** - Circuit breaker for security
-
-### Advanced Features
-
-- [ ] **Chainlink VRF** - Provably fair RNG for gacha
-- [ ] **Staking** - Earn rewards by locking cars
-- [ ] **Lending** - Rent cars to other players
-- [ ] **Guilds/Clans** - Team-based challenges
-- [ ] **Tournaments** - Competitive events with prizes
-
-### Physical Integration
-
-- [ ] **Die-Cast Partners** - Sign contracts with manufacturers
-- [ ] **Redemption System V1** - Burn NFT → Ship physical car
-- [ ] **Global Shipping** - 50+ countries
-- [ ] **Certificate of Authenticity** - NFC chips in physical cars
-- [ ] **AR Viewer** - View cars in 3D before buying
-
-### Economic Expansion
-
-- [ ] **Liquidity Pools** - IDRX/ETH on Uniswap
-- [ ] **Yield Farming** - Stake LP tokens
-- [ ] **Governance Token** - Vote on game decisions
-- [ ] **Treasury Management** - Transparent fund allocation
-- [ ] **NFT Royalties** - EIP-2981 support
+### Goal
+> Make MiniGarage **stable, understandable, and trustworthy** for early adopters.
 
 ---
 
-## 🔮 Future Ideas (6-12 Months)
-
-**Focus:** Ecosystem Growth
-
-### Cross-Chain
-
-- [ ] **Ethereum Mainnet** - Bridge cars to L1
-- [ ] **Polygon Support** - Lower fees option
-- [ ] **Arbitrum/Optimism** - Multi-L2 presence
-- [ ] **Cross-Chain Marketplace** - Trade across networks
-
-### Gaming Evolution
-
-- [ ] **Racing Mini-Game** - Use cars in races
-- [ ] **Car Stats** - Speed, acceleration, handling
-- [ ] **Customization** - Paint, wheels, decals
-- [ ] **Virtual Garage** - 3D showroom
-- [ ] **VR Support** - Immersive collection viewing
-
-### Mobile Apps
-
-- [ ] **Native iOS App** - App Store release
-- [ ] **Native Android App** - Play Store release
-- [ ] **Wallet Connect** - Link external wallets
-- [ ] **Push Notifications** - Faucet ready, marketplace activity
-
-### Partnerships
-
-- [ ] **Car Brands** - Official licensing (Ferrari, Lamborghini)
-- [ ] **Gaming Studios** - Integrate MiniGarage into racing games
-- [ ] **E-Sports** - Sponsor events, giveaways
-- [ ] **Influencers** - Limited edition drops
+### 🔐 Security & Reliability
+- Smart contract review & internal audit
+- Admin wallet migration to **multi-sig**
+- Rate limiting (faucet, gacha, marketplace)
+- Incident response & rollback plan
 
 ---
 
-## 📊 Success Metrics
-
-### Hackathon MVP ✅
-
-| Metric | Target | Actual |
-|--------|--------|--------|
-| Contracts Deployed | 5 | ✅ 5 |
-| Users Onboarded | 50+ | ✅ 100+ |
-| Gacha Boxes Opened | 100+ | ✅ 500+ |
-| NFTs Minted | 200+ | ✅ 800+ |
-| Marketplace Trades | 20+ | ✅ 50+ |
-
-### Post-Hackathon Alpha
-
-| Metric | Target |
-|--------|--------|
-| Daily Active Users | 500+ |
-| Total NFTs | 10,000+ |
-| Community Size | 1,000+ Discord |
-| Marketplace Volume | 100M+ IDRX |
-
-### Mainnet Launch
-
-| Metric | Target |
-|--------|--------|
-| Total Users | 10,000+ |
-| Monthly Volume | $1M+ |
-| Physical Redemptions | 100+ |
-| Partner Brands | 5+ |
+### 🎮 UX & Gameplay
+- Interactive onboarding tutorial
+- Clear gacha odds & rarity indicators
+- Collection progress (% completion per series)
+- Achievement & badge system (basic)
 
 ---
 
-## 🎯 Development Priorities
+### 🏪 Marketplace V2 — User-Owned Listings
 
-### High Priority
+> **Key Upgrade:** Marketplace evolves from admin-led to **user-owned trading**.
 
-1. **Security Audit** - Before mainnet launch
-2. **Gas Optimization** - Reduce transaction costs
-3. **User Onboarding** - Simplify first experience
-4. **Mobile Polish** - Perfect PWA experience
+- Users can **list and sell their own NFTs**
+- NFTs remain in **user wallets** (non-custodial)
+- Listing uses **approval-based selling**, not NFT deposits
+- Users set their own prices in IDRX
+- Platform only facilitates settlement (2.5% service fee)
 
-### Medium Priority
-
-1. **Advanced Marketplace** - Offers, charts, filters
-2. **Community Features** - Guilds, tournaments
-3. **Physical Integration** - Die-cast redemption
-4. **Staking/Rewards** - Passive income
-
-### Low Priority
-
-1. **Cross-Chain** - Multi-network support
-2. **Racing Game** - Additional gameplay
-3. **VR/AR** - Immersive experiences
-4. **Native Apps** - iOS/Android
+**Important:**  
+Users **do NOT need to send NFTs to admin** to sell them.
 
 ---
 
-## 💬 Community Feedback Integration
-
-We actively listen to our community! Roadmap adjustments based on:
-
-- 📊 **User Surveys** - Monthly polls
-- 💬 **Discord Feedback** - Feature requests channel
-- 🐦 **Twitter Engagement** - Public sentiment
-- 📈 **Analytics** - Usage patterns
-
-**Example:**
-> User feedback: "Need better marketplace search"  
-> Response: Moved "Advanced Filters" to Alpha phase
+### 👥 Community
+- Public user profiles
+- Collector & trader leaderboards
+- Social sharing (gacha results, collections)
 
 ---
 
-## 🚦 Version History
+## 🟡 Q2 2026 — Beta & Mainnet Preparation
 
-### v1.0.0 - Hackathon MVP ✅
-*January 28, 2026*
-- Initial release
-- Core gacha + marketplace + inventory
-- Base Sepolia deployment
+**Focus:** Fairness, scalability, and economic credibility
 
-### v1.1.0 - Alpha (Planned)
-*February 2026*
-- Security improvements
-- Marketplace V2
-- Community features
-
-### v2.0.0 - Mainnet (Planned)
-*Q2 2026*
-- Base Mainnet launch
-- Chainlink VRF
-- Physical redemption
+### Goal
+> Prepare MiniGarage for **real users and real value** on mainnet.
 
 ---
 
-## 📅 Release Schedule
-
-```
-Jan 2026  ████████████████ Hackathon MVP ✅
-Feb 2026  ░░░░░░░░░░░░░░░░ Post-Hackathon Alpha
-Mar 2026  ░░░░░░░░░░░░░░░░ Beta Testing
-Apr 2026  ░░░░░░░░░░░░░░░░ Mainnet Preparation
-May 2026  ░░░░░░░░░░░░░░░░ Mainnet Launch 🚀
-```
+### ⛓️ Mainnet Readiness
+- Deploy contracts to **Base Mainnet**
+- Meta-transactions (gas sponsorship)
+- Emergency pause / circuit breaker
+- Upgrade strategy (UUPS / proxy)
 
 ---
 
-## 🎉 Milestones
-
-| Date | Milestone | Status |
-|------|-----------|--------|
-| Dec 2025 | Project Kickoff | ✅ Done |
-| Jan 15, 2026 | MVP Feature Complete | ✅ Done |
-| Jan 20, 2026 | Base Sepolia Deployment | ✅ Done |
-| Jan 28, 2026 | Hackathon Submission | ✅ Done |
-| Feb 2026 | Security Audit | 🔜 Planned |
-| Q2 2026 | Mainnet Launch | 📅 Target |
+### 🎲 Fair & Transparent Gacha
+- Chainlink VRF (provably fair RNG)
+- Transparent supply caps per car model
+- On-chain mint counters tied to **real-world inventory**
 
 ---
 
-{% hint style="info" %}
-**Roadmap is flexible!** We adjust based on community feedback, market conditions, and technical feasibility.
-{% endhint %}
+### 💰 Economy & Trust
+- Finalize IDRX strategy (stablecoin / pricing layer)
+- Treasury transparency dashboard
+- Marketplace fee tuning based on real usage data
 
-{% hint style="success" %}
-**Want to contribute?** Join our Discord and share your ideas! We're building this for the community.
-{% endhint %}
+---
+
+### 📦 RWA Foundations
+- Physical inventory mapping (off-chain ↔ on-chain)
+- Redemption logic design (NFT → physical)
+- Immutable on-chain redemption records
+
+---
+
+## 🔵 Q3 2026 — RWA & Ecosystem Expansion
+
+**Focus:** Real-world assets, retention, and differentiation
+
+### Goal
+> Transform MiniGarage into a **digital-first RWA collectibles platform**.
+
+---
+
+### 🚚 Physical Redemption (V1)
+- Burn NFT → claim physical die-cast
+- Shipping workflow (limited regions)
+- Redemption status tracking
+- Proof of authenticity (QR / serial)
+
+---
+
+### 🎮 Gameplay Expansion
+- Car attributes (cosmetic & stats)
+- Limited edition & seasonal drops
+- Brand or community collaborations
+
+---
+
+### 🌍 Platform Growth
+- External wallet support (WalletConnect)
+- Cross-platform access (beyond Mini App)
+- Partner integrations (brands, creators, communities)
+
+---
+
+## 📊 Roadmap Overview Diagram
+
+```mermaid
+flowchart LR
+    A[Hackathon MVP ✅] --> B[Q1 2026<br/>Alpha Stabilization]
+    B --> C[Q2 2026<br/>Beta & Mainnet Prep]
+    C --> D[Q3 2026<br/>RWA & Expansion]
+
+    A:::done
+    B:::phase
+    C:::phase
+    D:::future
+
+    classDef done fill:#c8f7c5,stroke:#2ecc71,color:#000;
+    classDef phase fill:#dbeafe,stroke:#3b82f6,color:#000;
+    classDef future fill:#fde68a,stroke:#f59e0b,color:#000;

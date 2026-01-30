@@ -6,7 +6,7 @@ Complete technical architecture of MiniGarage.
 
 ## 📊 System Architecture Diagram
 
-![System Architecture](Architecture.png)
+![System Architecture](architecture.png)
 
 ---
 

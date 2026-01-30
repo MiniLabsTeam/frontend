@@ -1,68 +1,93 @@
 # 💼 Inventory Management
 
-Your personalized garage where you can view, manage, and showcase your collection.
+Your personal on-chain garage — a real-time view of everything you truly own.
 
 ---
 
 ## 🚗 Your Car Collection
 
-Here you can see every **Car NFT** you own. Each car card displays:
+The **Cars tab** displays every **Car NFT** owned by your wallet, directly synced from the blockchain.
 
-*   **Model Name**
-*   **Rarity Tier** (Common, Rare, Epic, Legendary)
-*   **Token ID**
-*   **Availability** (e.g., "Ready for Sale")
+Each car card shows:
 
-### Actions
+* **Model Name**
+* **Rarity Tier** (Common, Rare, Epic, Legendary)
+* **Token ID**
+* **Status** (Owned, Listed, Locked)
+
+### Available Actions
 
 <table data-card-size="large" data-view="cards">
-<thead><tr><th></th><th></th></tr></thead>
+<thead><tr><th>Action</th><th>Description</th></tr></thead>
 <tbody>
 <tr>
 <td><strong>View Detail</strong></td>
-<td>Zoom in to see full 3D details.</td>
+<td>Inspect full 3D visuals and metadata.</td>
 </tr>
 <tr>
 <td><strong>Sell</strong></td>
-<td>Listing for sale on Marketplace.</td>
+<td>List the NFT on the Marketplace.</td>
 </tr>
 <tr>
 <td><strong>Transfer</strong></td>
-<td>Send to friends or another wallet.</td>
+<td>Send the NFT to another wallet.</td>
 </tr>
 </tbody>
 </table>
+
+> 🔐 **Important:** Cars listed on the marketplace are temporarily locked until sold or canceled.
 
 ---
 
 ## 🧩 Fragments Stash
 
-Switch tabs to see your **Fragments**. Grouped by **Car Model** and **Rarity**.
+The **Fragments tab** shows all fragment NFTs you own, grouped by **car model** and **rarity tier**.
 
-### Crafting Progress
-The inventory tracks your progress toward a full car.
+Fragments are not just collectibles — they represent **guaranteed progress** toward a full car.
 
-*   You need **5 unique parts** (Chassis, Wheels, Engine, Body, Interior).
-*   **Green Check:** Part owned.
-*   **Grayed Out:** Part missing.
+### Assembly Progress Tracker
 
-> **✨ Magic Moment:** When you have all 5, the **"Assemble"** button lights up!
+* You need **5 unique parts**:
+  - Chassis
+  - Wheels
+  - Engine
+  - Body
+  - Interior
+* **Green Check:** Part owned
+* **Gray Icon:** Part missing
+
+> ✨ **Magic Moment:**  
+> When all 5 parts are collected, the **"Assemble"** button becomes available.
 
 ---
 
 ## 🔍 Filtering & Sorting
 
-Manage large collections easily with filters:
+Designed to scale as your collection grows.
 
-*   **By Tier:** Only show Legendary items.
-*   **By Type:** Only show complete Cars or Fragments.
-*   **By Brand:** Filter by specific car models.
+* **By Tier:** Common → Legendary
+* **By Type:** Cars or Fragments
+* **By Model:** Specific car collections
+* **By Status:** Owned, Listed, Craftable
 
 ---
 
-## 🔗 Blockchain Integration
+## 🔗 On-Chain Ownership & Sync
 
-Your inventory is synchronized directly with the **Base Sepolia blockchain**.
+Your inventory is a **read-only mirror of on-chain data** from the **Base Sepolia blockchain**.
 
-1.  **Real Ownership:** Items are not just database entries; they are tokens in your wallet.
-2.  **External View:** view your collection on **OpenSea** or **BaseScan** using your wallet address.
+### What This Means
+
+1. **True Ownership**  
+   Items are real tokens in your wallet — not stored in a centralized database.
+
+2. **Real-Time Sync**  
+   Any transfer, sale, or burn updates instantly.
+
+3. **External Visibility**  
+   You can view your assets independently on:
+   - BaseScan
+   - NFT marketplaces
+   - Any ERC-compatible wallet
+
+> Even if MiniGarage disappears, your cars remain yours forever.
