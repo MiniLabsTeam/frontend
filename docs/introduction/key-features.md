@@ -44,8 +44,7 @@ This ensures that every roll contributes toward a meaningful outcome.
 3. 🏪 Peer-to-Peer Marketplace (Live on Testnet)
 Collectors can trade NFTs directly with each other inside the MiniGarage ecosystem.
 
-![Marketplace](marketplace.png)
-Marketplace Characteristics
+![Marketplace-Characteristics](marketplace.png)
 
 Peer-to-peer trading
 

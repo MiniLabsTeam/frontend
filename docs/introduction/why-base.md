@@ -67,12 +67,7 @@ This cost structure enables MiniGarage to offer a gas-abstracted user experience
 
 Base offers fast block times (~2 seconds), which is well-suited for interactive consumer applications.
 
-```mermaid
-graph LR
-A[User Action] --> B[Transaction Sent]
-B --> C[Block Confirmed]
-C --> D[Result Available]
-```
+![Fast Finality](fast-finality.png)
 
 **Block Time Comparison:**
 
@@ -128,15 +123,7 @@ MiniGarage is designed to grow alongside this ecosystem.
 
 Base is built on the OP Stack, aligning it with the broader Optimism ecosystem and the Superchain vision.
 
-```mermaid
-graph TD
-A[OP Stack] --> B[Base]
-A --> C[Optimism]
-A --> D[Other OP Chains]
-B --> E[Superchain]
-C --> E
-D --> E
-```
+![OP Stack](opstack.png)
 
 **Benefits:**
 *   Shared security model.
@@ -232,13 +219,7 @@ This ensures MiniGarage remains compatible with future network upgrades.
 
 ## 🚀 Deployment & Migration Strategy
 
-```mermaid
-graph LR
-A[Base Sepolia] --> B[Security Review]
-B --> C[Base Mainnet Deployment]
-C --> D[User Migration]
-D --> E[Production Launch]
-```
+![Deployment](deployment.png)
 
 **Current Status:**
 *   Development and testing on Base Sepolia.
@@ -336,6 +317,3 @@ Base enables MiniGarage to focus on building a smooth collecting experience with
 
 ---
 
-## Next: Key Features
-
-Learn how MiniGarage’s gacha, fragment system, and RWA mechanics work →
