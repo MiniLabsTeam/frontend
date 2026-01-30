@@ -1,368 +1,209 @@
 # 📜 Smart Contracts
 
-MiniGarage smart contract suite deployed on Base Sepolia.
+MiniGarage smart contract suite deployed on Base Sepolia, designed with a **hybrid architecture** that balances on-chain ownership and off-chain game logic for optimal user experience.
 
 ---
 
 ## 🎯 Contract Suite Overview
 
-MiniGarage uses **5 main smart contracts** to power the full gaming experience:
+MiniGarage currently uses **3 core smart contracts** that form the foundation of the game economy and asset ownership:
 
-| Contract | Type | Purpose | Lines of Code |
-|----------|------|---------|---------------|
-| **MockIDRX** | ERC-20 | In-game currency | ~200 |
-| **CarNFT** | ERC-721 | Complete car ownership | ~300 |
-| **FragmentNFT** | ERC-721 | Car parts for assembly | ~350 |
-| **GachaVault** | Custom | Box opening + RNG | ~400 |
-| **Marketplace** | Custom | P2P trading | ~350 |
+<table data-card-size="large" data-view="cards">
+<thead><tr><th></th><th></th><th></th></tr></thead>
+<tbody>
+<tr>
+<td><strong>MockIDRXv2</strong></td>
+<td>ERC-20</td>
+<td>In-game currency + gasless payments (Server-relayed)</td>
+</tr>
+<tr>
+<td><strong>BaseWheelsFragments</strong></td>
+<td>ERC-1155</td>
+<td>Car part fragments for crafting (Semi-fungible)</td>
+</tr>
+<tr>
+<td><strong>BaseWheelsCars</strong></td>
+<td>ERC-721</td>
+<td>Complete car NFTs (RWA-ready, Burnable)</td>
+</tr>
+</tbody>
+</table>
 
-**Total:** ~1,600 lines of Solidity
+> **🎯 Design Choice:** Game logic (gacha RNG, assembly validation, marketplace logic) is handled off-chain by backend services, while ownership, balances, and scarcity live on-chain.
+
+---
+
+## 🧱 Architecture Philosophy
+
+MiniGarage follows a **hybrid Web2.5 architecture**:
+
+### Smart Contracts
+*   **Enforce ownership**
+*   Handle balances and transfers
+*   Enable burning for crafting & redemption
+
+### Backend Services
+*   Execute game logic (RNG, gacha rolls)
+*   Validate crafting rules
+*   Sponsor gas fees (gasless UX)
+
+> **This approach prioritizes:**
+> ⚡ Speed | 🧠 Simplicity | 📱 Consumer-grade UX
 
 ---
 
 ## 📋 Token Standards Used
 
-### ERC-721 (NFTs)
+### 1. ERC-20 — In-game Currency
+**Used for:** IDRX (Mock Indonesian Rupiah)
 
-**Used for:** Cars & Fragments
+*   **Familiar denomination** (2 decimals)
+*   **Simple approvals** and transfers
+*   **Compatible** with wallets and tooling
+*   Enables **gas abstraction** via server relay
+
+**Contract:** `MockIDRXv2.sol`
+
+### 2. ERC-1155 — Fragment System
+**Used for:** Car part fragments
+
+**Why ERC-1155?**
+*   Fragment types are semi-fungible
+*   **Efficient batch minting & burning**
+*   Ideal for crafting mechanics
+*   **Lower gas cost** than ERC-721
+
+**Fragment Types:**
+*   `0` — Chassis
+*   `1` — Wheels
+*   `2` — Engine
+*   `3` — Body
+*   `4` — Interior
+
+**Contract:** `BaseWheelsFragments.sol`
+
+### 3. ERC-721 — Complete Cars (RWA)
+**Used for:** Fully assembled cars
 
 **Why ERC-721?**
-- Each car/fragment is unique with distinct metadata
-- Full ownership transfer capability
-- Compatible with all NFT marketplaces
-- Established, audited standard
+*   Each car is **unique**
+*   **Full ownership** & transferability
+*   **Marketplace compatible**
+*   Supports **burn-for-redemption** (RWA)
 
-**Contracts:**
-- `CarNFT.sol` - Complete assembled cars
-- `FragmentNFT.sol` - 5 fragment types per car brand
-
----
-
-### ERC-1155 (Multi-Token) ❌ Not Used
-
-**Why not ERC-1155?**
-- Each car is unique (not fungible)
-- Fragments are unique per brand + type
-- ERC-721 provides better marketplace compatibility
-- Users expect ERC-721 for collectibles
-
-**Future consideration:** Batch minting for gas savings on mainnet
-
----
-
-### ERC-20 (Fungible Token)
-
-**Used for:** MockIDRX currency
-
-**Why ERC-20?**
-- Universal wallet/DEX support
-- Simple transfer logic
-- Low gas costs
-- Standard approval patterns
-
-**Contract:** `MockIDRX.sol`
+**Contract:** `BaseWheelsCars.sol`
 
 ---
 
 ## 📜 Contract Details
 
-### 1️⃣ MockIDRX (ERC-20)
+### 1️⃣ MockIDRXv2 (ERC-20)
 
-**Address:** `0x998f8B20397445C10c1B60DCa1EebFbda4cA7847`
+**Purpose:** In-game currency with gasless transaction support via server wallet relay.
 
-#### Key Functions
+**Key Characteristics:**
+*   **Decimals:** 2 (Rupiah-like)
+*   **Faucet-enabled** (testnet)
+*   **Treasury-based economy**
+*   **Server-relayed payments**
 
-**`mint(address to, uint256 amount)`**
-- Mints IDRX tokens to user wallet
-- **Access:** Only owner (backend wallet)
-- **Usage:** Faucet claims, rewards
-- **Example:** Faucet mints 1M IDRX every 24h
+**Key Functions:**
+*   `claimFaucet()`: Claim free IDRX every 24 hours (Testnet only).
+*   `payForSpinOnBehalfOf(address user, uint256 cost)`: Gasless payment flow. Server wallet pays gas, tokens transferred from `user` → `treasury`.
+*   `batchPayForSpinOnBehalfOf(...)`: Batch version for gas optimization.
+*   `burn(uint256 amount)`: Burn tokens from caller.
 
-**`burn(uint256 amount)`**
-- Burns IDRX from caller's balance
-- **Access:** Any token holder
-- **Usage:** Opening gacha boxes, pay-to-burn mechanics
-- **Example:** User opens 50K IDRX box → 50K burned
+### 2️⃣ BaseWheelsFragments (ERC-1155)
 
-**`transfer(address to, uint256 amount)`**
-- Standard ERC-20 transfer
-- **Usage:** User-to-user transfers, marketplace payments
+**Purpose:** Represents modular car parts used for assembly.
 
-**`approve(address spender, uint256 amount)`**
-- Allows contracts to spend user's IDRX
-- **Usage:** Marketplace, GachaVault allowances
+**Key Functions:**
+*   `mintFragment(address to, uint256 id, uint256 amount)`: Mint fragment type to user (Auth: Backend).
+*   `mintBatch(...)`: Batch minting for efficiency.
+*   `burnForAssembly(address user, uint256[] ids, uint256[] amounts)`: Burns fragments during crafting. Called by backend after validation.
+*   `checkAllParts(address user)`: Returns balances of all fragment types.
 
-**`balanceOf(address account)`**
-- View function to check balance
-- **Usage:** Frontend displays, validation
+> **🔎 Trust Model:** Backend only calls burn after user-initiated crafting action.
 
-**`decimals()`**
-- Returns: `18`
-- **Usage:** Formatting amounts in UI
+### 3️⃣ BaseWheelsCars (ERC-721)
 
----
+**Purpose:** Represents fully assembled cars and real-world collectible claims.
 
-### 2️⃣ CarNFT (ERC-721)
-
-**Address:** `TBD`
-
-#### Key Functions
-
-**`mint(address to, uint256 tokenId, string memory tokenURI)`**
-- Mints complete car NFT
-- **Access:** Only minter role (GachaVault, AssemblyContract)
-- **Parameters:**
-  - `to` - User wallet address
-  - `tokenId` - Unique NFT ID
-  - `tokenURI` - Metadata URI (IPFS/Backend)
-
-**`burn(uint256 tokenId)`**
-- Burns car NFT (irreversible)
-- **Access:** Token owner only
-- **Usage:** Physical redemption, special events
-
-**`transferFrom(address from, address to, uint256 tokenId)`**
-- Standard NFT transfer
-- **Usage:** Marketplace sales, gifts
-
-**`approve(address to, uint256 tokenId)`**
-- Approves marketplace to transfer NFT
-- **Usage:** Listing cars for sale
-
-**`tokenURI(uint256 tokenId)`**
-- Returns metadata JSON URL
-- **Usage:** Frontend fetches car details
-
-**`ownerOf(uint256 tokenId)`**
-- Returns current owner address
-- **Usage:** Ownership verification
+**Key Functions:**
+*   `mintCar(address to)`: Mint a new car NFT. Called by backend after successful gacha or assembly.
+*   `burnForRedeem(uint256 tokenId)`: Permanently burns NFT for physical redemption (RWA).
+*   `tokenURI(uint256 tokenId)`: Metadata served via backend / IPFS.
+*   `totalSupply()`: Returns total minted cars.
 
 ---
 
-### 3️⃣ FragmentNFT (ERC-721)
-
-**Address:** `TBD`
-
-#### Key Functions
-
-**`mint(address to, uint256 tokenId, uint8 fragmentType, string memory tokenURI)`**
-- Mints fragment NFT with type
-- **Access:** Only minter role (GachaVault)
-- **Fragment Types:**
-  - `0` - Chassis
-  - `1` - Wheels
-  - `2` - Engine
-  - `3` - Body
-  - `4` - Interior
-
-**`burn(uint256 tokenId)`**
-- Burns fragment (used in assembly)
-- **Access:** Token owner or approved
-- **Usage:** Assembly contract burns 5 fragments
-
-**`getFragmentType(uint256 tokenId)`**
-- Returns fragment type (0-4)
-- **Usage:** Assembly validation
-
-**`getFragmentsByOwner(address owner)`**
-- Returns array of tokenIds owned
-- **Usage:** Inventory display
-
----
-
-### 4️⃣ GachaVault (Custom)
-
-**Address:** `TBD`
-
-#### Key Functions
-
-**`openBox(uint8 boxType)`**
-- Opens gacha box and mints reward
-- **Parameters:**
-  - `0` - Standard (25K IDRX)
-  - `1` - Rare (30K IDRX)
-  - `2` - Premium (35K IDRX)
-  - `3` - Legendary (50K IDRX)
-- **Process:**
-  1. Check user has enough IDRX
-  2. Transfer IDRX to vault (burn or treasury)
-  3. Generate random number
-  4. Determine reward based on probabilities
-  5. Mint NFT (Car or Fragment)
-  6. Emit `BoxOpened` event
-
-**`setBoxConfig(uint8 boxType, uint256 cost, uint256[] memory probs)`**
-- Updates box configuration
-- **Access:** Only owner
-- **Usage:** Adjust pricing, odds
-
-**`getBoxInfo(uint8 boxType)`**
-- Returns cost and probabilities
-- **Usage:** Frontend displays odds
-
----
-
-### 5️⃣ Marketplace (Custom)
-
-**Address:** `TBD`
-
-#### Key Functions
-
-**`listItem(address nftContract, uint256 tokenId, uint256 price)`**
-- Lists NFT for sale
-- **Process:**
-  1. Verify caller owns NFT
-  2. Verify NFT approved for marketplace
-  3. Create listing record
-  4. Emit `ItemListed` event
-
-**`buyItem(uint256 listingId)`**
-- Purchases listed NFT
-- **Process:**
-  1. Check listing is active
-  2. Check buyer has enough IDRX
-  3. Transfer IDRX from buyer to seller (minus fee)
-  4. Transfer NFT from seller to buyer
-  5. Mark listing as sold
-  6. Emit `ItemSold` event
-
-**`cancelListing(uint256 listingId)`**
-- Removes listing from marketplace
-- **Access:** Only seller
-- **Refunds:** No fees for canceling
-
-**`setMarketplaceFee(uint256 bps)`**
-- Sets marketplace fee in basis points
-- **Access:** Only owner
-- **Current:** 250 bps = 2.5%
-
-**`withdrawFees()`**
-- Withdraws collected fees to treasury
-- **Access:** Only owner
-
----
-
-## 🔐 Security Features
+## 🔐 Security Model
 
 ### Access Control
+MiniGarage uses a simple and auditable permission model:
+*   `owner` — contract admin
+*   `authorizedMinters` — backend services
 
-**Roles Implemented:**
-- `owner` - Contract deployer, admin functions
-- `minter` - Can mint NFTs (GachaVault, Assembly)
-- `burner` - Can burn tokens (usually token owner)
+**Implemented via:**
+*   OpenZeppelin `Ownable`
+*   Mapping-based minter authorization (gas-efficient)
 
-**Libraries Used:**
-- OpenZeppelin `Ownable` - Owner management
-- OpenZeppelin `AccessControl` - Role-based permissions
+### Gasless Transaction Model
+1.  Users approve once
+2.  Server wallet relays transactions
+3.  Users pay with **IDRX**
+4.  Server pays **gas**
 
----
-
-### Reentrancy Protection
-
-**Vulnerable Functions Protected:**
-- `GachaVault.openBox()` - ReentrancyGuard
-- `Marketplace.buyItem()` - ReentrancyGuard
-- All IDRX transfers - Checks-Effects-Interactions pattern
-
-**Library:**
-- OpenZeppelin `ReentrancyGuard`
-
----
+**Removes:**
+*   ❌ ETH requirement
+*   ❌ Gas confusion
+*   ❌ Wallet friction
 
 ### Input Validation
-
-**All public functions validate:**
-- ✅ Address is not zero
-- ✅ Amount is greater than zero
-- ✅ Token IDs exist
-- ✅ Caller is authorized
-- ✅ State is valid (e.g., listing is active)
-
-**Example:**
-```solidity
-function buyItem(uint256 listingId) external nonReentrant {
-    require(listingId < listings.length, "Invalid listing");
-    Listing storage listing = listings[listingId];
-    require(listing.active, "Listing not active");
-    require(msg.sender != listing.seller, "Cannot buy own item");
-    // ... rest of logic
-}
-```
+All contracts validate:
+*   ✅ Non-zero addresses
+*   ✅ Authorized callers
+*   ✅ Valid IDs and balances
+*   ✅ Proper ownership before burn
 
 ---
 
-### Emergency Functions
+## 🧪 Testing Status
 
-**Circuit Breakers:**
-- `pause()` / `unpause()` - Freeze all trading
-- `emergencyWithdraw()` - Recover stuck funds (owner only)
-
-**Upgrade Strategy:**
-- Non-upgradeable for testnet (simpler, transparent)
-- **Mainnet plan:** Use proxy pattern (UUPS or Transparent)
-
----
-
-## 📦 Dependencies
-
-| Library | Version | Purpose |
-|---------|---------|---------|
-| OpenZeppelin Contracts | 5.0.0 | ERC standards, security |
-| Chainlink VRF | 2.0 | Verifiable randomness (future) |
-
----
-
-## 🧪 Testing
-
-**Test Coverage:** 85%+
-
-**Test Files:**
-- `MockIDRX.test.js` - Token minting, burning, transfers
-- `CarNFT.test.js` - Minting, burning, metadata
-- `FragmentNFT.test.js` - Fragment types, assembly validation
-- `GachaVault.test.js` - Box opening, probabilities, RNG
-- `Marketplace.test.js` - Listing, buying, canceling, fees
-
-**Run Tests:**
-```bash
-cd contracts
-npx hardhat test
-```
-
----
-
-## 🔍 Gas Optimization
-
-| Contract | Optimization |
-|----------|-------------|
-| **All** | Use `calldata` for external functions |
-| **All** | Pack structs to save storage slots |
-| **GachaVault** | Cache storage variables in memory |
-| **Marketplace** | Use events for off-chain indexing |
-| **NFTs** | Batch minting for multiple users (future) |
-
----
-
-## 📊 Comparison with Alternatives
-
-### Why Not Existing Solutions?
-
-| Alternative | Why Not Used |
-|-------------|--------------|
-| **Axie Infinity** | Too complex, closed ecosystem |
-| **Loot Project** | Pure text-based, no gaming |
-| **Opensea Storefront** | Not customized for gacha |
-| **Manifold** | General NFT tools, no game logic |
-
-**MiniGarage is custom-built** for the specific gacha + assembly + marketplace flow.
+*   **Unit-tested core flows:**
+    *   IDRX transfers & faucet
+    *   Fragment mint/burn
+    *   Car mint/burn
+*   **Manual integration testing** via frontend
+*   🔧 Full automated coverage planned post-hackathon.
 
 ---
 
 ## 🚀 Future Improvements
 
-**Post-Hackathon:**
-- [ ] Chainlink VRF for provably fair RNG
-- [ ] Batch minting to reduce gas
-- [ ] EIP-2981 royalties
-- [ ] Upgradeable proxies for mainnet
-- [ ] Multi-sig for admin functions
+**Known Limitations (Transparent Disclosure):**
+*   ❌ Gacha RNG not on-chain (backend-driven)
+*   ❌ No on-chain marketplace yet
+*   ❌ Supply cap enforced off-chain (testnet phase)
+
+> These are intentional tradeoffs for speed and UX during early development.
+
+**Roadmap (Post-Hackathon):**
+*   [ ] On-chain supply cap for RWA cars
+*   [ ] Chainlink VRF for provably fair RNG
+*   [ ] ERC-2981 royalties
+*   [ ] On-chain marketplace
+*   [ ] Multi-sig treasury
+*   [ ] Optional ERC-6551 (token-bound inventory)
+
+---
+
+## ✅ Summary
+
+**MiniGarage smart contracts are:**
+*   **Simple**
+*   **Purpose-built**
+*   **Consumer-first**
+*   **RWA-ready**
+
+> Ownership is enforced on-chain, while gameplay remains **fast, flexible, and scalable**.

@@ -1,333 +1,262 @@
 # 💰 IDRX Integration (Testnet)
 
-How MiniGarage uses MockIDRX token on Base Sepolia.
+How MiniGarage uses **MockIDRXv2** as a gasless in-game currency on Base Sepolia.
 
 ---
 
 ## 🇮🇩 Why Use IDRX?
 
-### Rupiah UX for Indonesian Market
+**Rupiah-Native UX for Indonesian Users**
 
-**Target Audience:** Indonesia has:
-- 275 million population
-- Growing Web3 adoption
-- Strong car culture
-- Familiarity with IDR (Rupiah)
+### Indonesia Context
+*   **275M population**
+*   Mobile-first users
+*   Strong collector & car culture
+*   Familiar with Rupiah-style pricing
 
-**UX Benefits:**
-- Users see prices in familiar currency-like denominations
-- "1,000,000 IDRX" feels more tangible than "0.001 ETH"
-- Easier mental math for pricing
-- Cultural connection for Indonesian users
+### UX Advantages
+*   **25,000 IDRX** is easier to understand than `0.00001 ETH`
+*   **Stable in-game value** (no volatility)
+*   **Familiar mental model** for pricing
+*   Strong local branding
 
----
-
-## 🧪 Scenario A: Mock IDRX on Base Sepolia
-
-### Current Testnet Implementation
-
-**Contract:** `MockIDRX` (ERC-20)  
-**Address:** `0x998f8B20397445C10c1B60DCa1EebFbda4cA7847`  
-**Network:** Base Sepolia (Chain ID: 84532)
-
-### Token Specifications
-
-| Property | Value |
-|----------|-------|
-| **Name** | MockIDRX |
-| **Symbol** | IDRX |
-| **Decimals** | 18 |
-| **Total Supply** | Dynamic (minted on demand) |
-| **Owner** | Backend Wallet (`0xAb4cBeFaeb226BC23F6399E0327F40e362cdDC3B`) |
+> **🎯 Design Goal:** Hide crypto complexity, keep ownership on-chain.
 
 ---
 
-## 🎯 Features Using IDRX
+## 🧪 Current Implementation (Testnet)
 
-### Mapping: Feature → IDRX Usage
+### Token Info
 
-| Feature | IDRX Flow | Amount | Type |
-|---------|-----------|--------|------|
-| **Faucet** | Backend → User | +1,000,000 IDRX | Mint |
-| **Open Standard Box** | User → Burn | -25,000 IDRX | Burn |
-| **Open Rare Box** | User → Burn | -30,000 IDRX | Burn |
-| **Open Premium Box** | User → Burn | -35,000 IDRX | Burn |
-| **Open Legendary Box** | User → Burn | -50,000 IDRX | Burn |
-| **Marketplace Buy** | Buyer → Seller | Variable | Transfer |
-| **Marketplace Fee** | Seller → Treasury | 2.5% of sale | Transfer |
-| **Admin Buyback** | Treasury → User | Variable | Transfer |
+<table data-card-size="large" data-view="cards">
+<thead><tr><th></th><th></th></tr></thead>
+<tbody>
+<tr>
+<td><strong>Name</strong></td>
+<td>Mock IDRX v2</td>
+</tr>
+<tr>
+<td><strong>Symbol</strong></td>
+<td>IDRX</td>
+</tr>
+<tr>
+<td><strong>Standard</strong></td>
+<td>ERC-20</td>
+</tr>
+<tr>
+<td><strong>Decimals</strong></td>
+<td>2 (Rupiah-style)</td>
+</tr>
+<tr>
+<td><strong>Network</strong></td>
+<td>Base Sepolia (Chain ID: 84532)</td>
+</tr>
+<tr>
+<td><strong>Supply</strong></td>
+<td>Dynamic (minted via faucet & admin)</td>
+</tr>
+</tbody>
+</table>
+
+{% hint style="warning" %}
+**Important:** This token is testnet-only and has **no real monetary value**.
+{% endhint %}
 
 ---
 
-## 💸 IDRX Economy Flow
+## 🧠 Core Design: Gasless IDRX Payments
 
+MiniGarage uses a **server-relay model** to remove gas friction:
+
+1.  **Users never pay gas**
+2.  Server wallet executes transactions
+3.  Users only pay IDRX
+4.  Fully on-chain balance & ownership
+
+### 🎯 Features Using IDRX
+
+| Feature | Flow | Type |
+| :--- | :--- | :--- |
+| **Faucet** | Contract → User | Mint |
+| **Gacha Spin** | User → Treasury | Transfer |
+| **Fragment Crafting** | Free | — |
+| **NFT Mint** | Free | — |
+| **Marketplace** (future) | User ↔ User | Transfer |
+
+### 💸 IDRX Economy Flow
+
+```mermaid
+graph TD
+    A[FAUCET] -->|Mint IDRX| B(User Wallet)
+    B -->|Transfer for Spin| C[Treasury]
+    C -.->|No Burning| D[Economy Recycle]
 ```
-┌──────────────┐
-│   FAUCET     │  Mint 1M IDRX (24h cooldown)
-│   (Source)   │
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│  USER WALLET │  Hold IDRX balance
-└──────┬───────┘
-       │
-       ├────────────────────────────────┐
-       │                                │
-       ▼                                ▼
-┌──────────────┐                ┌──────────────┐
-│ GACHA BOXES  │                │ MARKETPLACE  │
-│ (Burn)       │                │ (Trade)      │
-└──────┬───────┘                └──────┬───────┘
-       │                               │
-       ▼                               ▼
-  IDRX Burned                    IDRX Circulates
-  (Deflationary)                 (Between Users)
-```
+
+*   No burning during spin
+*   Treasury-based economy
+*   Fully traceable on-chain
 
 ---
 
 ## 🛠️ Technical Implementation
 
-### Minting IDRX (Faucet)
+### Faucet Flow (On-Chain)
 
-**Backend API:**
-```javascript
-// User claims faucet
-POST /api/faucet/claim
-Authorization: Bearer <privy_token>
-
-// Backend checks cooldown (24h)
-const lastClaim = await db.getUserLastClaim(userId);
-if (Date.now() - lastClaim < 86400000) {
-  return { error: "Cooldown not expired" };
+```solidity
+function claimFaucet() external {
+    require(
+        block.timestamp >= lastFaucetClaim[msg.sender] + 1 days,
+        "Cooldown active"
+    );
+    _mint(msg.sender, FAUCET_AMOUNT);
 }
-
-// Backend mints IDRX via contract
-const contract = new ethers.Contract(MOCKIDRX_ADDRESS, ABI, backendSigner);
-const tx = await contract.mint(userWallet, ethers.parseUnits("1000000", 18));
-await tx.wait();
-
-// Update DB
-await db.setUserLastClaim(userId, Date.now());
 ```
 
----
+*   **500,000 IDRX** per claim
+*   **24h cooldown**
+*   Fully on-chain enforcement
 
-### Burning IDRX (Gacha)
+### Gasless Gacha Payment (Core Innovation)
 
-**User Flow:**
-1. User approves IDRX spend
-2. Backend calls `transferFrom()` to move IDRX to backend
-3. Backend burns IDRX via `burn()`
-4. Backend mints NFT reward
+**Flow Overview:**
+1.  User approves server wallet **once**.
+2.  User clicks "Spin".
+3.  **Backend pays gas**.
+4.  Contract transfers IDRX from **User → Treasury**.
 
-**Frontend:**
+**Server-Relayed Payment (Contract Logic):**
+
+```solidity
+function payForSpinOnBehalfOf(
+    address user,
+    uint256 spinCost
+) external onlyServer {
+    _spendAllowance(user, serverWallet, spinCost);
+    _transfer(user, treasuryWallet, spinCost);
+}
+```
+
+**Key Properties:**
+*   **Server wallet** = gas payer
+*   **User wallet** = token payer
+*   Secure via allowance
+*   No ETH required for user
+
+**Frontend Flow:**
+
 ```javascript
-// Step 1: Approve
-const mockIDRX = new ethers.Contract(MOCKIDRX_ADDRESS, ABI, signer);
-const boxCost = ethers.parseUnits("25000", 18); // Standard box
-await mockIDRX.approve(BACKEND_WALLET, boxCost);
+// One-time approval
+await idrx.approve(serverWallet, spinCost);
 
-// Step 2: Call backend
-const response = await fetch("/api/gacha/open", {
+// Request spin
+await fetch("/api/gacha/spin", {
   method: "POST",
-  body: JSON.stringify({ boxType: "standard" }),
 });
 ```
 
-**Backend:**
-```javascript
-// Transfer IDRX from user
-const mockIDRX = new ethers.Contract(MOCKIDRX_ADDRESS, ABI, backendSigner);
-await mockIDRX.transferFrom(userWallet, backendWallet, boxCost);
-
-// Burn IDRX
-await mockIDRX.burn(boxCost);
-
-// Mint NFT reward
-const nftContract = new ethers.Contract(CAR_NFT_ADDRESS, NFT_ABI, backendSigner);
-await nftContract.mint(userWallet, tokenId, metadataURI);
-```
-
 ---
 
-### Transferring IDRX (Marketplace)
-
-**Buyer Flow:**
-1. Buyer approves IDRX for marketplace contract
-2. Marketplace executes atomic swap:
-   - Transfer IDRX from buyer to seller (minus 2.5% fee)
-   - Transfer NFT from seller to buyer
-
-**Smart Contract (Solidity):**
-```solidity
-function buyItem(uint256 listingId) external nonReentrant {
-    Listing storage listing = listings[listingId];
-    require(listing.active, "Not active");
-    
-    uint256 fee = (listing.price * marketplaceFee) / 10000;
-    uint256 sellerAmount = listing.price - fee;
-    
-    // Transfer IDRX
-    IERC20(IDRX_ADDRESS).transferFrom(msg.sender, listing.seller, sellerAmount);
-    IERC20(IDRX_ADDRESS).transferFrom(msg.sender, treasury, fee);
-    
-    // Transfer NFT
-    IERC721(listing.nftContract).transferFrom(listing.seller, msg.sender, listing.tokenId);
-    
-    listing.active = false;
-    emit ItemSold(listingId, msg.sender, listing.price);
-}
-```
-
----
-
-## 📊 IDRX Statistics (Testnet)
+## 📊 IDRX Statistics (Testnet Snapshot)
 
 | Metric | Value |
-|--------|-------|
-| **Total Minted** | 50,000,000+ IDRX |
-| **Total Burned** | 15,000,000+ IDRX |
-| **Circulating Supply** | ~35,000,000 IDRX |
-| **Unique Holders** | 100+ wallets |
-| **Avg Balance** | 500,000 IDRX |
+| :--- | :--- |
+| **Total Minted** | Dynamic |
+| **Total Burned** | Optional (manual burn) |
+| **Active Wallets** | 100+ |
+| **Avg Balance** | ~500,000 IDRX |
 
 ---
 
-## 🚀 Mainnet Plan: Official IDRX
+## 🧠 Pricing Model (Decimals = 2)
 
-### ⚠️ Important Note
+### Gacha Pricing
 
-**MockIDRX is for testnet only.** For mainnet launch, we plan to:
+<table data-card-size="large" data-view="cards">
+<thead><tr><th></th><th></th></tr></thead>
+<tbody>
+<tr>
+<td><strong>Standard</strong></td>
+<td>25,000 IDRX</td>
+</tr>
+<tr>
+<td><strong>Rare</strong></td>
+<td>30,000 IDRX</td>
+</tr>
+<tr>
+<td><strong>Premium</strong></td>
+<td>35,000 IDRX</td>
+</tr>
+<tr>
+<td><strong>Legendary</strong></td>
+<td>50,000 IDRX</td>
+</tr>
+</tbody>
+</table>
 
-### Option 1: Partner with Official IDRX Stablecoin
+> 💡 **Mental Model:** `25,000 IDRX` = `Rp 25.000`
 
-If Indonesia launches an official IDRX stablecoin (like USDC/USDT):
-- Integrate official IDRX contract
-- 1 IDRX = 1 Indonesian Rupiah
-- Easier fiat on-ramp via Coinbase/exchanges
+### Faucet Amount
 
-### Option 2: Use Existing Stablecoin
+**500,000 IDRX** — Enough for:
+*   20 Standard spins
+*   16 Rare spins
+*   14 Premium spins
+*   10 Legendary spins
 
-Use USDC/USDT with IDR-equivalent pricing:
-- Display prices in IDR
-- Convert to USD on-chain
-- Partner with fiat on-ramp providers
-
-### Option 3: Continue Custom Token
-
-Keep custom IDRX but add value:
-- Backed by treasury reserves
-- Redeemable for USDC
-- Governance rights
-
----
-
-## 💡 Why Not Just Use ETH?
-
-| Issue with ETH | Solution with IDRX |
-|----------------|-------------------|
-| **Price Volatility** | IDRX has stable in-game value |
-| **Gas Confusion** | Users never think about gas |
-| **Small Amounts** | 25K IDRX clearer than 0.00001 ETH |
-| **Cultural Fit** | IDRX familiar to Indonesian users |
-| **Marketing** | "Claim 1 Million IDRX!" more exciting |
+> **Psychological effect:** “I can try the game freely without paying anything.”
 
 ---
 
 ## 🔐 Security Considerations
 
-### Minting Access Control
+### Minting & Relay Control
 
-```solidity
-contract MockIDRX is ERC20, Ownable {
-    // Only owner can mint
-    function mint(address to, uint256 amount) external onlyOwner {
-        _mint(to, amount);
-    }
-}
-```
+| Role | Capability |
+| :--- | :--- |
+| **Owner** | Mint, update server/treasury |
+| **Server Wallet** | Relay gasless payments |
+| **User** | Approve & spend IDRX |
 
-**Backend wallet is owner:**
-- Hot wallet for testnet (convenience)
-- **Mainnet:** Will use multi-sig + timelock
+### Approval Best Practices
 
----
-
-### Approval Management
-
-**Best Practice:**
-- Approve exact amounts (not `type(uint256).max`)
-- Revoke approvals when done
-- Use `increaseAllowance()` for safety
-
-**Example:**
 ```javascript
-// Good: Approve exact amount
-await mockIDRX.approve(marketplace, priceInWei);
+// ✅ Recommended
+await idrx.approve(serverWallet, exactAmount);
 
-// Avoid: Unlimited approval (security risk)
-await mockIDRX.approve(marketplace, ethers.MaxUint256);
+// ❌ Avoid
+await idrx.approve(serverWallet, MaxUint256);
 ```
 
 ---
 
-## 🧪 Testing IDRX Integration
+## 🚀 Mainnet Strategy (Future)
 
-### For Developers
+*   **Option 1 — Stablecoin Backend:** Use USDC/USDT, display in IDR, convert internally.
+*   **Option 2 — Custom IDRX:** Treasury-backed, redeemable rewards, loyalty utility.
+*   **Option 3 — Hybrid:** IDRX for gameplay, Stablecoin for marketplace.
 
-**1. Get Test ETH:**
-```bash
-# Visit Coinbase faucet
-https://www.coinbase.com/faucets/base-ethereum-goerli-faucet
-```
+---
 
-**2. Claim IDRX:**
+## 🧪 Developer Testing
+
+**1. Get Base Sepolia ETH**
+[https://faucet.base.org](https://faucet.base.org)
+
+**2. Check Balance**
 ```javascript
-// Login to app
-// Click "Claim IDRX" on dashboard
-// Receive 1M IDRX
-```
-
-**3. Check Balance:**
-```javascript
-const mockIDRX = new ethers.Contract(
-  "0x998f8B20397445C10c1B60DCa1EebFbda4cA7847",
-  ["function balanceOf(address) view returns (uint256)"],
-  provider
-);
-const balance = await mockIDRX.balanceOf(userAddress);
-console.log("Balance:", ethers.formatUnits(balance, 18), "IDRX");
+const balance = await idrx.balanceOf(user);
+console.log(balance.toString());
 ```
 
 ---
 
-## 📈 IDRX Pricing Rationale
+## ✅ Summary
 
-### Box Prices
+**MockIDRXv2 enables:**
+*   🇮🇩 **Indonesia-first UX**
+*   ⚡ **Gasless gameplay**
+*   🔐 **On-chain ownership**
+*   🧠 **Simple mental model**
+*   🚀 **Scalable to mainnet**
 
-| Box | IDRX Cost | Reasoning |
-|-----|-----------|-----------|
-| Standard | 25,000 | ~25 IDR (affordable) |
-| Rare | 30,000 | +20% for better odds |
-| Premium | 35,000 | +40% for Epic focus |
-| Legendary | 50,000 | +100% for best rewards |
-
-### Faucet Amount
-
-**1,000,000 IDRX** allows:
-- 40 Standard boxes
-- 33 Rare boxes
-- 28 Premium boxes
-- 20 Legendary boxes
-
-**Psychological benefit:** "I'm a millionaire!" 🎉
-
----
-
-## 🔗 External Resources
-
-- **MockIDRX Contract:** [View on BaseScan](https://sepolia.basescan.org/address/0x998f8B20397445C10c1B60DCa1EebFbda4cA7847)
-- **ERC-20 Standard:** [EIP-20](https://eips.ethereum.org/EIPS/eip-20)
-- **Base Documentation:** [base.org/docs](https://docs.base.org)
+> Crypto complexity is hidden — value and ownership remain on-chain.

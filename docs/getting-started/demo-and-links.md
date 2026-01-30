@@ -93,6 +93,8 @@ Some testnet approval transactions may require a small amount of Base Sepolia ET
 |-------|------|
 | **Base Sepolia Explorer** | https://sepolia.basescan.org |
 | **MockIDRX Contract** | https://sepolia.basescan.org/address/0x998f8B20397445C10c1B60DCa1EebFbda4cA7847 |
+| **Car NFT Contract** | https://sepolia.basescan.org/address/0x7AEE1BFE9fD152eA1f99818cB02E1bc64DBE8b7C |
+| **Fragment Contract** | https://sepolia.basescan.org/address/0xf477FEcF885956eeCe8E84a1507D7b5Ef3Fae589 |
 | **Recent Activity** | https://sepolia.basescan.org |
 
 ---
