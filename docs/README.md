@@ -63,47 +63,33 @@ graph LR
 
 ## 🚨 The Problem
 
-Traditional digital collectibles and in-game assets have **three critical flaws**:
-
-<table data-card-size="large" data-view="cards"><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><strong>❌ No True Ownership</strong></td><td>You spend money, but the company owns everything. Game shuts down = you lose it all.</td></tr><tr><td><strong>❌ Complex Crypto</strong></td><td>MetaMask setup, seed phrases, gas fees - 95% of users abandon during onboarding.</td></tr><tr><td><strong>❌ No Gaming on Base</strong></td><td>Base has DeFi and social apps, but lacks engaging collectible gaming experiences.</td></tr></tbody></table>
+*   **No True Ownership:** Gamers spend billions on in-game items locked in walled gardens, losing everything if servers shut down.
+*   **Unverifiable Scarcity:** Digital "limited editions" are often arbitrary, with no guarantee that developers won't mint more.
+*   **RWA Supply Mismatch:** Many projects oversell NFTs beyond their physical stock, leading to redemption failures.
+*   **Inefficient Collecting:** Real-world collectors waste time hunting for inventory in physical stores without real-time transparency.
+*   **Unfair RNG:** Pure gacha systems leave players with useless duplicates and no clear path to their desired item.
+*   **Web3 Friction:** Mainstream users are discouraged by complex wallet setups and gas fees.
 
 ---
 
 ## ✅ Our Solution
 
-MiniGarage solves these problems with a **4-pillar approach**:
+MiniGarage bridges the gap between physical collecting and digital ownership through a transparent, fair, and accessible ecosystem:
 
-### 1. 🔗 True Ownership via NFTs
+### 1. Hard-Capped RWA Supply
+We enforce a strict **1:1 limit**. Digital minting is directly tied to real-world inventory. When physical cars run out, the gacha and assembly mechanisms automatically disable.
 
-Every car is an **ERC-721 NFT** on Base blockchain:
-- ✅ Permanent on-chain ownership
-- ✅ Provable scarcity and rarity
-- ✅ Interoperable with any NFT marketplace
-- ✅ Transferable, tradeable, yours forever
+### 2. Fair Progression (Gacha + Fragments)
+A hybrid model combining **Gacha** thrills with **Fragment Assembly**. Bad luck is mitigated—accumulate fragments to guarantee crafting your dream car.
 
-### 2. 🚪 Seamless Onboarding with Privy
+### 3. Seamless Onboarding
+Powered by **Privy**, users login via email or socials with gas-sponsored transactions, making the blockchain interaction invisible.
 
-No seed phrases, no MetaMask installation:
-- ✅ Login with email/Google/Twitter/Discord
-- ✅ Embedded wallet created automatically
-- ✅ Keys encrypted with OAuth token
-- ✅ Onboarding in 30 seconds
+### 4. Real-Time Transparency
+Collectors know exactly how many units remain, eliminating the guesswork of physical hunting.
 
-### 3. 💸 Gasless UX with IDRX
-
-Instead of ETH gas fees, use **IDRX tokens**:
-- ✅ Predictable costs (25K IDRX per gacha)
-- ✅ Cultural relevance for Indonesian market
-- ✅ Backend-sponsored gas fees
-- ✅ Faucet provides free IDRX daily
-
-### 4. 🧩 Fragment System
-
-Guaranteed progression reduces RNG frustration:
-- ✅ 80% chance to get fragments
-- ✅ Collect 5 same-tier fragments → complete car
-- ✅ Trade fragments on marketplace
-- ✅ No more endless unlucky streaks
+#### 🔮 Future Roadmap: ERC-6551 Integration
+We plan to explore **Token Bound Accounts** to give each car its own unique identity and provenance layer, allowing vehicles to hold their own upgrade history and racing achievements.
 
 ---
 
