@@ -36,18 +36,7 @@ MiniGarage combines the **excitement of gacha mechanics** with the **security of
 
 MiniGarage is an **NFT-based car collection platform** where users can:
 
-```mermaid
-graph LR
-    A[Login] --> B[Claim Free IDRX]
-    B --> C[Open Gacha Boxes]
-    C --> D{Result}
-    D -->|Full Car| E[Add to Inventory]
-    D -->|Fragment| F[Collect 5]
-    F --> G[Craft Complete Car]
-    E --> H[Trade on Marketplace]
-    G --> H
-    H --> I[Own Forever]
-```
+![Overview](Overview.png)
 
 ### Core Actions
 

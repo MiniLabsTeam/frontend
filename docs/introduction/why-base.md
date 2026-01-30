@@ -339,7 +339,3 @@ Base enables MiniGarage to focus on building a smooth collecting experience with
 ## Next: Key Features
 
 Learn how MiniGarage’s gacha, fragment system, and RWA mechanics work →
-
-{% content-ref url="key-features.md" %}
-[key-features.md](key-features.md)
-{% endcontent-ref %}

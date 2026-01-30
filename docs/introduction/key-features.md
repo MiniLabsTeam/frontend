@@ -12,25 +12,7 @@ The platform is designed to be **easy to access**, **fair to play**, and **trust
 
 MiniGarage uses a gacha system where **every outcome results in on-chain ownership**.
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant A as Mini App
-    participant V as Gacha Contract
-    participant T as IDRX
-    participant N as NFT Contracts
-
-    U->>A: Open Gacha
-    A->>T: Check IDRX balance
-    A->>V: Execute gacha
-    V->>T: Consume IDRX
-    V->>V: Calculate tier-based RNG
-    alt Complete Car
-        V->>N: Mint Car NFT
-    else Fragment
-        V->>N: Mint Fragment NFT
-    end
-    N-->>U: NFT transferred
+![Gacha](gacha-system.png)
 Key Properties
 
 Every gacha roll produces an NFT
@@ -62,15 +44,7 @@ This ensures that every roll contributes toward a meaningful outcome.
 3. 🏪 Peer-to-Peer Marketplace (Live on Testnet)
 Collectors can trade NFTs directly with each other inside the MiniGarage ecosystem.
 
-sequenceDiagram
-    participant Seller
-    participant Market
-    participant Buyer
-
-    Seller->>Market: List NFT
-    Buyer->>Market: Purchase NFT
-    Market->>Seller: Transfer IDRX
-    Market->>Buyer: Transfer NFT
+![Marketplace](marketplace.png)
 Marketplace Characteristics
 
 Peer-to-peer trading

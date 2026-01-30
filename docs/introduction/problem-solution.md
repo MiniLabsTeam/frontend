@@ -138,18 +138,7 @@ MiniGarage addresses these problems through a system designed for **ownership, f
 
 ### 2. Seamless Web2-Style Onboarding
 
-```mermaid
-sequenceDiagram
-participant U as User
-participant A as Auth (Farcaster / Email / Wallet)
-participant W as Wallet
-participant B as Base Blockchain
-
-U->>A: Login
-A->>W: Connect or Create Wallet
-W->>B: Register Address
-B->>U: Ready to Collect
-```
+![Onboarding Flow](Seamless.png)
 
 Users interact with blockchain without needing to understand crypto mechanics.
 
