@@ -281,9 +281,13 @@ export default function Home() {
         {/* PAGE 1: HERO */}
         <div className="min-w-full h-full relative flex items-center justify-center">
           <div className="absolute inset-0 z-0">
-            <div
-              className="absolute inset-0 minigarage-hero-bg bg-cover bg-center"
-              style={{ backgroundImage: `url('${background}')` }}
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="absolute inset-0 w-full h-full object-cover"
+              src="/assets/backgrounds/Permintaan_Video_Animasi_Gambar_Pengguna.mp4"
             />
             <div className="absolute inset-0 minigarage-hero-grid" aria-hidden="true" />
             <div className="absolute inset-0 minigarage-hero-glow" aria-hidden="true" />
