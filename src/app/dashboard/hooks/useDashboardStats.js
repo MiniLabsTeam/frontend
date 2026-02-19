@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useWallet } from "@/hooks/useWallet";
 
 export function useDashboardStats() {
   const [stats, setStats] = useState({
@@ -11,12 +11,12 @@ export function useDashboardStats() {
     recentActivity: [],
   });
   const [loading, setLoading] = useState(true);
-  const { getAccessToken } = usePrivy();
+  const { getAuthToken } = useWallet();
 
   const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
-      const authToken = await getAccessToken();
+      const authToken = await getAuthToken();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/stats`,
         {
@@ -48,7 +48,7 @@ export function useDashboardStats() {
     } finally {
       setLoading(false);
     }
-  }, [getAccessToken]);
+  }, [getAuthToken]);
 
   return {
     stats,

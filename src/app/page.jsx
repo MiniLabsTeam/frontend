@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState, useRef } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useCurrentAccount, useConnectWallet, useWallets } from "@onelabs/dapp-kit";
 import { useRouter } from "next/navigation";
 import LoadingAnimation from "@/components/LoadingAnimation";
 
@@ -52,7 +52,9 @@ const features = [
 ];
 
 export default function Home() {
-  const { ready, authenticated, login } = usePrivy();
+  const account = useCurrentAccount();
+  const wallets = useWallets();
+  const { mutate: login } = useConnectWallet();
   const router = useRouter();
   const [showLoading, setShowLoading] = useState(false);
   const [loginError, setLoginError] = useState(null);
@@ -66,12 +68,12 @@ export default function Home() {
 
   const totalPages = 3;
 
-  // Show loading animation and redirect to dashboard if authenticated
+  // Show loading animation and redirect to dashboard if connected
   useEffect(() => {
-    if (ready && authenticated) {
+    if (account) {
       setShowLoading(true);
     }
-  }, [ready, authenticated]);
+  }, [account]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -154,14 +156,21 @@ export default function Home() {
     router.push("/dashboard");
   };
 
-  const handleLogin = async () => {
-    try {
-      setLoginError(null);
-      await login();
-    } catch (error) {
-      console.error("Login failed:", error);
-      setLoginError("Failed to connect. Please try again.");
+  const handleLogin = () => {
+    setLoginError(null);
+    if (!wallets[0]) {
+      setLoginError("No OneChain wallet found. Please install a wallet.");
+      return;
     }
+    login(
+      { wallet: wallets[0] },
+      {
+        onError: (error) => {
+          console.error("Login failed:", error);
+          setLoginError("Failed to connect. Please try again.");
+        },
+      }
+    );
   };
 
   // Swipe handlers
@@ -229,7 +238,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={handleLogin}
-                disabled={!ready}
+                disabled={false}
                 className="minigarage-launch-button"
               >
                 <img src={fireIcon} alt="Fire icon" className="minigarage-launch-icon" />
@@ -318,7 +327,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={handleLogin}
-                disabled={!ready}
+                disabled={false}
                 className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-black py-3 px-8 rounded-full shadow-lg transform hover:scale-105 active:scale-95 transition-all"
               >
                 Start Collecting
@@ -372,7 +381,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={handleLogin}
-                disabled={!ready}
+                disabled={false}
                 className="minigarage-launch-button mx-auto"
               >
                 <img src={fireIcon} alt="Fire icon" className="minigarage-launch-icon" />

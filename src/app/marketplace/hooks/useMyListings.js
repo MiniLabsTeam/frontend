@@ -1,18 +1,18 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useWallet } from "@/hooks/useWallet";
 
 export function useMyListings() {
   const [myListings, setMyListings] = useState({ active: [], sold: [], cancelled: [], all: [] });
   const [loadingMyListings, setLoadingMyListings] = useState(false);
   const [myListingsFilter, setMyListingsFilter] = useState("all");
-  const { getAccessToken } = usePrivy();
+  const { getAuthToken } = useWallet();
 
   const fetchMyListings = useCallback(async () => {
     try {
       setLoadingMyListings(true);
-      const authToken = await getAccessToken();
+      const authToken = await getAuthToken();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/my-listings`,
         {
@@ -39,7 +39,7 @@ export function useMyListings() {
     } finally {
       setLoadingMyListings(false);
     }
-  }, [getAccessToken]);
+  }, [getAuthToken]);
 
   const displayedListings =
     myListingsFilter === "all" ? myListings.all : myListings[myListingsFilter] || [];

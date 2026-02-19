@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { useWallet } from '@/hooks/useWallet';
 import { toast } from 'sonner';
 import { Edit2, Save, X } from 'lucide-react';
 
 export default function ShippingInfoModal({ isOpen, onClose, shippingInfo, onUpdate }) {
-  const { getAccessToken } = usePrivy();
+  const { getAuthToken } = useWallet();
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -72,7 +72,7 @@ export default function ShippingInfoModal({ isOpen, onClose, shippingInfo, onUpd
 
     try {
       setIsSaving(true);
-      const authToken = await getAccessToken();
+      const authToken = await getAuthToken();
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/user/profile`, {
         method: 'PUT',

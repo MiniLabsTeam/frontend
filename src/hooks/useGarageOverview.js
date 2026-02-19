@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useWallet } from "@/hooks/useWallet";
 
 /**
  * Custom hook for fetching garage overview (balance + user info)
@@ -27,10 +27,10 @@ export function useGarageOverview() {
     usernameSet: false,
   });
   const [loading, setLoading] = useState(false);
-  const { getAccessToken, authenticated } = usePrivy();
+  const { getAuthToken, isConnected } = useWallet();
 
   const fetchOverview = useCallback(async () => {
-    if (!authenticated) {
+    if (!isConnected) {
       setBalance(0);
       setUserInfo({
         username: null,
@@ -42,7 +42,7 @@ export function useGarageOverview() {
 
     try {
       setLoading(true);
-      const authToken = await getAccessToken();
+      const authToken = await getAuthToken();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/overview`,
         {
@@ -70,13 +70,13 @@ export function useGarageOverview() {
     } finally {
       setLoading(false);
     }
-  }, [authenticated, getAccessToken]);
+  }, [isConnected, getAuthToken]);
 
   useEffect(() => {
-    if (authenticated) {
+    if (isConnected) {
       fetchOverview();
     }
-  }, [authenticated, fetchOverview]);
+  }, [isConnected, fetchOverview]);
 
   return { balance, userInfo, loading, refetch: fetchOverview };
 }

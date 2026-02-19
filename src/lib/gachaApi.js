@@ -7,39 +7,46 @@ import { apiGet, apiPost } from "./api";
 import { RARITY_CONFIG } from "@/constants";
 
 /**
- * Get available gacha boxes and user MockIDRX balance
- * @param {string} authToken - Privy authentication token
- * @returns {Promise<{userMockIDRX: number, boxes: Array}>}
+ * Get all gacha tiers from backend
+ * @param {string} authToken
+ * @returns {Promise<Array>} Array of tier objects
  */
-export async function getGachaBoxes(authToken) {
-  try {
-    const data = await apiGet("/api/gacha/boxes", authToken);
-    return data;
-  } catch (error) {
-    console.error("Failed to fetch gacha boxes:", error);
-    throw error;
-  }
+export async function getGachaTiers(authToken) {
+  const res = await apiGet("/api/gacha/tiers", authToken);
+  return res.data ?? res;
 }
 
 /**
- * Open a gacha box and mint NFT
- * @param {string} boxType - Type of box: "standard" | "premium" | "legendary"
- * @param {string} paymentTxHash - Transaction hash of the payment transaction (transfer to treasury or burn)
- * @param {string} authToken - Privy authentication token
- * @returns {Promise<{success: boolean, reward: Object, mockIDRX: Object}>}
+ * Get pricing for a gacha tier (with backend signature)
+ * @param {number} tierId - Tier ID (1, 2, or 3)
+ * @param {string} authToken
+ * @returns {Promise<Object>} Pricing info
  */
-export async function openGachaBox(boxType, paymentTxHash, authToken) {
-  try {
-    const data = await apiPost(
-      "/api/gacha/open",
-      { boxType, paymentTxHash },
-      authToken
-    );
-    return data;
-  } catch (error) {
-    console.error("Failed to open gacha box:", error);
-    throw error;
-  }
+export async function getGachaPricing(tierId, authToken) {
+  const res = await apiPost("/api/gacha/pricing", { tierId }, authToken);
+  return res.data ?? res;
+}
+
+/**
+ * Reveal gacha result for a tier (after on-chain commit)
+ * @param {number} tierId - Tier ID (1, 2, or 3)
+ * @param {string} authToken
+ * @param {boolean} isCar - Must match the is_car committed on-chain
+ * @returns {Promise<Object>} Reveal data with reward + signature for on-chain tx
+ */
+export async function revealGacha(tierId, authToken, isCar) {
+  const res = await apiPost("/api/gacha/reveal", { tierId, is_car: isCar }, authToken);
+  return res.data ?? res;
+}
+
+/**
+ * Get user's gacha history
+ * @param {string} authToken
+ * @param {number} limit
+ */
+export async function getGachaHistory(authToken, limit = 20) {
+  const res = await apiGet(`/api/gacha/history?limit=${limit}`, authToken);
+  return res.data ?? res;
 }
 
 export { RARITY_CONFIG };
@@ -49,4 +56,13 @@ export { RARITY_CONFIG };
  */
 export function getRarityConfig(rarity) {
   return RARITY_CONFIG[rarity] || RARITY_CONFIG.common;
+}
+
+/**
+ * Map tier name string to backend integer ID
+ * standard → 1, rare/premium → 2, legendary → 3
+ */
+export function tierNameToId(tierName) {
+  const map = { standard: 1, rare: 2, premium: 2, legendary: 3 };
+  return map[tierName?.toLowerCase()] ?? 1;
 }

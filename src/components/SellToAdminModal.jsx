@@ -2,21 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { X, AlertTriangle, CheckCircle2, Shield } from "lucide-react";
-import { useWallets } from "@privy-io/react-auth";
-import { ethers } from "ethers";
-
-const CAR_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CAR_CONTRACT_ADDRESS;
-const BACKEND_WALLET_ADDRESS = process.env.NEXT_PUBLIC_BACKEND_WALLET_ADDRESS;
-
-// Minimal ABI for approve function
-const CAR_CONTRACT_ABI = [
-    "function approve(address to, uint256 tokenId) external",
-    "function getApproved(uint256 tokenId) view returns (address)",
-    "function isApprovedForAll(address owner, address operator) view returns (bool)"
-];
-
 export default function SellToAdminModal({ isOpen, onClose, car, buybackPrice, onConfirmSale }) {
-    const { wallets } = useWallets();
+    const wallets = [];
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const [isApproved, setIsApproved] = useState(false);

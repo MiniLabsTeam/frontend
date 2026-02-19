@@ -1,38 +1,38 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useWallet } from "@/hooks/useWallet";
 import { useRouter } from "next/navigation";
 import { Clock, TrendingUp, Package, ShoppingCart, DollarSign, Tag, Sparkles, Wrench, BadgeDollarSign, ChevronLeft } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import { toast } from "sonner";
 
 export default function HistoryPage() {
-  const { authenticated, ready, getAccessToken } = usePrivy();
+  const { isConnected, getAuthToken } = useWallet();
   const router = useRouter();
   const [activities, setActivities] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, gacha, redeem, marketplace
 
-  // Redirect if not authenticated
+  // Redirect if not connected
   useEffect(() => {
-    if (ready && !authenticated) {
+    if (!isConnected) {
       router.push("/");
     }
-  }, [ready, authenticated, router]);
+  }, [isConnected, router]);
 
   // Fetch activity history
   useEffect(() => {
-    if (authenticated) {
+    if (isConnected) {
       fetchHistory();
     }
-  }, [authenticated]);
+  }, [isConnected]);
 
   const fetchHistory = async () => {
     try {
       setLoading(true);
-      const authToken = await getAccessToken();
+      const authToken = await getAuthToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/activity/history`, {
         headers: {
           Authorization: `Bearer ${authToken}`,
@@ -54,7 +54,7 @@ export default function HistoryPage() {
     }
   };
 
-  if (!ready || !authenticated) {
+  if (!isConnected) {
     return null;
   }
 

@@ -1,805 +1,343 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Car, Wallet, CircleDot, Settings, Paintbrush, Armchair,
-  Flame, Wrench, PartyPopper, Frown, AlertTriangle,
-  DollarSign, Clock, Package, Box
+  Car, Box, Wrench, Package, Settings,
+  CircleDot, Paintbrush, Armchair, ChevronRight
 } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
-import NetworkModal from "@/components/shared/NetworkModal";
-import SellToAdminModal from "@/components/SellToAdminModal";
 import { toast } from "sonner";
-import { PullToRefresh, SwipeCard } from "@/components/shared";
-import { RARITY_CONFIG, FRAGMENT_ICONS, DEFAULT_BUYBACK_PRICES, INVENTORY_FILTERS } from "@/constants";
+import { PullToRefresh } from "@/components/shared";
+import { RARITY_CONFIG, INVENTORY_FILTERS } from "@/constants";
+
+// Map numeric rarity to string key used in RARITY_CONFIG
+const RARITY_MAP = { 0: "common", 1: "rare", 2: "epic", 3: "legendary" };
+
+// Part type icons
+const PART_TYPE_ICONS = {
+  0: { Icon: CircleDot, label: "Chassis" },
+  1: { Icon: Settings, label: "Wheels" },
+  2: { Icon: Wrench, label: "Engine" },
+  3: { Icon: Paintbrush, label: "Body" },
+  4: { Icon: Armchair, label: "Interior" },
+};
+
+// Map car name → image path
+const getCarImage = (name = "") => {
+  const n = name.toLowerCase();
+  if (n.includes("porsche 911 turbo")) return "/assets/car_no_background/01-Porche-911-Turbo-removebg-preview.png";
+  if (n.includes("bugatti")) return "/assets/car_no_background/02-Bugatti-Chiron-removebg-preview.png";
+  if (n.includes("jesko") || n.includes("koenigsegg")) return "/assets/car_no_background/03-Koenigsegg_Jesko-removebg-preview.png";
+  if (n.includes("bmw m3")) return "/assets/car_no_background/04-BMW-M3-GTR-removebg-preview.png";
+  if (n.includes("huracan") || n.includes("lamborghini")) return "/assets/car_no_background/05-Lamborghini-Huracan-removebg-preview.png";
+  if (n.includes("audi")) return "/assets/car_no_background/06-Audi-RS-Superwagon-removebg-preview.png";
+  if (n.includes("ferrari f8")) return "/assets/car_no_background/07-Ferrari-F8-Turbo-removebg-preview.png";
+  if (n.includes("pagani") || n.includes("huayra")) return "/assets/car_no_background/08-Pagain-Huayra-removebg-preview.png";
+  if (n.includes("mercedes amg gt")) return "/assets/car_no_background/11-Mercedes-AMG-GT-removebg-preview.png";
+  if (n.includes("mercedes")) return "/assets/car_no_background/09-Mercede-AMG-removebg-preview.png";
+  if (n.includes("civic") || n.includes("honda")) return "/assets/car_no_background/10-Honda-Civic-removebg-preview.png";
+  if (n.includes("corolla") || n.includes("toyota")) return "/assets/car_no_background/12-Toyota-Corrola-removebg-preview.png";
+  if (n.includes("porsche 911")) return "/assets/car_no_background/13-Proche-911-removebg-preview.png";
+  if (n.includes("720s") || n.includes("mclaren")) return "/assets/car_no_background/14-McLAREN-720s-removebg-preview.png";
+  return "/assets/car/High Speed.png";
+};
 
 export default function InventoryPage() {
-  const { authenticated, ready, getAccessToken } = usePrivy();
+  const { isConnected, walletAddress, getAuthToken } = useWallet();
   const router = useRouter();
-  const { walletAddress } = useWallet();
-
-  const [mockIDRXBalance, setMockIDRXBalance] = useState(0);
-  const [loadingMockIDRX, setLoadingMockIDRX] = useState(false);
-  const [showNetworkModal, setShowNetworkModal] = useState(false);
-  const [userInfo, setUserInfo] = useState({
-    username: null,
-    email: null,
-    usernameSet: false
-  });
-
-  const [selectedFilter, setSelectedFilter] = useState("all");
-  const [inventoryData, setInventoryData] = useState([]);
-  const [loadingInventory, setLoadingInventory] = useState(true);
-
-  const [fragmentsData, setFragmentsData] = useState([]);
-  const [loadingFragments, setLoadingFragments] = useState(true);
-  const [assembling, setAssembling] = useState(false);
-  const [assemblyResult, setAssemblyResult] = useState(null);
-
-  const [showSoldOutModal, setShowSoldOutModal] = useState(false);
-  const [soldOutData, setSoldOutData] = useState(null);
-  const [processingOption, setProcessingOption] = useState(false);
 
   const [activeTab, setActiveTab] = useState("cars");
+  const [selectedFilter, setSelectedFilter] = useState("all");
 
-  const [showShippingModal, setShowShippingModal] = useState(false);
-  const [showRedeemModal, setShowRedeemModal] = useState(false);
-  const [selectedCar, setSelectedCar] = useState(null);
-  const [shippingInfo, setShippingInfo] = useState({ name: "", phone: "", address: "" });
-  const [hasShippingInfo, setHasShippingInfo] = useState(false);
-  const [loadingShipping, setLoadingShipping] = useState(false);
-  const [redeeming, setRedeeming] = useState(false);
-  const [redeemResult, setRedeemResult] = useState(null);
+  const [cars, setCars] = useState([]);
+  const [loadingCars, setLoadingCars] = useState(true);
 
-  const [activeListings, setActiveListings] = useState([]);
-  const [showListingWarning, setShowListingWarning] = useState(false);
+  const [spareParts, setSpareParts] = useState([]);
+  const [loadingParts, setLoadingParts] = useState(true);
 
-  const [showSellToAdminModal, setShowSellToAdminModal] = useState(false);
-  const [selectedCarForSale, setSelectedCarForSale] = useState(null);
-  const [buybackPrices, setBuybackPrices] = useState(DEFAULT_BUYBACK_PRICES);
-  const [sellLoading, setSellLoading] = useState(false);
+  const [activeListings, setActiveListings] = useState(new Set());
+  const [userInfo, setUserInfo] = useState({ username: null });
 
   useEffect(() => {
-    if (ready && !authenticated) {
-      router.push("/");
+    if (!isConnected) router.push("/");
+  }, [isConnected, router]);
+
+  const fetchUserInfo = useCallback(async () => {
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setUserInfo({ username: data.data?.username || null });
+    } catch {}
+  }, [getAuthToken]);
+
+  const fetchCars = useCallback(async () => {
+    setLoadingCars(true);
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/inventory/cars`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setCars(data.data || []);
+    } catch (err) {
+      console.error("Failed to fetch cars:", err);
+      toast.error("Failed to load cars");
+    } finally {
+      setLoadingCars(false);
     }
-  }, [ready, authenticated, router]);
+  }, [getAuthToken]);
+
+  const fetchSpareParts = useCallback(async () => {
+    setLoadingParts(true);
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/inventory/spareparts`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setSpareParts(data.data || []);
+    } catch (err) {
+      console.error("Failed to fetch spare parts:", err);
+    } finally {
+      setLoadingParts(false);
+    }
+  }, [getAuthToken]);
+
+  const fetchActiveListings = useCallback(async () => {
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/my-listings`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      const listed = new Set(
+        (data.data || []).filter((l) => l.isActive).map((l) => l.car?.uid || l.sparePart?.uid)
+      );
+      setActiveListings(listed);
+    } catch {}
+  }, [getAuthToken]);
 
   useEffect(() => {
-    if (authenticated) {
-      fetchMockIDRXBalance();
+    if (isConnected) {
+      fetchUserInfo();
+      fetchCars();
+      fetchSpareParts();
+      fetchActiveListings();
     }
-  }, [authenticated]);
+  }, [isConnected, fetchUserInfo, fetchCars, fetchSpareParts, fetchActiveListings]);
 
-  const fetchMockIDRXBalance = async () => {
-    try {
-      setLoadingMockIDRX(true);
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/overview`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      const data = await response.json();
-      setMockIDRXBalance(data.user?.mockIDRX || 0);
-      setUserInfo({
-        username: data.user?.username || null,
-        email: data.user?.email || null,
-        usernameSet: data.user?.usernameSet || false
-      });
-    } catch (error) {
-      console.error("Failed to fetch MockIDRX balance:", error);
-      setMockIDRXBalance(0);
-    } finally {
-      setLoadingMockIDRX(false);
-    }
-  };
-
-  const fetchInventory = async () => {
-    try {
-      setLoadingInventory(true);
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/cars`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch inventory");
-      }
-
-      const data = await response.json();
-
-      // Fetch metadata for each car to get IPFS image URLs
-      const transformedCarsPromises = data.cars.map(async (car) => {
-        try {
-          // Fetch NFT metadata from backend
-          const metadataResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/metadata/cars/${car.tokenId}`);
-          const metadata = await metadataResponse.json();
-
-          return {
-            id: car.tokenId,
-            tokenId: car.tokenId,
-            name: car.modelName?.toUpperCase() || "UNKNOWN",
-            modelName: car.modelName || "Unknown",
-            series: car.series || "Unknown",
-            rarity: car.rarity || "common",
-            rarityColor: RARITY_CONFIG[car.rarity]?.gradient || "from-gray-500 to-gray-600",
-            image: metadata.image || `/assets/car/${car.modelName}.png`, // Use IPFS image from metadata
-            mintTxHash: car.mintTxHash,
-            isRedeemed: car.isRedeemed,
-          };
-        } catch (error) {
-          console.error(`Failed to fetch metadata for token ${car.tokenId}:`, error);
-          // Fallback to local image if metadata fetch fails
-          return {
-            id: car.tokenId,
-            tokenId: car.tokenId,
-            name: car.modelName?.toUpperCase() || "UNKNOWN",
-            modelName: car.modelName || "Unknown",
-            series: car.series || "Unknown",
-            rarity: car.rarity || "common",
-            rarityColor: RARITY_CONFIG[car.rarity]?.gradient || "from-gray-500 to-gray-600",
-            image: `/assets/car/${car.modelName}.png`,
-            mintTxHash: car.mintTxHash,
-            isRedeemed: car.isRedeemed,
-          };
-        }
-      });
-
-      const transformedCars = await Promise.all(transformedCarsPromises);
-      setInventoryData(transformedCars);
-    } catch (error) {
-      console.error("Failed to fetch inventory:", error);
-      setInventoryData([]);
-    } finally {
-      setLoadingInventory(false);
-    }
-  };
-
-  const fetchFragments = async () => {
-    try {
-      setLoadingFragments(true);
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/fragments`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch fragments");
-      }
-
-      const data = await response.json();
-      setFragmentsData(data.inventory || []);
-    } catch (error) {
-      console.error("Failed to fetch fragments:", error);
-      setFragmentsData([]);
-    } finally {
-      setLoadingFragments(false);
-    }
-  };
-
-  const fetchShippingInfo = async () => {
-    try {
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/redeem/shipping-info`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      const data = await response.json();
-
-      setHasShippingInfo(data.hasShippingInfo);
-      if (data.hasShippingInfo) {
-        setShippingInfo(data.shippingInfo);
-      }
-    } catch (error) {
-      console.error("Failed to fetch shipping info:", error);
-    }
-  };
-
-  // Save shipping info
-  const handleSaveShipping = async () => {
-    if (!shippingInfo.name || !shippingInfo.phone || !shippingInfo.address) {
-      toast.error("Please fill all fields");
-      return;
-    }
-
-    try {
-      setLoadingShipping(true);
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/redeem/shipping-info`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(shippingInfo),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to save shipping info");
-      }
-
-      toast.success("Shipping info saved successfully!");
-      setHasShippingInfo(true);
-      setShowShippingModal(false);
-
-      // Proceed to redeem if car was selected
-      if (selectedCar) {
-        setShowRedeemModal(true);
-      }
-    } catch (error) {
-      console.error("Save shipping error:", error);
-      toast.error(error.message || "Failed to save shipping info");
-    } finally {
-      setLoadingShipping(false);
-    }
-  };
-
-  // Handle claim physical button click
-  const handleClaimPhysical = async (car) => {
-    // Check if car is listed on marketplace
-    if (activeListings.includes(car.tokenId)) {
-      setSelectedCar(car);
-      setShowListingWarning(true);
-      return;
-    }
-
-    setSelectedCar(car);
-
-    // Check if user has shipping info
-    if (!hasShippingInfo) {
-      setShowShippingModal(true);
-    } else {
-      setShowRedeemModal(true);
-    }
-  };
-
-  // Confirm redeem/burn NFT
-  const handleConfirmRedeem = async () => {
-    if (!selectedCar || redeeming) return;
-
-    try {
-      setRedeeming(true);
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/redeem/claim-physical`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({ tokenId: selectedCar.tokenId }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to claim physical car");
-      }
-
-      setShowRedeemModal(false);
-      setRedeemResult({
-        success: true,
-        message: data.message,
-        car: data.car,
-      });
-
-      // Refresh inventory
-      await fetchInventory();
-    } catch (error) {
-      console.error("Redeem error:", error);
-      setRedeemResult({
-        success: false,
-        message: error.message || "Failed to claim physical car",
-      });
-    } finally {
-      setRedeeming(false);
-    }
-  };
-
-  const fetchActiveListings = async () => {
-    try {
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/my-listings?status=active`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-
-      if (!response.ok) return;
-
-      const data = await response.json();
-      // Extract tokenIds from active listings
-      const tokenIds = data.listings
-        .filter(listing => listing.status === "active")
-        .map(listing => listing.carTokenId);
-      setActiveListings(tokenIds);
-    } catch (error) {
-      console.error("Failed to fetch active listings:", error);
-    }
-  };
-
-  const fetchBuybackPrices = async () => {
-    try {
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin-buyback/prices`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-
-      if (!response.ok) return;
-
-      const data = await response.json();
-      if (data.prices) {
-        setBuybackPrices(data.prices);
-      }
-    } catch (error) {
-      console.error("Failed to fetch buyback prices:", error);
-    }
-  };
-
-  // Handle sell to admin button click
-  const handleSellToAdmin = (car) => {
-    // Check if car is listed on marketplace
-    if (activeListings.includes(car.tokenId)) {
-      toast.error("Cannot sell a car that is listed on marketplace. Please cancel the listing first.");
-      return;
-    }
-
-    setSelectedCarForSale(car);
-    setShowSellToAdminModal(true);
-  };
-
-  // Confirm sell to admin
-  const handleConfirmSale = async (tokenId) => {
-    if (sellLoading) return;
-
-    try {
-      setSellLoading(true);
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin-buyback/sell`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({ tokenId }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to sell car");
-      }
-
-      // Close modal and show success
-      setShowSellToAdminModal(false);
-      setSelectedCarForSale(null);
-
-      toast.success(`Sold! Received ${data.data.buybackPrice.toLocaleString()} IDRX`, {
-        duration: 5000,
-      });
-
-      // Refresh inventory and balance
-      await Promise.all([fetchInventory(), fetchMockIDRXBalance()]);
-    } catch (error) {
-      console.error("Sell to admin error:", error);
-      throw error; // Let modal handle the error
-    } finally {
-      setSellLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (authenticated) {
-      fetchInventory();
-      fetchFragments();
-      fetchShippingInfo();
-      fetchActiveListings(); // Check for active marketplace listings
-      fetchBuybackPrices(); // Fetch admin buyback prices
-    }
-  }, [authenticated]);
-
-  // Filter inventory based on selected filter and exclude redeemed cars
-  const filteredInventory = selectedFilter === "all"
-    ? inventoryData.filter((car) => !car.isRedeemed)
-    : inventoryData.filter(
-      (car) => car.rarity?.toLowerCase() === selectedFilter.toLowerCase() && !car.isRedeemed
-    );
-
-  // Handle assembly
-  const handleAssemble = async (brand) => {
-    if (assembling) return;
-
-    try {
-      setAssembling(true);
-      setAssemblyResult(null);
-
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/assembly/forge`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({ brand }),
-      });
-
-      const data = await response.json();
-
-      // Check if sold out (status 409)
-      if (response.status === 409 && data.soldOut) {
-        // Show sold out modal with options
-        setSoldOutData({
-          brand,
-          series: data.series,
-          fragmentIds: data.fragmentIds,
-          supplyStatus: data.supplyStatus,
-          options: data.options,
-          message: data.message,
-        });
-        setShowSoldOutModal(true);
-        setAssembling(false);
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(data.message || data.error || "Assembly failed");
-      }
-
-      setAssemblyResult({
-        success: true,
-        car: data.car,
-        message: data.message,
-      });
-
-      // Refresh data
-      await Promise.all([fetchInventory(), fetchFragments(), fetchMockIDRXBalance()]);
-    } catch (error) {
-      console.error("Assembly failed:", error);
-      setAssemblyResult({
-        success: false,
-        message: error.message || "Assembly failed. Please try again.",
-      });
-    } finally {
-      setAssembling(false);
-    }
-  };
-
-  // Handle refund option
-  const handleRefundOption = async () => {
-    if (!soldOutData || processingOption) return;
-
-    try {
-      setProcessingOption(true);
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/supply/claim-refund`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
-          fragmentIds: soldOutData.fragmentIds,
-          series: soldOutData.series,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Refund failed");
-      }
-
-      // Close modal and show success
-      setShowSoldOutModal(false);
-      setAssemblyResult({
-        success: true,
-        message: data.message,
-      });
-
-      // Refresh data
-      await Promise.all([fetchFragments(), fetchMockIDRXBalance()]);
-    } catch (error) {
-      console.error("Refund failed:", error);
-      toast.error(error.message || "Failed to process refund");
-    } finally {
-      setProcessingOption(false);
-    }
-  };
-
-  // Handle waitlist option
-  const handleWaitlistOption = async () => {
-    if (!soldOutData || processingOption) return;
-
-    try {
-      setProcessingOption(true);
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/supply/join-waitlist`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
-          fragmentIds: soldOutData.fragmentIds,
-          series: soldOutData.series,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to join waiting list");
-      }
-
-      // Close modal and show success
-      setShowSoldOutModal(false);
-      setAssemblyResult({
-        success: true,
-        message: data.message + ` (Position: #${data.position})`,
-      });
-
-      // Refresh data
-      await fetchFragments();
-    } catch (error) {
-      console.error("Join waitlist failed:", error);
-      toast.error(error.message || "Failed to join waiting list");
-    } finally {
-      setProcessingOption(false);
-    }
-  };
-
-  // Handle pull to refresh
   const handleRefresh = async () => {
-    await Promise.all([
-      fetchInventory(),
-      fetchFragments(),
-      fetchMockIDRXBalance(),
-      fetchActiveListings()
-    ]);
+    await Promise.all([fetchCars(), fetchSpareParts(), fetchActiveListings()]);
   };
 
-  if (!ready || !authenticated) {
-    return null;
-  }
+  // Filter cars by rarity
+  const filteredCars =
+    selectedFilter === "all"
+      ? cars
+      : cars.filter((car) => {
+          const rarityStr = typeof car.rarity === "number" ? RARITY_MAP[car.rarity] : car.rarity?.toLowerCase();
+          return rarityStr === selectedFilter;
+        });
+
+  // Group spare parts by partType
+  const partsByType = spareParts.reduce((acc, part) => {
+    const typeId = part.partType ?? 0;
+    if (!acc[typeId]) acc[typeId] = [];
+    acc[typeId].push(part);
+    return acc;
+  }, {});
+
+  if (!isConnected) return null;
 
   return (
     <main className="relative min-h-screen bg-gradient-to-b from-orange-400 via-orange-500 to-orange-600 text-white overflow-hidden">
-      {/* Checkered Pattern Background */}
+      {/* Background */}
       <div
         className="absolute inset-0 opacity-30"
         style={{
           backgroundImage: `
             repeating-linear-gradient(45deg, transparent, transparent 30px, rgba(255,255,255,0.15) 30px, rgba(255,255,255,0.15) 60px),
             repeating-linear-gradient(-45deg, transparent, transparent 30px, rgba(255,255,255,0.15) 30px, rgba(255,255,255,0.15) 60px)
-          `
+          `,
         }}
       />
 
-      {/* Main Content */}
       <PullToRefresh onRefresh={handleRefresh}>
         <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
           {/* Header */}
           <header className="px-4 pt-3 pb-4">
-            <div className="flex items-center justify-between gap-2 mb-4">
-              {/* MockIDRX Balance Badge */}
-              <button
-                type="button"
-                onClick={fetchMockIDRXBalance}
-                className="flex items-center gap-1.5 bg-yellow-400 rounded-full px-3 py-1.5 shadow-lg transition-transform hover:scale-[1.02] active:scale-95"
-                aria-label="Refresh IDRX balance"
-                title="Tap to refresh balance"
-              >
-                <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center">
-                  <Wallet size={14} className="text-yellow-300" strokeWidth={3} />
-                </div>
-                <span className="font-black text-sm text-orange-900">
-                  {loadingMockIDRX ? "..." : Math.floor(mockIDRXBalance).toLocaleString()}
-                </span>
-                <span className="text-xs font-bold text-orange-900 opacity-80">IDRX</span>
-              </button>
-
-              {/* User Info Badge */}
-              {(userInfo.username || userInfo.email || walletAddress) && (
+            <div className="flex items-center justify-end mb-3">
+              {(userInfo.username || walletAddress) && (
                 <div className="bg-emerald-500 border-2 border-emerald-400 rounded-full px-3 py-1.5 flex items-center gap-2 shadow-lg">
                   <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                   <span className="text-white text-xs font-bold">
-                    {userInfo.username || (userInfo.email ? userInfo.email.split('@')[0] : null) || `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
+                    {userInfo.username ||
+                      `${walletAddress?.slice(0, 6)}...${walletAddress?.slice(-4)}`}
                   </span>
                 </div>
               )}
             </div>
 
-            {/* Title */}
             <h1 className="text-4xl font-black text-orange-200 mb-4">Inventory</h1>
 
             {/* Tab Switcher */}
             <div className="flex gap-2 mb-4">
               <button
                 onClick={() => setActiveTab("cars")}
-                className={`flex-1 py-3 rounded-full font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${activeTab === "cars"
-                  ? "bg-white text-orange-600 shadow-lg"
-                  : "bg-orange-600/50 text-white hover:bg-orange-600/70"
-                  }`}
+                className={`flex-1 py-3 rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                  activeTab === "cars"
+                    ? "bg-white text-orange-600 shadow-lg"
+                    : "bg-orange-600/50 text-white hover:bg-orange-600/70"
+                }`}
               >
                 <Car size={16} strokeWidth={2.5} />
-                Cars ({inventoryData.length})
+                Cars ({cars.length})
               </button>
               <button
-                onClick={() => setActiveTab("fragments")}
-                className={`flex-1 py-3 rounded-full font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${activeTab === "fragments"
-                  ? "bg-white text-orange-600 shadow-lg"
-                  : "bg-orange-600/50 text-white hover:bg-orange-600/70"
-                  }`}
+                onClick={() => setActiveTab("parts")}
+                className={`flex-1 py-3 rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                  activeTab === "parts"
+                    ? "bg-white text-orange-600 shadow-lg"
+                    : "bg-orange-600/50 text-white hover:bg-orange-600/70"
+                }`}
               >
-                <Box size={16} strokeWidth={2.5} />
-                Fragments ({fragmentsData.reduce((sum, b) => sum + b.totalParts, 0)})
+                <Wrench size={16} strokeWidth={2.5} />
+                Parts ({spareParts.length})
               </button>
             </div>
 
-            {/* Filter Tabs (only for cars) */}
+            {/* Rarity filter (cars only) */}
             {activeTab === "cars" && (
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {INVENTORY_FILTERS.map((filter) => (
+                {INVENTORY_FILTERS.map((f) => (
                   <button
-                    key={filter}
-                    onClick={() => setSelectedFilter(filter.toLowerCase())}
-                    className={`px-4 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all active:scale-95 ${selectedFilter === filter.toLowerCase()
-                      ? "bg-white text-orange-600 shadow-lg scale-105"
-                      : "bg-orange-600/50 text-white hover:bg-orange-600/70"
-                      }`}
+                    key={f}
+                    onClick={() => setSelectedFilter(f)}
+                    className={`px-4 py-2 rounded-full font-bold text-sm whitespace-nowrap capitalize transition-all ${
+                      selectedFilter === f
+                        ? "bg-white text-orange-600 shadow-lg scale-105"
+                        : "bg-orange-600/50 text-white hover:bg-orange-600/70"
+                    }`}
                   >
-                    {filter}
+                    {f}
                   </button>
                 ))}
               </div>
             )}
           </header>
 
-          {/* Cars Section */}
+          {/* Cars Tab */}
           {activeTab === "cars" && (
             <div className="flex-1 px-4 mb-4">
               <div className="bg-orange-700/50 backdrop-blur-sm rounded-3xl p-4 min-h-[300px]">
-                {loadingInventory ? (
-                  <div className="flex items-center justify-center h-full">
+                {loadingCars ? (
+                  <div className="flex items-center justify-center h-48">
                     <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                      <p className="text-white/60">Loading inventory...</p>
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4" />
+                      <p className="text-white/60">Loading cars...</p>
                     </div>
                   </div>
-                ) : filteredInventory.length > 0 ? (
+                ) : filteredCars.length > 0 ? (
                   <div className="grid grid-cols-2 gap-4">
-                    {filteredInventory.map((car, index) => (
-                      <SwipeCard
-                        key={car.id}
-                        onView={() => {
-                          // View car details (can navigate to detail page)
-                          toast.info(`Viewing ${car.modelName}`);
-                        }}
-                        onShare={() => {
-                          // Share car
-                          if (navigator.share) {
-                            navigator.share({
-                              title: car.modelName,
-                              text: `Check out my ${car.rarity} car: ${car.modelName}!`,
-                              url: window.location.href,
-                            });
-                          } else {
-                            toast.success("Link copied to clipboard!");
-                            navigator.clipboard.writeText(window.location.href);
-                          }
-                        }}
-                        className="h-full"
-                      >
+                    {filteredCars.map((car) => {
+                      const rarityKey =
+                        typeof car.rarity === "number"
+                          ? RARITY_MAP[car.rarity]
+                          : car.rarity?.toLowerCase() || "common";
+                      const rc = RARITY_CONFIG[rarityKey] || RARITY_CONFIG.common;
+                      const isListed = activeListings.has(car.uid);
+
+                      return (
                         <div
-                          className={`relative bg-gradient-to-br ${car.rarityColor} rounded-2xl p-4 shadow-xl transition-transform inventory-card animate-rise h-full flex flex-col`}
-                          style={{ animationDelay: `${index * 60}ms` }}
+                          key={car.uid}
+                          className={`relative bg-gradient-to-br ${rc.gradient} rounded-2xl p-4 shadow-xl flex flex-col`}
                         >
                           {/* Rarity Badge */}
-                          <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-sm rounded-full px-3 py-1.5 z-10">
-                            <span className="text-white text-xs font-black uppercase">
-                              {car.rarity}
-                            </span>
+                          <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1 z-10">
+                            <span className="text-white text-[10px] font-black uppercase">{rc.label}</span>
                           </div>
 
-                          {/* Token ID Badge */}
-                          <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm rounded-full px-3 py-1.5 z-10">
-                            <span className="text-white text-xs font-bold">
-                              #{car.tokenId}
-                            </span>
-                          </div>
+                          {isListed && (
+                            <div className="absolute top-3 right-3 bg-blue-500 rounded-full px-2 py-1 z-10">
+                              <span className="text-white text-[10px] font-bold">LISTED</span>
+                            </div>
+                          )}
 
                           {/* Car Image */}
-                          <div className="aspect-square flex items-center justify-center mb-2">
+                          <div className="aspect-square flex items-center justify-center mb-2 mt-5">
                             <img
-                              src={car.image}
+                              src={getCarImage(car.name)}
                               alt={car.name}
                               className="w-full h-full object-contain drop-shadow-2xl"
                               onError={(e) => {
-                                e.target.src = "/assets/car/placeholder.png";
+                                e.target.src = "/assets/car/High Speed.png";
                               }}
                             />
                           </div>
 
-                          {/* Car Info */}
-                          <div className="text-center px-1 mb-3 flex-1 flex flex-col justify-center">
-                            <p className="text-white text-sm font-black uppercase truncate mb-1">
-                              {car.modelName}
-                            </p>
-                            <p className="text-white/70 text-xs font-semibold truncate">
-                              {car.series}
-                            </p>
+                          {/* Info */}
+                          <div className="text-center mb-3 flex-1">
+                            <p className="text-white text-sm font-black uppercase truncate">{car.name}</p>
+                            <p className="text-white/60 text-xs">UID: {car.uid?.slice(0, 8)}...</p>
                           </div>
 
-                          {/* Action Buttons */}
-                          {!car.isRedeemed ? (
-                            <div className="space-y-2">
-                              {/* Sell to Admin Button */}
-                              <button
-                                onClick={() => handleSellToAdmin(car)}
-                                disabled={activeListings.includes(car.tokenId)}
-                                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold py-2.5 px-3 rounded-lg text-xs shadow-lg transform hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                              >
-                                <DollarSign size={14} className="text-white" />
-                                SELL - {buybackPrices[car.rarity?.toLowerCase()]?.toLocaleString()} IDRX
-                              </button>
-
-                              {/* Claim Physical Button */}
-                              {activeListings.includes(car.tokenId) ? (
-                                <button
-                                  onClick={() => handleClaimPhysical(car)}
-                                  className="w-full bg-gradient-to-r from-gray-500 to-gray-600 text-white font-bold py-2.5 px-3 rounded-lg text-xs shadow-lg cursor-not-allowed opacity-75 flex items-center justify-center gap-1.5"
-                                >
-                                  <Package size={14} className="text-white" />
-                                  UNABLE TO CLAIM
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleClaimPhysical(car)}
-                                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-2.5 px-3 rounded-lg text-xs shadow-lg transform hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                                >
-                                  <Flame size={14} className="text-white" fill="currentColor" />
-                                  CLAIM PHYSICAL
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white font-bold py-2.5 px-3 rounded-lg text-xs text-center shadow-lg">
-                              ✅ REDEEMED
+                          {/* Equipped Parts Count */}
+                          {car.equippedParts && car.equippedParts.length > 0 && (
+                            <div className="bg-black/20 rounded-lg px-2 py-1 mb-2 flex items-center justify-center gap-1">
+                              <Wrench size={10} className="text-white/70" />
+                              <span className="text-white/70 text-[10px]">
+                                {car.equippedParts.length} parts equipped
+                              </span>
                             </div>
                           )}
+
+                          {/* Actions */}
+                          <div className="space-y-1.5">
+                            <button
+                              onClick={() => router.push("/marketplace")}
+                              disabled={isListed}
+                              className="w-full bg-white/20 hover:bg-white/30 text-white font-bold py-2 rounded-lg text-xs transition-all flex items-center justify-center gap-1 disabled:opacity-40"
+                            >
+                              <ChevronRight size={12} />
+                              {isListed ? "Listed" : "Marketplace"}
+                            </button>
+                            <button
+                              onClick={() => router.push("/claim")}
+                              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-2 rounded-lg text-xs transition-all flex items-center justify-center gap-1"
+                            >
+                              <Package size={12} />
+                              Claim Physical
+                            </button>
+                          </div>
                         </div>
-                      </SwipeCard>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full min-h-[280px]">
+                  <div className="flex items-center justify-center h-48">
                     <div className="text-center px-4">
-                      <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                        <Car size={40} className="text-white/40" strokeWidth={1.5} />
+                      <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Car size={32} className="text-white/40" strokeWidth={1.5} />
                       </div>
-                      <h3 className="text-white text-xl font-black mb-2">
-                        {selectedFilter === "all"
-                          ? "No Cars Yet"
-                          : "No Cars Found"}
+                      <h3 className="text-white text-lg font-black mb-2">
+                        {selectedFilter === "all" ? "No Cars Yet" : "No Cars Found"}
                       </h3>
-                      <p className="text-white/60 text-sm mb-6 max-w-[200px] mx-auto">
+                      <p className="text-white/60 text-sm mb-4">
                         {selectedFilter === "all"
-                          ? "Open your first gacha box to start your collection!"
-                          : "Try a different filter or open more gacha boxes"}
+                          ? "Open gacha boxes to start your collection!"
+                          : "Try a different filter"}
                       </p>
                       {selectedFilter === "all" && (
                         <button
-                          onClick={() => router.push('/gacha')}
-                          className="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-orange-900 font-black py-3 px-6 rounded-full shadow-lg transform hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto"
+                          onClick={() => router.push("/gacha")}
+                          className="bg-gradient-to-r from-yellow-400 to-orange-500 text-orange-900 font-black py-2.5 px-5 rounded-full shadow-lg"
                         >
-                          <Box size={18} strokeWidth={2.5} />
-                          Open Gacha Box
+                          Open Gacha
                         </button>
                       )}
                     </div>
@@ -809,113 +347,76 @@ export default function InventoryPage() {
             </div>
           )}
 
-          {/* Fragments Section */}
-          {activeTab === "fragments" && (
+          {/* Spare Parts Tab */}
+          {activeTab === "parts" && (
             <div className="flex-1 px-4 mb-4">
               <div className="bg-orange-700/50 backdrop-blur-sm rounded-3xl p-4 min-h-[300px]">
-                {loadingFragments ? (
-                  <div className="flex items-center justify-center h-full">
+                {loadingParts ? (
+                  <div className="flex items-center justify-center h-48">
                     <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                      <p className="text-white/60">Loading fragments...</p>
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4" />
+                      <p className="text-white/60">Loading parts...</p>
                     </div>
                   </div>
-                ) : fragmentsData.length > 0 ? (
+                ) : spareParts.length > 0 ? (
                   <div className="space-y-4">
-                    {fragmentsData.map((brandData, index) => (
-                      <div
-                        key={brandData.brand}
-                        className={`bg-gradient-to-br ${RARITY_CONFIG[brandData.rarity]?.gradient || "from-gray-500 to-gray-600"} rounded-2xl p-4 shadow-xl transition-transform hover:scale-[1.01] active:scale-[0.99] inventory-card animate-rise`}
-                        style={{ animationDelay: `${index * 80}ms` }}
-                      >
-                        {/* Brand Header */}
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <h3 className="text-white font-black text-lg">{brandData.brand}</h3>
-                            <p className="text-white/70 text-xs">{brandData.series}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${brandData.canAssemble
-                              ? "bg-green-500 text-white"
-                              : "bg-black/40 text-white/70"
-                              }`}>
-                              {brandData.canAssemble ? "READY!" : `${brandData.fragments.length}/5`}
+                    {Object.entries(partsByType).map(([typeId, parts]) => {
+                      const typeInfo = PART_TYPE_ICONS[Number(typeId)] || { Icon: Box, label: `Type ${typeId}` };
+                      const { Icon, label } = typeInfo;
+
+                      return (
+                        <div key={typeId} className="bg-black/20 rounded-2xl p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Icon size={18} className="text-white" strokeWidth={2.5} />
+                            <h3 className="text-white font-black">{label}</h3>
+                            <span className="ml-auto bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                              {parts.length}
                             </span>
                           </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            {parts.map((part) => {
+                              const rarityKey =
+                                typeof part.rarity === "number"
+                                  ? RARITY_MAP[part.rarity]
+                                  : part.rarity?.toLowerCase() || "common";
+                              const rc = RARITY_CONFIG[rarityKey] || RARITY_CONFIG.common;
+
+                              return (
+                                <div
+                                  key={part.uid}
+                                  className={`bg-gradient-to-br ${rc.gradient} rounded-xl p-3`}
+                                >
+                                  <p className="text-white text-xs font-black truncate">{part.name}</p>
+                                  <p className={`text-[10px] font-bold mt-0.5 ${rc.textColor}`}>
+                                    {rc.label}
+                                  </p>
+                                  {part.isEquipped && (
+                                    <p className="text-yellow-300 text-[9px] font-bold mt-0.5">Equipped</p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-
-                        {/* Fragment Progress */}
-                        <div className="grid grid-cols-5 gap-2 mb-3">
-                          {[0, 1, 2, 3, 4].map((typeId) => {
-                            const fragment = brandData.fragments.find(f => f.typeId === typeId);
-                            const hasFragment = fragment && fragment.count > 0;
-                            const { Icon, label } = FRAGMENT_ICONS[typeId];
-
-                            return (
-                              <div
-                                key={typeId}
-                                className={`flex flex-col items-center p-2 rounded-xl transition-transform ${hasFragment
-                                  ? "bg-white/30 hover:scale-105 active:scale-95"
-                                  : "bg-black/30 opacity-70"
-                                  }`}
-                              >
-                                <Icon size={20} className="text-white mb-1" strokeWidth={2.5} />
-                                <span className="text-[8px] font-bold text-white/80">
-                                  {label}
-                                </span>
-                                {hasFragment && (
-                                  <span className="text-[10px] font-black text-yellow-300">
-                                    x{fragment.count}
-                                  </span>
-                                )}
-                                {!hasFragment && (
-                                  <span className="text-[10px] font-bold text-white/40">
-                                    -
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* Assembly Button */}
-                        {brandData.canAssemble && (
-                          <button
-                            onClick={() => handleAssemble(brandData.brand)}
-                            disabled={assembling}
-                            className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 disabled:from-gray-400 disabled:to-gray-500 text-orange-900 font-black py-3 rounded-full shadow-lg transform hover:scale-105 active:scale-95 transition-all inventory-assemble flex items-center justify-center gap-2"
-                          >
-                            {assembling ? (
-                              "Assembling..."
-                            ) : (
-                              <>
-                                <Wrench size={18} strokeWidth={2.5} />
-                                Assemble {brandData.brand}
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full min-h-[280px]">
+                  <div className="flex items-center justify-center h-48">
                     <div className="text-center px-4">
-                      <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                        <Wrench size={40} className="text-white/40" strokeWidth={1.5} />
+                      <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Wrench size={32} className="text-white/40" strokeWidth={1.5} />
                       </div>
-                      <h3 className="text-white text-xl font-black mb-2">
-                        No Fragments Yet
-                      </h3>
-                      <p className="text-white/60 text-sm mb-6 max-w-[220px] mx-auto">
-                        Collect 5 matching fragments to assemble a complete car!
+                      <h3 className="text-white text-lg font-black mb-2">No Spare Parts</h3>
+                      <p className="text-white/60 text-sm mb-4">
+                        Open gacha boxes to collect parts!
                       </p>
                       <button
-                        onClick={() => router.push('/gacha')}
-                        className="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-orange-900 font-black py-3 px-6 rounded-full shadow-lg transform hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto"
+                        onClick={() => router.push("/gacha")}
+                        className="bg-gradient-to-r from-yellow-400 to-orange-500 text-orange-900 font-black py-2.5 px-5 rounded-full shadow-lg"
                       >
-                        <Box size={18} strokeWidth={2.5} />
-                        Start Collecting
+                        Open Gacha
                       </button>
                     </div>
                   </div>
@@ -923,394 +424,10 @@ export default function InventoryPage() {
               </div>
             </div>
           )}
-
-          {/* Assembly Result Modal */}
-          {assemblyResult && (
-            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
-              <div className={`bg-gradient-to-br ${assemblyResult.success ? "from-green-500 to-emerald-600" : "from-red-500 to-red-600"} rounded-3xl p-6 max-w-sm w-full shadow-2xl my-8`}>
-                <div className="text-center">
-                  <div className="mb-4 flex justify-center">
-                    {assemblyResult.success ? (
-                      <PartyPopper size={64} className="text-white" strokeWidth={1.5} />
-                    ) : (
-                      <Frown size={64} className="text-white" strokeWidth={1.5} />
-                    )}
-                  </div>
-                  <h3 className="text-2xl font-black text-white mb-2">
-                    {assemblyResult.success ? "Assembly Success!" : "Assembly Failed"}
-                  </h3>
-                  <p className="text-white/90 mb-4">
-                    {assemblyResult.message}
-                  </p>
-                  {assemblyResult.success && assemblyResult.car && (
-                    <div className="bg-white/20 rounded-2xl p-4 mb-4">
-                      <p className="text-white font-bold">{assemblyResult.car.modelName}</p>
-                      <p className="text-white/70 text-sm">{assemblyResult.car.series}</p>
-                      <p className="text-yellow-300 text-xs font-bold uppercase mt-1">
-                        {assemblyResult.car.rarity}
-                      </p>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => setAssemblyResult(null)}
-                    className="w-full bg-white text-orange-600 font-black py-3 rounded-full"
-                  >
-                    OK
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </PullToRefresh>
 
-      {/* Bottom Navigation */}
       <BottomNavigation />
-
-      {/* Network Modal */}
-      <NetworkModal
-        isOpen={showNetworkModal}
-        onClose={() => setShowNetworkModal(false)}
-        onNetworkChanged={() => { }}
-      />
-
-      {/* Sold Out Modal */}
-      {showSoldOutModal && soldOutData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 overflow-y-auto">
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-2xl max-w-md w-full p-6 border-4 border-yellow-400 my-8 max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="text-center mb-6">
-              <div className="mb-3 flex justify-center">
-                <AlertTriangle size={64} className="text-white" strokeWidth={1.5} />
-              </div>
-              <h2 className="text-2xl font-black text-white mb-2">
-                Series Sold Out!
-              </h2>
-              <div className="bg-white/20 rounded-lg p-3 mb-2">
-                <p className="font-bold text-yellow-300 text-lg">
-                  {soldOutData.series} Series
-                </p>
-                <p className="text-sm text-white/90">
-                  {soldOutData.supplyStatus?.currentMinted}/{soldOutData.supplyStatus?.maxSupply} Minted
-                </p>
-              </div>
-              <p className="text-white/90 text-sm">
-                {soldOutData.message}
-              </p>
-            </div>
-
-            {/* Options */}
-            <div className="space-y-3 mb-4">
-              {soldOutData.options?.map((option, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    if (option.type === "refund") {
-                      handleRefundOption();
-                    } else if (option.type === "waitlist") {
-                      handleWaitlistOption();
-                    }
-                  }}
-                  disabled={processingOption}
-                  className={`w-full p-4 rounded-xl text-left transition-all shadow-lg ${option.type === "refund"
-                    ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                    : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-                    } ${processingOption ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  <div className="flex items-start gap-3">
-                    {option.type === "refund" ? (
-                      <DollarSign size={32} className="text-white" strokeWidth={2} />
-                    ) : (
-                      <Clock size={32} className="text-white" strokeWidth={2} />
-                    )}
-                    <div className="flex-1">
-                      <h3 className="font-black text-white text-lg mb-1">
-                        {option.title}
-                      </h3>
-                      <p className="text-white/90 text-sm mb-2">
-                        {option.description}
-                      </p>
-                      {option.type === "refund" && (
-                        <div className="bg-white/20 rounded-lg px-3 py-1 inline-block">
-                          <span className="font-black text-yellow-300">
-                            +{option.bonus?.toLocaleString()} IDRX
-                          </span>
-                        </div>
-                      )}
-                      {option.type === "waitlist" && (
-                        <div className="bg-white/20 rounded-lg px-3 py-1 inline-block">
-                          <span className="font-bold text-white text-sm">
-                            Position: #{option.currentPosition}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {/* Close button */}
-            <button
-              onClick={() => setShowSoldOutModal(false)}
-              disabled={processingOption}
-              className="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50"
-            >
-              {processingOption ? "Processing..." : "Close"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Shipping Info Modal */}
-      {showShippingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 overflow-y-auto">
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-2xl max-w-md w-full p-6 border-4 border-yellow-400">
-            <div className="text-center mb-6">
-              <div className="mb-3 flex justify-center">
-                <Package size={64} className="text-white" strokeWidth={1.5} />
-              </div>
-              <h2 className="text-2xl font-black text-white mb-2">
-                Shipping Information
-              </h2>
-              <p className="text-white/90 text-sm">
-                Please provide your shipping details to claim the physical car
-              </p>
-            </div>
-
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-white font-bold text-sm mb-2">
-                  Recipient Name
-                </label>
-                <input
-                  type="text"
-                  value={shippingInfo.name}
-                  onChange={(e) => setShippingInfo({ ...shippingInfo, name: e.target.value })}
-                  placeholder="Enter full name"
-                  className="w-full px-4 py-3 rounded-lg bg-white/90 text-gray-900 font-semibold placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-white font-bold text-sm mb-2">
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  value={shippingInfo.phone}
-                  onChange={(e) => setShippingInfo({ ...shippingInfo, phone: e.target.value })}
-                  placeholder="+1 (555) 000-0000"
-                  className="w-full px-4 py-3 rounded-lg bg-white/90 text-gray-900 font-semibold placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-white font-bold text-sm mb-2">
-                  Complete Address
-                </label>
-                <textarea
-                  value={shippingInfo.address}
-                  onChange={(e) => setShippingInfo({ ...shippingInfo, address: e.target.value })}
-                  placeholder="Street, City, State, ZIP Code, Country"
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-lg bg-white/90 text-gray-900 font-semibold placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowShippingModal(false);
-                  setSelectedCar(null);
-                }}
-                disabled={loadingShipping}
-                className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveShipping}
-                disabled={loadingShipping}
-                className="flex-1 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-orange-900 font-black py-3 rounded-xl shadow-lg disabled:opacity-50"
-              >
-                {loadingShipping ? "Saving..." : "Save & Continue"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Redeem Confirmation Modal */}
-      {showRedeemModal && selectedCar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 overflow-y-auto">
-          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-2xl max-w-md w-full p-6 border-4 border-yellow-400">
-            <div className="text-center mb-6">
-              <div className="mb-3 flex justify-center">
-                <AlertTriangle size={64} className="text-white" strokeWidth={1.5} />
-              </div>
-              <h2 className="text-2xl font-black text-white mb-2">
-                Confirm Redemption
-              </h2>
-              <p className="text-white/90 text-sm mb-4">
-                Are you sure you want to claim the physical car? This will BURN your NFT permanently!
-              </p>
-
-              <div className="bg-white/20 rounded-xl p-4 mb-4">
-                <p className="text-yellow-300 font-black text-lg mb-1">
-                  {selectedCar.modelName}
-                </p>
-                <p className="text-white/90 text-sm mb-2">
-                  {selectedCar.series} • Token #{selectedCar.tokenId}
-                </p>
-                <div className="text-left bg-black/30 rounded-lg p-3 text-sm">
-                  <p className="text-white font-bold mb-1">Shipping to:</p>
-                  <p className="text-white/90">{shippingInfo.name}</p>
-                  <p className="text-white/90">{shippingInfo.phone}</p>
-                  <p className="text-white/80 text-xs mt-1">{shippingInfo.address}</p>
-                </div>
-              </div>
-
-              <div className="bg-yellow-400 rounded-lg p-3 mb-4">
-                <p className="text-orange-900 font-black text-xs">
-                  ⚠️ WARNING: This action cannot be undone. Your NFT will be burned and you will receive the physical car.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowRedeemModal(false);
-                  setSelectedCar(null);
-                }}
-                disabled={redeeming}
-                className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmRedeem}
-                disabled={redeeming}
-                className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-3 rounded-xl shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {redeeming ? "Processing..." : (
-                  <>
-                    <Flame size={18} className="text-white" fill="currentColor" />
-                    BURN & CLAIM
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Redeem Result Modal */}
-      {redeemResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 overflow-y-auto">
-          <div className={`bg-gradient-to-br ${redeemResult.success ? "from-green-500 to-emerald-600" : "from-red-500 to-red-600"} rounded-2xl shadow-2xl max-w-md w-full p-6 border-4 border-yellow-400`}>
-            <div className="text-center">
-              <div className="mb-4 flex justify-center">
-                {redeemResult.success ? (
-                  <PartyPopper size={64} className="text-white" strokeWidth={1.5} />
-                ) : (
-                  <Frown size={64} className="text-white" strokeWidth={1.5} />
-                )}
-              </div>
-              <h2 className="text-2xl font-black text-white mb-2">
-                {redeemResult.success ? "Redemption Successful!" : "Redemption Failed"}
-              </h2>
-              <p className="text-white/90 mb-4">
-                {redeemResult.message}
-              </p>
-              {redeemResult.success && redeemResult.car && (
-                <div className="bg-white/20 rounded-xl p-4 mb-4">
-                  <p className="text-yellow-300 font-black text-lg mb-1">
-                    {redeemResult.car.modelName}
-                  </p>
-                  <p className="text-white/90 text-sm">
-                    {redeemResult.car.series}
-                  </p>
-                  <p className="text-white/80 text-xs mt-2">
-                    Your physical car will be shipped to your address within 7-14 business days.
-                  </p>
-                </div>
-              )}
-              <button
-                onClick={() => {
-                  setRedeemResult(null);
-                  setSelectedCar(null);
-                }}
-                className="w-full bg-white text-orange-600 font-black py-3 rounded-xl hover:bg-gray-100 transition-all"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Marketplace Listing Warning Modal */}
-      {showListingWarning && selectedCar && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-3xl p-6 max-w-sm w-full shadow-2xl my-8">
-            <div className="text-center">
-              <div className="mb-4 flex justify-center">
-                <AlertTriangle size={64} className="text-yellow-300" strokeWidth={1.5} />
-              </div>
-              <h3 className="text-2xl font-black text-white mb-2">
-                Unable to Claim
-              </h3>
-              <p className="text-white/90 text-sm mb-6">
-                This NFT is currently listed on the marketplace. You must <strong>delist it first</strong> before proceeding with physical redemption.
-              </p>
-              {activeListings.includes(selectedCar.tokenId) && (
-                <div className="bg-white/20 rounded-2xl p-4 mb-4">
-                  <p className="text-white font-bold">{selectedCar.modelName}</p>
-                  <p className="text-white/70 text-sm">{selectedCar.series}</p>
-                  <p className="text-yellow-300 text-xs font-bold uppercase mt-1">
-                    Token #{selectedCar.tokenId}
-                  </p>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setShowListingWarning(false);
-                    setSelectedCar(null);
-                  }}
-                  className="flex-1 bg-white/20 hover:bg-white/30 text-white font-bold py-3 rounded-xl transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setShowListingWarning(false);
-                    router.push('/marketplace');
-                  }}
-                  className="flex-1 bg-white text-orange-600 font-black py-3 rounded-xl hover:bg-gray-100 transition-all"
-                >
-                  Go to Marketplace
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sell to Admin Modal */}
-      <SellToAdminModal
-        isOpen={showSellToAdminModal}
-        onClose={() => {
-          setShowSellToAdminModal(false);
-          setSelectedCarForSale(null);
-        }}
-        car={selectedCarForSale}
-        buybackPrice={selectedCarForSale ? buybackPrices[selectedCarForSale.rarity?.toLowerCase()] : 0}
-        onConfirmSale={handleConfirmSale}
-      />
     </main>
   );
 }

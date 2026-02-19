@@ -1,24 +1,85 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { usePrivy } from "@privy-io/react-auth";
 import { useRouter, useParams } from "next/navigation";
-import { Wallet } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
-import { getGachaBoxes, openGachaBox, getRarityConfig } from "@/lib/gachaApi";
-import { payForSpin, ensureServerWalletApproval } from "@/lib/mockidrx";
+import { useSignAndExecuteTransaction } from "@onelabs/dapp-kit";
+import { Transaction } from "@onelabs/sui/transactions";
+import { getGachaTiers, getGachaPricing, revealGacha, getRarityConfig, tierNameToId } from "@/lib/gachaApi";
 import { toast } from "sonner";
 import GachaRoulette from "@/components/GachaRoulette";
-import { validateNetwork, formatBlockchainError } from "@/utils/blockchain";
 import ProgressSteps from "@/components/shared/ProgressSteps";
-import ErrorBanner from "@/components/shared/ErrorBanner";
+
+// ==================== On-Chain Constants ====================
+
+const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID;
+const CONFIG_ID = process.env.NEXT_PUBLIC_CONFIG_ID;
+const GACHA_STATE_ID = process.env.NEXT_PUBLIC_GACHA_STATE_ID;
+const VAULT_ID = process.env.NEXT_PUBLIC_VAULT_ID;
+const OCT_TYPE = "0x2::oct::OCT";
+const CLOCK_OBJ = "0x6"; // Sui system clock object
+
+// Car probability per tier (matches backend GachaTiers.ts)
+const CAR_PROBABILITY = { 1: 0.30, 2: 0.50, 3: 0.60 };
+
+// ==================== Helpers ====================
+
+const hexToUint8 = (hex) => {
+  const h = hex.startsWith("0x") ? hex.slice(2) : hex;
+  const pairs = h.match(/.{1,2}/g) || [];
+  return new Uint8Array(pairs.map((b) => parseInt(b, 16)));
+};
+
+const getAssetImage = (name) => {
+  const n = name?.toLowerCase() || "";
+  if (n.includes("body")) return "/assets/Fragments/Body.png";
+  if (n.includes("chassis") || n.includes("chasis")) return "/assets/Fragments/Chasis.png";
+  if (n.includes("engine")) return "/assets/Fragments/Engine.png";
+  if (n.includes("interior")) return "/assets/Fragments/Interior.png";
+  if (n.includes("wheel")) return "/assets/Fragments/Wheels.png";
+  if (n.includes("porsche 911 turbo")) return "/assets/car_no_background/01-Porche-911-Turbo-removebg-preview.png";
+  if (n.includes("bugatti")) return "/assets/car_no_background/02-Bugatti-Chiron-removebg-preview.png";
+  if (n.includes("jesko")) return "/assets/car_no_background/03-Koenigsegg_Jesko-removebg-preview.png";
+  if (n.includes("m3 gtr")) return "/assets/car_no_background/04-BMW-M3-GTR-removebg-preview.png";
+  if (n.includes("huracan")) return "/assets/car_no_background/05-Lamborghini-Huracan-removebg-preview.png";
+  if (n.includes("audi rs")) return "/assets/car_no_background/06-Audi-RS-Superwagon-removebg-preview.png";
+  if (n.includes("ferrari f8")) return "/assets/car_no_background/07-Ferrari-F8-Turbo-removebg-preview.png";
+  if (n.includes("huayra")) return "/assets/car_no_background/08-Pagain-Huayra-removebg-preview.png";
+  if (n.includes("mercedes amg gt")) return "/assets/car_no_background/11-Mercedes-AMG-GT-removebg-preview.png";
+  if (n.includes("mercedes amg")) return "/assets/car_no_background/09-Mercede-AMG-removebg-preview.png";
+  if (n.includes("civic")) return "/assets/car_no_background/10-Honda-Civic-removebg-preview.png";
+  if (n.includes("corolla")) return "/assets/car_no_background/12-Toyota-Corrola-removebg-preview.png";
+  if (n.includes("porsche 911")) return "/assets/car_no_background/13-Proche-911-removebg-preview.png";
+  if (n.includes("720s")) return "/assets/car_no_background/14-McLAREN-720s-removebg-preview.png";
+  return "/assets/car/Chrome Viper.png";
+};
+
+const dummyAssets = [
+  { name: "Porsche 911 Turbo", rarity: "Legendary" },
+  { name: "Engine Part", rarity: "Rare" },
+  { name: "Bugatti Chiron", rarity: "Legendary" },
+  { name: "Wheels Set", rarity: "Common" },
+  { name: "Koenigsegg Jesko", rarity: "Legendary" },
+  { name: "Chasis Kit", rarity: "Uncommon" },
+  { name: "BMW M3 GTR", rarity: "Epic" },
+  { name: "Interior Trim", rarity: "Common" },
+  { name: "Lamborghini Huracan", rarity: "Epic" },
+  { name: "Body Kit", rarity: "Rare" },
+  { name: "Ferrari F8", rarity: "Epic" },
+  { name: "Pagani Huayra", rarity: "Legendary" },
+  { name: "Mercedes AMG", rarity: "Rare" },
+  { name: "Honda Civic", rarity: "Common" },
+  { name: "McLaren 720s", rarity: "Epic" },
+].map((item) => ({ ...item, image: getAssetImage(item.name) }));
+
+// ==================== Component ====================
 
 export default function GachaTierPage() {
-  const { authenticated, ready, getAccessToken } = usePrivy();
+  const { isConnected, walletAddress, getAuthToken } = useWallet();
+  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
   const router = useRouter();
   const params = useParams();
-  const tierType = params.tier; // standard, premium, or legendary
-  const { embeddedWallet, walletAddress } = useWallet();
+  const tierType = params.tier;
 
   const [isSpinning, setIsSpinning] = useState(false);
   const [hasSpun, setHasSpun] = useState(false);
@@ -26,134 +87,53 @@ export default function GachaTierPage() {
   const [slideProgress, setSlideProgress] = useState(0);
   const [showAnimation, setShowAnimation] = useState(false);
   const [spinProgress, setSpinProgress] = useState(1);
-
-  // Dummy assets for the reel
-  // Helper to map name to image
-  const getAssetImage = (name) => {
-    const n = name?.toLowerCase() || "";
-    // Fragments
-    if (n.includes("body")) return "/assets/Fragments/Body.png";
-    if (n.includes("chassis") || n.includes("chasis")) return "/assets/Fragments/Chasis.png";
-    if (n.includes("engine")) return "/assets/Fragments/Engine.png";
-    if (n.includes("interior")) return "/assets/Fragments/Interior.png";
-    if (n.includes("wheel")) return "/assets/Fragments/Wheels.png";
-
-    // Cars (Best effort mapping based on filenames)
-    if (n.includes("porsche 911 turbo")) return "/assets/car_no_background/01-Porche-911-Turbo-removebg-preview.png";
-    if (n.includes("bugatti")) return "/assets/car_no_background/02-Bugatti-Chiron-removebg-preview.png";
-    if (n.includes("jesko")) return "/assets/car_no_background/03-Koenigsegg_Jesko-removebg-preview.png";
-    if (n.includes("m3 gtr")) return "/assets/car_no_background/04-BMW-M3-GTR-removebg-preview.png";
-    if (n.includes("huracan")) return "/assets/car_no_background/05-Lamborghini-Huracan-removebg-preview.png";
-    if (n.includes("audi rs")) return "/assets/car_no_background/06-Audi-RS-Superwagon-removebg-preview.png";
-    if (n.includes("ferrari f8")) return "/assets/car_no_background/07-Ferrari-F8-Turbo-removebg-preview.png";
-    if (n.includes("huayra")) return "/assets/car_no_background/08-Pagain-Huayra-removebg-preview.png";
-    if (n.includes("mercedes amg gt")) return "/assets/car_no_background/11-Mercedes-AMG-GT-removebg-preview.png"; // Specific check before generic AMG
-    if (n.includes("mercedes amg")) return "/assets/car_no_background/09-Mercede-AMG-removebg-preview.png";
-    if (n.includes("civic")) return "/assets/car_no_background/10-Honda-Civic-removebg-preview.png";
-    if (n.includes("corolla")) return "/assets/car_no_background/12-Toyota-Corrola-removebg-preview.png";
-    if (n.includes("porsche 911")) return "/assets/car_no_background/13-Proche-911-removebg-preview.png";
-    if (n.includes("720s")) return "/assets/car_no_background/14-McLAREN-720s-removebg-preview.png";
-
-    return "/assets/car/Chrome Viper.png";
-  };
-
-  // Dummy assets for the reel (Mixed Cars and Fragments)
-  const dummyAssets = [
-    { name: "Porsche 911 Turbo", rarity: "Legendary" },
-    { name: "Engine Part", rarity: "Rare" },
-    { name: "Bugatti Chiron", rarity: "Legendary" },
-    { name: "Wheels Set", rarity: "Common" },
-    { name: "Koenigsegg Jesko", rarity: "Legendary" },
-    { name: "Chasis Kit", rarity: "Uncommon" },
-    { name: "BMW M3 GTR", rarity: "Epic" },
-    { name: "Interior Trim", rarity: "Common" },
-    { name: "Lamborghini Huracan", rarity: "Epic" },
-    { name: "Body Kit", rarity: "Rare" },
-    { name: "Audi RS", rarity: "Rare" },
-    { name: "Ferrari F8", rarity: "Epic" },
-    { name: "Pagani Huayra", rarity: "Legendary" },
-    { name: "Mercedes AMG", rarity: "Rare" },
-    { name: "Honda Civic", rarity: "Common" },
-    { name: "Mercedes AMG GT", rarity: "Rare" },
-    { name: "Toyota Corolla", rarity: "Common" },
-    { name: "Porsche 911", rarity: "Rare" },
-    { name: "McLaren 720s", rarity: "Epic" },
-  ].map(item => ({ ...item, image: getAssetImage(item.name) }));
-
-  // Gacha data from backend
-  const [gachaBoxes, setGachaBoxes] = useState([]);
-  const [userMockIDRX, setUserMockIDRX] = useState(0);
-  const [loadingGachaData, setLoadingGachaData] = useState(true);
+  const [pricing, setPricing] = useState(null);
+  const [loadingPricing, setLoadingPricing] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [userInfo, setUserInfo] = useState({
-    username: null,
-    email: null,
-    usernameSet: false
-  });
-
   const sliderRef = useRef(null);
   const startXRef = useRef(0);
   const isDraggingRef = useRef(false);
   const progressPercent = Math.min(100, Math.round(slideProgress * 100));
   const isSlideReady = slideProgress >= 1;
 
-  // Redirect if not authenticated
   useEffect(() => {
-    if (ready && !authenticated) {
-      router.push("/");
-    }
-  }, [ready, authenticated, router]);
+    if (!isConnected) router.push("/gacha");
+  }, [isConnected, router]);
 
-  // Fetch gacha boxes and user MockIDRX balance from backend
-  const fetchGachaData = async () => {
-    if (!authenticated) return;
-
-    try {
-      setLoadingGachaData(true);
-      setErrorMessage("");
-      const authToken = await getAccessToken();
-      const data = await getGachaBoxes(authToken);
-
-      setGachaBoxes(data.boxes);
-      setUserMockIDRX(data.userMockIDRX);
-
-      // Fetch user info from overview
-      const overviewResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/overview`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      const overviewData = await overviewResponse.json();
-      setUserInfo({
-        username: overviewData.user?.username || null,
-        email: overviewData.user?.email || null,
-        usernameSet: overviewData.user?.usernameSet || false
-      });
-
-      setLoadingGachaData(false);
-    } catch (error) {
-      console.error("Failed to fetch gacha data:", error);
-      setErrorMessage("Failed to load gacha data. Please try again.");
-      setLoadingGachaData(false);
-    }
-  };
-
+  // Load pricing from public tiers endpoint (no auth needed)
   useEffect(() => {
-    if (authenticated && ready) {
-      fetchGachaData();
-    }
-  }, [authenticated, ready]);
+    const load = async () => {
+      try {
+        setLoadingPricing(true);
+        const tierId = tierNameToId(tierType);
+        const tiers = await getGachaTiers();
+        const tier = Array.isArray(tiers)
+          ? tiers.find((t) => t.id === tierId || t.tierId === tierId)
+          : null;
+        if (tier) {
+          const rawMist = tier.price ?? tier.cost ?? 0;
+          const octAmount = (Number(rawMist) / 1_000_000_000).toLocaleString("en", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 4,
+          });
+          setPricing({ price: octAmount, currency: "OCT" });
+        }
+      } catch (err) {
+        console.error("Failed to load pricing:", err);
+      } finally {
+        setLoadingPricing(false);
+      }
+    };
+    load();
+  }, [tierType]);
 
-  // Handle mouse/touch move globally
   useEffect(() => {
     const handleGlobalMove = (e) => {
       if (!isDraggingRef.current || hasSpun) return;
-
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const diff = clientX - startXRef.current;
-      const maxSlide = 250;
-      const progress = Math.min(Math.max(diff / maxSlide, 0), 1);
+      const progress = Math.min(Math.max(diff / 250, 0), 1);
       setSlideProgress(progress);
-
-      // If slid far enough, trigger spin
       if (progress >= 1) {
         isDraggingRef.current = false;
         triggerSpin();
@@ -163,34 +143,30 @@ export default function GachaTierPage() {
     const handleGlobalEnd = () => {
       if (!isDraggingRef.current) return;
       isDraggingRef.current = false;
-      if (slideProgress < 1 && !hasSpun) {
-        setSlideProgress(0);
-      }
+      if (slideProgress < 1 && !hasSpun) setSlideProgress(0);
     };
 
-    window.addEventListener('mousemove', handleGlobalMove);
-    window.addEventListener('mouseup', handleGlobalEnd);
-    window.addEventListener('touchmove', handleGlobalMove);
-    window.addEventListener('touchend', handleGlobalEnd);
-
+    window.addEventListener("mousemove", handleGlobalMove);
+    window.addEventListener("mouseup", handleGlobalEnd);
+    window.addEventListener("touchmove", handleGlobalMove);
+    window.addEventListener("touchend", handleGlobalEnd);
     return () => {
-      window.removeEventListener('mousemove', handleGlobalMove);
-      window.removeEventListener('mouseup', handleGlobalEnd);
-      window.removeEventListener('touchmove', handleGlobalMove);
-      window.removeEventListener('touchend', handleGlobalEnd);
+      window.removeEventListener("mousemove", handleGlobalMove);
+      window.removeEventListener("mouseup", handleGlobalEnd);
+      window.removeEventListener("touchmove", handleGlobalMove);
+      window.removeEventListener("touchend", handleGlobalEnd);
     };
   }, [slideProgress, hasSpun]);
 
-  // Handle touch/mouse start
   const handleStart = (e) => {
     if (hasSpun || isSpinning) return;
     e.preventDefault();
     isDraggingRef.current = true;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    startXRef.current = clientX;
+    startXRef.current = e.touches ? e.touches[0].clientX : e.clientX;
   };
 
-  // Trigger the spin animation and result
+  // ==================== On-Chain Gacha Flow ====================
+
   const triggerSpin = async () => {
     if (hasSpun || isSpinning) return;
 
@@ -199,127 +175,168 @@ export default function GachaTierPage() {
     setSpinProgress(1);
     isDraggingRef.current = false;
 
-    let paymentTxHash = null; // Track payment for potential refund
-
     try {
-      // Get selected box cost
-      const selectedBox = gachaBoxes.find(box => box.type === tierType);
-      if (!selectedBox) {
-        throw new Error("Box data not loaded. Please refresh the page.");
-      }
+      // Step 1: Authenticate
+      setSpinProgress(1);
+      console.log("[Gacha] Step 1: Authenticating...");
+      const authToken = await getAuthToken();
+      const tierId = tierNameToId(tierType);
+      const contractTierId = tierId - 1; // Contract is 0-indexed (0,1,2)
+      console.log("[Gacha] Step 1 done. tierId:", tierId, "contractTierId:", contractTierId);
 
-      if (!selectedBox.costCoins || selectedBox.costCoins <= 0) {
-        throw new Error("Invalid box cost. Please refresh the page.");
-      }
-
-      console.log("📦 Selected box:", selectedBox);
-
-      // Step 1: Validate network
-      const networkValidation = await validateNetwork(embeddedWallet);
-      if (!networkValidation.valid) {
-        throw new Error(networkValidation.error);
-      }
-
-      // Step 2: Get auth token
+      // Step 2: Get backend-signed pricing
       setSpinProgress(2);
-      const authToken = await getAccessToken();
+      console.log("[Gacha] Step 2: Getting pricing...");
+      const pricingData = await getGachaPricing(tierId, authToken);
+      console.log("[Gacha] Step 2 done. pricingData:", pricingData);
+      const { signature, message, nonce, expiresAt, tierPrice } = pricingData;
 
-      // Step 3: Ensure server wallet approval
+      // Decide is_car locally (committed on-chain, backend reveal must match)
+      const isCar = Math.random() < (CAR_PROBABILITY[tierId] ?? 0.30);
+      console.log("[Gacha] isCar:", isCar, "tierPrice:", tierPrice, "expiresAt:", expiresAt, "nonce:", nonce);
+
+      // Step 3: Commit on-chain — user pays OCT
       setSpinProgress(3);
-      console.log('🔍 Checking server wallet approval...');
-      const approvalResult = await ensureServerWalletApproval(
-        embeddedWallet,
-        walletAddress,
-        selectedBox.costCoins
-      );
+      console.log("[Gacha] Step 3: Building commit tx...");
 
-      if (!approvalResult.approved) {
-        throw new Error(approvalResult.error || "Failed to approve server wallet");
+      if (!PACKAGE_ID || !CONFIG_ID || !GACHA_STATE_ID || !VAULT_ID) {
+        throw new Error(
+          "Smart contract not configured. Run initialize-contract.ts and set NEXT_PUBLIC_* env vars."
+        );
       }
 
-      if (approvalResult.txHash) {
-        console.log('✅ Approval successful:', approvalResult.txHash);
-        toast.success("Server wallet approved! You can now use gasless transactions.");
-      }
+      const commitHash = crypto.getRandomValues(new Uint8Array(32));
+      const sigBytes = hexToUint8(signature);
+      const msgBytes = hexToUint8(message);
 
-      // Step 4: User pays for spin
+      const commitTx = new Transaction();
+      const [payment] = commitTx.splitCoins(commitTx.gas, [
+        commitTx.pure.u64(BigInt(tierPrice)),
+      ]);
+
+      commitTx.moveCall({
+        target: `${PACKAGE_ID}::gacha::commit`,
+        typeArguments: [OCT_TYPE],
+        arguments: [
+          commitTx.object(GACHA_STATE_ID),         // gacha_state: &mut GachaState<T>
+          commitTx.object(CONFIG_ID),               // config: &mut Config
+          commitTx.object(VAULT_ID),                // vault: &mut Vault<T>
+          commitTx.pure.vector('u8', Array.from(commitHash)), // commit_hash: vector<u8>
+          commitTx.pure.bool(isCar),                // is_car: bool
+          commitTx.pure.u8(contractTierId),          // tier_id: u8 (0-indexed)
+          commitTx.pure.u64(BigInt(tierPrice)),      // tier_price: u64
+          commitTx.pure.u64(BigInt(expiresAt)),      // signature_expiry: u64 (seconds)
+          commitTx.pure.u64(BigInt(nonce)),          // nonce: u64
+          commitTx.pure.vector('u8', Array.from(sigBytes)),  // signature: vector<u8>
+          commitTx.pure.vector('u8', Array.from(msgBytes)),  // message: vector<u8>
+          payment,                                   // payment: Coin<T>
+          commitTx.object(CLOCK_OBJ),               // clock: &Clock
+        ],
+      });
+
+      console.log("[Gacha] Step 3: Sending commit tx...");
+      const commitResult = await signAndExecute({ transaction: commitTx });
+      console.log("[Gacha] Step 3 done. commitResult:", commitResult);
+
+      // Step 4: Reveal on-chain — backend signs reveal, user mints NFT
       setSpinProgress(4);
-      console.log(`💳 Paying ${selectedBox.costCoins} IDRX for spin (gasless)...`);
-      const paymentResult = await payForSpin(embeddedWallet, selectedBox.costCoins, authToken);
+      console.log("[Gacha] Step 4: Getting reveal data...");
+      const revealData = await revealGacha(tierId, authToken, isCar);
+      console.log("[Gacha] Step 4 revealData:", revealData);
 
-      if (!paymentResult.success) {
-        throw new Error(paymentResult.error || "Failed to pay for spin");
-      }
+      const {
+        signature: revealSig,
+        message: revealMsg,
+        nonce: revealNonce,
+        rarity,
+        name,
+        brand,
+        stats,
+        partType,
+        slotLimit,
+      } = revealData;
 
-      paymentTxHash = paymentResult.txHash;
-      console.log("✅ Payment successful:", paymentTxHash);
+      const revealSigBytes = hexToUint8(revealSig);
+      const revealMsgBytes = hexToUint8(revealMsg);
+      const nameBytes = new TextEncoder().encode(name ?? "");
 
-      // Step 5: Call backend API with payment TX hash for verification
-      setSpinProgress(5);
-      const result = await openGachaBox(tierType, paymentTxHash, authToken);
+      // Stat mapping: backend { speed, acceleration, handling, drift }
+      //               → contract new_stats(accel, top_speed, grip, hp)
+      const accel    = BigInt(stats?.acceleration ?? 0);
+      const topSpeed = BigInt(stats?.speed ?? 0);
+      const grip     = BigInt(stats?.handling ?? 0);
+      const hp       = BigInt(stats?.drift ?? 0);
 
-      // Map backend reward to frontend format
-      const rarityConfig = getRarityConfig(result.reward.rarity);
+      const revealTx = new Transaction();
 
-      let rewardName = "";
-      if (result.reward.rewardType === "car") {
-        rewardName = result.reward.modelName;
-      } else {
-        // Construct full name for fragment (e.g., "Honda Civic Engine")
-        rewardName = `${result.reward.brand} ${result.reward.fragmentName}`;
-      }
+      revealTx.moveCall({
+        target: `${PACKAGE_ID}::gacha::reveal`,
+        typeArguments: [OCT_TYPE],
+        arguments: [
+          revealTx.object(GACHA_STATE_ID),          // gacha_state
+          revealTx.object(CONFIG_ID),                // config
+          revealTx.pure.address(walletAddress),      // player: address
+          revealTx.pure.u8(rarity),                  // rarity: u8
+          revealTx.pure.vector('u8', Array.from(nameBytes)), // name_bytes: vector<u8>
+          revealTx.pure.u8(brand),                   // brand: u8
+          revealTx.pure.u8(partType ?? 0),           // part_type: u8 (ignored for cars)
+          revealTx.pure.u64(accel),                  // accel: u64
+          revealTx.pure.u64(topSpeed),               // top_speed: u64
+          revealTx.pure.u64(grip),                   // grip: u64
+          revealTx.pure.u64(hp),                     // hp: u64
+          revealTx.pure.u8(slotLimit ?? 0),          // slot_limit: u8 (ignored for parts)
+          revealTx.pure.u64(BigInt(revealNonce)),    // nonce: u64
+          revealTx.pure.vector('u8', Array.from(revealSigBytes)), // signature: vector<u8>
+          revealTx.pure.vector('u8', Array.from(revealMsgBytes)), // message: vector<u8>
+          revealTx.object(CLOCK_OBJ),               // clock: &Clock
+        ],
+      });
 
-      const rewardData = {
-        tokenId: result.reward.tokenId, // TokenId might be undefined for fragments if not sent, but txHash is there
+      await signAndExecute({ transaction: revealTx });
+
+      // Show reward
+      const rarityConfig = getRarityConfig(rarity);
+      const rewardName = name || (isCar ? "Mystery Car" : "Mystery Part");
+
+      setReward({
         name: rewardName,
-        series: result.reward.series,
         rarity: rarityConfig.label,
         rarityColor: rarityConfig.color,
-        txHash: result.reward.txHash,
         image: getAssetImage(rewardName),
-      };
+        isCar,
+      });
 
-      setReward(rewardData);
-
-      // Update user MockIDRX balance
-      setUserMockIDRX(result.mockIDRX.remaining);
-
-      console.log("✅ Gacha Success:", result);
-
-      // Trigger Animation
       setShowAnimation(true);
       setIsSpinning(false);
     } catch (error) {
-      console.error("❌ Gacha failed:", error);
+      // Extract message from SDK errors that have non-enumerable properties
+      const errMsg =
+        error?.message ||
+        error?.cause?.message ||
+        (typeof error === "string" ? error : null) ||
+        (String(error) !== "[object Object]" ? String(error) : null) ||
+        "Failed to open gacha box. Please try again.";
+
+      console.error("[Gacha] Failed at step", spinProgress);
+      console.error("[Gacha] Error message:", errMsg);
+      console.error("[Gacha] Error raw:", error);
+      try { console.error("[Gacha] Error JSON:", JSON.stringify(error, Object.getOwnPropertyNames(error))); } catch {}
+
       setIsSpinning(false);
       setSlideProgress(0);
 
-      const errorMessage = formatBlockchainError(error);
+      const isRejected =
+        errMsg.toLowerCase().includes("reject") ||
+        errMsg.toLowerCase().includes("cancel") ||
+        errMsg.toLowerCase().includes("denied");
 
-      // IMPORTANT: If payment succeeded but backend failed, notify user
-      if (paymentTxHash && (error.message.includes("mint") || error.message.includes("backend") || error.message.includes("server"))) {
-        setErrorMessage(
-          `Payment processed (TX: ${paymentTxHash.slice(0, 10)}...) but reward minting failed. ` +
-          `IMPORTANT: Contact support with this transaction hash if you were charged. ` +
-          `The system should automatically refund your IDRX if the mint failed.`
-        );
-        toast.error("Payment succeeded but reward failed. Check transaction or contact support for refund.", {
-          duration: 10000
-        });
-      } else if (error.message.includes("Insufficient MockIDRX") || error.message.includes("Insufficient balance")) {
-        setErrorMessage("Insufficient MockIDRX tokens! You need more IDRX to open this box.");
-        toast.error("Insufficient IDRX balance!");
-      } else {
-        setErrorMessage(errorMessage || "Failed to open gacha box. Please try again.");
-        toast.error(errorMessage);
-      }
+      const msg = isRejected ? "Transaction cancelled." : errMsg;
+      setErrorMessage(msg);
+      toast.error(msg);
     }
   };
 
   const handleClaim = () => {
-    // Refresh gacha data to update coins
-    fetchGachaData();
-    // Reset state for next spin
     setHasSpun(false);
     setShowAnimation(false);
     setReward(null);
@@ -327,151 +344,86 @@ export default function GachaTierPage() {
     setErrorMessage("");
   };
 
-  const handleBack = () => {
-    router.push("/gacha");
-  };
+  if (!isConnected) return null;
 
-  if (!ready || !authenticated) {
-    return null;
-  }
-
-  const currentBox = gachaBoxes.find(box => box.type === tierType);
-
-  // Tier configurations
   const tierConfigs = {
-    standard: {
-      title: "STANDARD BOX",
-      icon: "📦",
-      gradient: "from-gray-600 to-gray-700",
-      description: "Standard box offers common fragments with occasional rare finds!"
-    },
-    rare: {
-      title: "RARE BOX",
-      icon: "🎲",
-      gradient: "from-blue-600 to-indigo-700",
-      description: "Rare box offers better chances for sport cars and rare fragments!"
-    },
-    premium: {
-      title: "PREMIUM BOX",
-      icon: "🎁",
-      gradient: "from-orange-600 to-red-700",
-      description: "Premium box guarantees rare fragments with high epic chances!"
-    },
-    legendary: {
-      title: "LEGENDARY BOX",
-      icon: "💎",
-      gradient: "from-yellow-500 to-amber-600",
-      description: "Legendary box gives the best chance for epic and legendary fragments!"
-    }
+    standard: { title: "STANDARD BOX", icon: "📦", gradient: "from-gray-600 to-gray-700" },
+    rare:     { title: "RARE BOX",     icon: "🎲", gradient: "from-blue-600 to-indigo-700" },
+    premium:  { title: "PREMIUM BOX",  icon: "🎁", gradient: "from-orange-600 to-red-700" },
+    legendary:{ title: "LEGENDARY BOX",icon: "💎", gradient: "from-yellow-500 to-amber-600" },
   };
-
   const config = tierConfigs[tierType] || tierConfigs.standard;
 
   return (
     <main className="relative min-h-screen bg-gradient-to-b from-gray-900 via-orange-900/30 to-gray-900 text-white overflow-hidden">
-      {/* Background effect */}
       <div className="absolute inset-0 bg-[url('/assets/backgrounds/view-car-running-high-speed%20(1).jpg')] bg-cover bg-center opacity-20" />
 
-      {/* Main Content */}
       <div className="relative z-10 flex flex-col h-screen max-w-md mx-auto">
         {/* Header */}
         <header className="px-4 pt-3 pb-2">
           <div className="flex items-center justify-between gap-2 mb-3">
-            {/* Back Button */}
             <button
-              onClick={handleBack}
+              onClick={() => router.push("/gacha")}
               className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
             >
               <span className="text-white text-xl">‹</span>
             </button>
 
-            {/* Right Side: Balance + Username */}
-            <div className="flex items-center gap-2">
-              {/* User MockIDRX Balance (from backend) */}
-              <div className="flex items-center gap-1.5 bg-yellow-400 rounded-full px-3 py-1.5 shadow-lg">
-                <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center">
-                  <Wallet size={14} className="text-yellow-300" strokeWidth={3} />
-                </div>
-                <span className="font-black text-sm text-orange-900">
-                  {loadingGachaData ? "..." : userMockIDRX.toLocaleString()}
+            {walletAddress && (
+              <div className="bg-emerald-500 border-2 border-emerald-400 rounded-full px-3 py-1.5 flex items-center gap-2 shadow-lg">
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                <span className="text-white text-xs font-bold">
+                  {`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
                 </span>
-                <span className="text-xs font-bold text-orange-900 opacity-80">IDRX</span>
               </div>
-
-              {/* User Info Badge */}
-              {(userInfo.username || userInfo.email || walletAddress) && (
-                <div className="bg-emerald-500 border-2 border-emerald-400 rounded-full px-3 py-1.5 flex items-center gap-2 shadow-lg">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                  <span className="text-white text-xs font-bold">
-                    {userInfo.username || (userInfo.email ? userInfo.email.split('@')[0] : null) || `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
-                  </span>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
-          {/* Tier Title */}
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
               <span className="text-3xl">{config.icon}</span>
-              <h1 className="text-2xl font-black text-white">
-                {config.title}
-              </h1>
+              <h1 className="text-2xl font-black text-white">{config.title}</h1>
             </div>
+            <p className="text-orange-300 text-xs">Powered by OneChain · Pay OCT · Get NFT</p>
           </div>
         </header>
 
         {/* Error Message */}
         {errorMessage && (
           <div className="px-4 pb-2">
-            <div className="bg-red-500/20 border border-red-500 rounded-xl px-4 py-2 flex items-center gap-2">
+            <div className="bg-red-500/20 border border-red-500 rounded-xl px-4 py-2">
               <span className="text-red-400 text-sm">⚠️ {errorMessage}</span>
             </div>
           </div>
         )}
 
-        {/* Content Area - Scrollable */}
+        {/* Content Area */}
         <div className="flex-1 overflow-y-auto px-4 pb-6">
           {!hasSpun && !showAnimation ? (
-            /* Before Spin Screen */
             <div className="w-full max-w-sm mx-auto py-4">
               {/* Car Preview */}
               <div className="relative mb-4">
                 <img
                   src="/assets/car/High Speed.png"
                   alt="Mystery Car"
-                  className={`w-full h-48 object-contain drop-shadow-2xl transition-all duration-300 ${isSpinning ? "animate-spin" : ""
-                    }`}
-                  style={{
-                    filter: isSpinning ? "blur(8px)" : "none",
-                  }}
+                  className={`w-full h-48 object-contain drop-shadow-2xl transition-all duration-300 ${isSpinning ? "animate-spin" : ""}`}
+                  style={{ filter: isSpinning ? "blur(8px)" : "none" }}
                 />
                 <div className="gacha-orbit" aria-hidden="true" />
               </div>
 
-              {/* Info Box */}
-              <div className="bg-black/60 backdrop-blur-sm rounded-2xl p-3 mb-4">
-                <div className="flex items-start gap-2">
-                  <div className="text-2xl">🚗</div>
-                  <p className="text-xs text-gray-300 leading-relaxed">
-                    {config.description}
-                  </p>
-                </div>
-              </div>
-
-              {/* Cost Display */}
-              <div className="text-center mb-3">
-                <p className="text-orange-400 font-bold text-xs mb-1.5">COST</p>
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
-                    <Wallet size={20} className="text-orange-600" strokeWidth={2.5} />
+              {/* Pricing Info */}
+              {!loadingPricing && pricing && (
+                <div className="bg-black/60 backdrop-blur-sm rounded-2xl p-3 mb-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400 text-xs font-bold">COST</span>
+                    <span className="text-orange-400 font-black text-lg">
+                      {pricing.price || pricing.cost || "—"}
+                      {pricing.currency ? ` ${pricing.currency}` : ""}
+                    </span>
                   </div>
-                  <span className="text-5xl font-black text-orange-400">
-                    {currentBox?.costCoins.toLocaleString() || 0}
-                  </span>
-                  <span className="text-xl font-bold text-orange-400 opacity-80">IDRX</span>
                 </div>
-              </div>
+              )}
 
               {/* Slide to Open */}
               <div className="relative mt-3">
@@ -479,38 +431,26 @@ export default function GachaTierPage() {
                   {isSlideReady ? "BOOST READY" : "SLIDE TO OPEN"}
                 </p>
 
-                {/* Slider Track */}
                 <div
                   className={`relative h-14 bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 rounded-full overflow-hidden shadow-xl gacha-track ${isSlideReady ? "gacha-track-ready" : ""}`}
                 >
                   <div className="gacha-track-fill" style={{ width: `${progressPercent}%` }} />
-                  <div
-                    className="gacha-track-sheen"
-                    style={{ opacity: Math.min(0.9, slideProgress + 0.15) }}
-                    aria-hidden="true"
-                  />
-                  {/* Arrow Pattern */}
                   <div className="absolute inset-0 flex items-center justify-end pr-4">
                     <div className="flex gap-1">
                       {[...Array(8)].map((_, i) => (
-                        <div
-                          key={i}
-                          className="text-black text-2xl font-black"
-                          style={{ opacity: 0.3 + (i * 0.1) }}
-                        >
+                        <div key={i} className="text-black text-2xl font-black" style={{ opacity: 0.3 + i * 0.1 }}>
                           ❯
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Slider Button */}
                   <div
                     ref={sliderRef}
                     className={`absolute top-2 left-2 w-12 h-12 bg-yellow-400 rounded-full shadow-2xl flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none ${slideProgress === 0 && !isSpinning ? "gacha-slider-idle" : ""} ${isSlideReady ? "gacha-slider-ready" : ""}`}
                     style={{
                       transform: `translateX(${slideProgress * 250}px)`,
-                      transition: isDraggingRef.current ? 'none' : 'transform 0.3s ease-out',
+                      transition: isDraggingRef.current ? "none" : "transform 0.3s ease-out",
                       boxShadow: `0 0 ${12 + slideProgress * 26}px rgba(255, 204, 85, 0.65)`,
                     }}
                     onTouchStart={handleStart}
@@ -519,6 +459,7 @@ export default function GachaTierPage() {
                     <span className="text-2xl pointer-events-none">❯</span>
                   </div>
                 </div>
+
                 <div className="mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-orange-200/80">
                   <span>{progressPercent}%</span>
                   <span>{isSlideReady ? "Unlocking" : "Keep Sliding"}</span>
@@ -529,13 +470,7 @@ export default function GachaTierPage() {
                 <div className="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center rounded-2xl z-50 p-6">
                   <h3 className="text-2xl font-black text-orange-400 mb-6">Opening Gacha Box</h3>
                   <ProgressSteps
-                    steps={[
-                      "Validating network",
-                      "Authenticating",
-                      "Checking approval",
-                      "Processing payment",
-                      "Minting reward"
-                    ]}
+                    steps={["Authenticating", "Getting pricing", "Committing on-chain", "Revealing on-chain"]}
                     currentStep={spinProgress}
                     className="w-full max-w-xs"
                   />
@@ -543,7 +478,6 @@ export default function GachaTierPage() {
               )}
             </div>
           ) : showAnimation ? (
-            /* Animation Screen */
             <div className="w-full max-w-4xl flex items-center justify-center">
               <GachaRoulette
                 reward={reward}
@@ -555,7 +489,6 @@ export default function GachaTierPage() {
               />
             </div>
           ) : (
-            /* After Spin - Result Screen */
             <div className="w-full max-w-sm mx-auto text-center relative overflow-hidden py-4">
               <div className="gacha-reward-glow" aria-hidden="true" />
               <div className="gacha-confetti" aria-hidden="true">
@@ -570,12 +503,11 @@ export default function GachaTierPage() {
                   />
                 ))}
               </div>
-              {/* Congratulations Text */}
+
               <h2 className="text-2xl font-black mb-4 bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent uppercase animate-pulse">
                 Congratulations<br />You Got
               </h2>
 
-              {/* Reward Car */}
               <div className="relative mb-4">
                 <img
                   src={reward?.image}
@@ -584,43 +516,18 @@ export default function GachaTierPage() {
                 />
               </div>
 
-              {/* Rarity Badge */}
               <div className={`inline-block bg-gradient-to-r ${reward?.rarityColor} px-6 py-2 rounded-full mb-4`}>
-                <p className="text-white font-black text-lg uppercase">
-                  {reward?.rarity}
-                </p>
+                <p className="text-white font-black text-lg uppercase">{reward?.rarity}</p>
               </div>
 
-              {/* Car Name & Series */}
               <div className="bg-gradient-to-r from-orange-500 to-orange-600 py-3 mb-2">
-                <h3 className="text-white font-black text-xl uppercase tracking-wider">
-                  {reward?.name}
-                </h3>
+                <h3 className="text-white font-black text-xl uppercase tracking-wider">{reward?.name}</h3>
               </div>
 
-              <p className="text-gray-300 text-sm mb-2">{reward?.series} Series</p>
+              <p className="text-gray-300 text-sm mb-4">
+                {reward?.isCar ? "🚗 Car NFT" : "🔧 Spare Part NFT"} · Minted on OneChain
+              </p>
 
-              {/* NFT Info */}
-              <div className="bg-black/40 backdrop-blur-sm rounded-xl p-3 mb-4 text-left">
-                <p className="text-gray-400 text-xs mb-1">
-                  <span className="text-orange-400 font-bold">Token ID:</span> #{reward?.tokenId}
-                </p>
-                {reward?.txHash && (
-                  <p className="text-gray-400 text-xs break-all">
-                    <span className="text-orange-400 font-bold">TX:</span>{" "}
-                    <a
-                      href={`https://sepolia.basescan.org/tx/${reward.txHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-400 hover:underline"
-                    >
-                      {reward.txHash.slice(0, 10)}...{reward.txHash.slice(-8)}
-                    </a>
-                  </p>
-                )}
-              </div>
-
-              {/* Claim Button */}
               <button
                 onClick={handleClaim}
                 className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black text-xl py-4 rounded-full shadow-2xl transform hover:scale-105 transition-all duration-200 uppercase"

@@ -1,25 +1,34 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
-import { Wallet, Car, Flame, Lock, Circle, Activity, BadgeCheck, Droplet } from "lucide-react";
+import { Car, Flame, Activity, BadgeCheck, Coins } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
-import SetUsernameModal from "@/components/SetUsernameModal";
 import OnboardingTutorial from "@/components/OnboardingTutorial";
 import { useWallet } from "@/hooks/useWallet";
+import { useSuiClientQuery } from "@onelabs/dapp-kit";
 import { PullToRefresh } from "@/components/shared";
-import { checkFaucetCooldown, formatCooldownTime, getMockIDRXBalance, claimFaucet } from "@/lib/mockidrx";
 import { toast } from "sonner";
 
+const OCT_COIN_TYPE = "0x2::oct::OCT";
+const MIST_PER_OCT = 1_000_000_000;
+
 export default function Dashboard() {
-  const { authenticated, ready, getAccessToken } = usePrivy();
-  const { walletAddress, embeddedWallet } = useWallet();
+  const { isConnected, walletAddress, getAuthToken } = useWallet();
   const router = useRouter();
 
+  // Fetch OCT balance from OneChain RPC
+  const { data: balanceData, isLoading: balanceLoading } = useSuiClientQuery(
+    "getBalance",
+    { owner: walletAddress ?? "", coinType: OCT_COIN_TYPE },
+    { enabled: !!walletAddress }
+  );
+  const octBalance = balanceData
+    ? (Number(balanceData.totalBalance) / MIST_PER_OCT).toFixed(2)
+    : null;
+
   // State
-  const [mockIDRXBalance, setMockIDRXBalance] = useState(0);
-  const [loadingMockIDRX, setLoadingMockIDRX] = useState(false);
+  const [loadingUserData, setLoadingUserData] = useState(false);
   const [stats, setStats] = useState({
     totalMinted: 0,
     lastHourMinted: 0,
@@ -38,11 +47,7 @@ export default function Dashboard() {
     email: null,
     username: null,
     walletAddress: null,
-    usernameSet: false
   });
-  const [showUsernameModal, setShowUsernameModal] = useState(false);
-  const [faucetCooldown, setFaucetCooldown] = useState(0);
-  const [claimingFaucet, setClaimingFaucet] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -50,13 +55,13 @@ export default function Dashboard() {
   // Check if user is first-time visitor
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem('hasSeenTutorial');
-    if (!hasSeenTutorial && authenticated && ready) {
+    if (!hasSeenTutorial && isConnected) {
       // Small delay to let the dashboard load first
       setTimeout(() => {
         setShowOnboarding(true);
       }, 1000);
     }
-  }, [authenticated, ready]);
+  }, [isConnected]);
 
   // Handle onboarding close
   const handleOnboardingClose = () => {
@@ -90,263 +95,123 @@ export default function Dashboard() {
     },
   ];
 
-  // Redirect if not authenticated
+  // Redirect if not connected
   useEffect(() => {
-    if (ready && !authenticated) {
+    if (!isConnected) {
       router.push("/");
     }
-  }, [ready, authenticated, router]);
+  }, [isConnected, router]);
 
-  // Fetch MockIDRX balance and user stats
-  const fetchMockIDRXBalance = useCallback(async () => {
+  // Fetch user data and stats
+  const fetchUserData = useCallback(async () => {
     try {
-      setLoadingMockIDRX(true);
+      setLoadingUserData(true);
       setFetchError(null);
-      const authToken = await getAccessToken();
+      const authToken = await getAuthToken();
 
-      // Fetch overview for balance and cars
-      const overviewResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/overview`, {
+      // Fetch user info
+      const meResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/me`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
-      const overviewData = await overviewResponse.json();
+      const meData = await meResponse.json();
 
-      // Get balance from blockchain (real-time) if wallet is available
-      if (embeddedWallet && walletAddress) {
-        try {
-          const blockchainBalance = await getMockIDRXBalance(embeddedWallet, walletAddress);
-          setMockIDRXBalance(blockchainBalance);
-        } catch (error) {
-          console.error("Failed to fetch blockchain balance:", error);
-          // Fallback to backend balance
-          setMockIDRXBalance(overviewData.user?.mockIDRX || 0);
-        }
-      } else {
-        // Use backend balance if wallet not ready
-        setMockIDRXBalance(overviewData.user?.mockIDRX || 0);
-      }
-
-      // Store user info (email/username)
-      setUserInfo(prev => {
-        const userData = {
-          email: overviewData.user?.email || null,
-          username: overviewData.user?.username || null,
-          walletAddress: overviewData.user?.walletAddress || null,
-          // Preserve usernameSet if already true (prevent overwriting)
-          usernameSet: prev?.usernameSet || overviewData.user?.usernameSet || false
-        };
-
-        // Show username modal if username not set and modal not already shown
-        if (!userData.usernameSet && !showUsernameModal) {
-          setShowUsernameModal(true);
-        }
-
-        return userData;
+      setUserInfo({
+        email: meData.data?.email || null,
+        username: meData.data?.username || null,
+        walletAddress: meData.data?.address || null,
       });
 
-      // Fetch fragments for available (unused) fragments count
-      const fragmentsResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/fragments`, {
+      // Fetch inventory stats (cars + spare parts count)
+      const invResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/inventory/stats`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
-      const fragmentsData = await fragmentsResponse.json();
+      const invData = await invResponse.json();
 
-      // Calculate total available fragments (unused only)
-      const availableFragments = fragmentsData.inventory?.reduce((sum, brand) => sum + brand.totalParts, 0) || 0;
-
-      // Update user stats with available fragments and total cars
       setUserStats({
-        totalFragments: availableFragments,
-        totalCars: overviewData.stats?.totalCars || 0
+        totalFragments: invData.data?.totalParts || 0,
+        totalCars: invData.data?.totalCars || 0,
       });
     } catch (error) {
-      console.error("Failed to fetch MockIDRX balance:", error);
+      console.error("Failed to fetch user data:", error);
       setFetchError(error.message || "Failed to load data");
-      toast.error("Failed to load balance. Please try again.");
     } finally {
-      setLoadingMockIDRX(false);
+      setLoadingUserData(false);
     }
-  }, [getAccessToken, embeddedWallet, walletAddress]);
+  }, [getAuthToken]);
 
   // Fetch dashboard stats
   const fetchStats = useCallback(async () => {
     try {
-      const authToken = await getAccessToken();
+      const authToken = await getAuthToken();
 
-      // Fetch supply status
-      const supplyRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/supply/status`, {
+      // Fetch user's gacha stats
+      const gachaStatsRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/gacha/stats`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
-      const supplyData = await supplyRes.json();
-
-      // Calculate total minted
-      const totalMinted = supplyData.series?.reduce((sum, s) => sum + s.currentMinted, 0) || 0;
-
-      // Find most popular series
-      const popularSeries = supplyData.series?.reduce((max, s) =>
-        s.currentMinted > max.currentMinted ? s : max
-        , { series: "Economy", currentMinted: 0 }) || { series: "Economy", currentMinted: 0 };
+      const gachaStatsData = await gachaStatsRes.json();
+      const gd = gachaStatsData.data || {};
 
       setStats({
-        totalMinted,
-        lastHourMinted: Math.floor(Math.random() * 10) + 1, // Mock for demo
-        totalCars: totalMinted,
-        totalUsers: Math.floor(totalMinted * 0.7), // Estimate
-        popularSeries: { name: popularSeries.series, count: popularSeries.currentMinted }
+        totalMinted: gd.totalPulls || 0,
+        lastHourMinted: gd.carVsPartRatio?.cars || 0,
+        totalCars: gd.totalPulls || 0,
+        totalUsers: 0,
+        popularSeries: { name: "Epic", count: gd.rarityBreakdown?.EPIC || 0 },
       });
 
-      // Store supply data for tier progress bars
-      setSupplyData(supplyData.series || []);
+      // Fetch gacha tiers for display (no auth needed)
+      const tiersRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/gacha/tiers`);
+      const tiersData = await tiersRes.json();
+      setSupplyData(tiersData.data || []);
 
     } catch (error) {
       console.error("Failed to fetch stats:", error);
     }
-  }, [getAccessToken]);
+  }, [getAuthToken]);
 
-  // Fetch recent activity from backend
+  // Fetch recent activity from gacha history
   const fetchRecentActivity = useCallback(async () => {
     try {
       setLoadingActivity(true);
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/activity/recent`, {
+      const authToken = await getAuthToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/gacha/history?limit=10`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       const data = await response.json();
-      setRecentActivity(data.activities || []);
+
+      // Map gacha history to activity display format
+      const activities = (data.data || []).map((h) => ({
+        id: h.id,
+        avatar: h.isCar ? "🚗" : "🔧",
+        user: walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : "You",
+        action: `opened a gacha box and got ${h.name || "a reward"}${h.rarity ? ` (${h.rarity})` : ""}`,
+        time: h.createdAt ? new Date(h.createdAt).toLocaleTimeString() : "just now",
+      }));
+
+      setRecentActivity(activities);
     } catch (error) {
       console.error("Failed to fetch recent activity:", error);
       setRecentActivity([]);
     } finally {
       setLoadingActivity(false);
     }
-  }, [getAccessToken]);
-
-  // Handle username submission
-  const handleSetUsername = async (username) => {
-    try {
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/user/set-username`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({ username }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to set username');
-      }
-
-      // Update local state
-      setUserInfo(prev => ({
-        ...prev,
-        username: data.user.username,
-        usernameSet: true
-      }));
-
-      setShowUsernameModal(false);
-
-      // No need to refresh - we already have the updated user data from the response
-    } catch (error) {
-      console.error('Set username error:', error);
-      throw error;
-    }
-  };
-
-  // Check faucet cooldown
-  const checkCooldown = useCallback(async () => {
-    if (!walletAddress || !embeddedWallet) return;
-
-    try {
-      const cooldownSeconds = await checkFaucetCooldown(embeddedWallet, walletAddress);
-      setFaucetCooldown(cooldownSeconds);
-    } catch (error) {
-      console.error("Failed to check faucet cooldown:", error);
-    }
-  }, [walletAddress, embeddedWallet]);
-
-  // Handle claim faucet (gasless via backend)
-  const handleClaimFaucet = async () => {
-    if (faucetCooldown > 0) {
-      toast.error(`Cooldown active! Wait ${formatCooldownTime(faucetCooldown)}`);
-      return;
-    }
-
-    if (!embeddedWallet) {
-      toast.error("Wallet not connected");
-      return;
-    }
-
-    try {
-      setClaimingFaucet(true);
-
-      const authToken = await getAccessToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/gasless/claim-faucet`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
-      });
-
-      // Check if response is JSON
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error('Non-JSON response:', text.substring(0, 200));
-        throw new Error('Backend returned an error. Please check if the backend is running correctly.');
-      }
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || data.details || 'Failed to claim faucet');
-      }
-
-      toast.success("Faucet claimed successfully! +1,000,000 IDRX");
-
-      // Refresh balance directly from blockchain
-      const newBalance = await getMockIDRXBalance(embeddedWallet, walletAddress);
-      setMockIDRXBalance(newBalance);
-
-      // Check cooldown again
-      await checkCooldown();
-    } catch (error) {
-      console.error("Claim faucet error:", error);
-      toast.error(error.message || "Failed to claim faucet");
-    } finally {
-      setClaimingFaucet(false);
-    }
-  };
+  }, [getAuthToken, walletAddress]);
 
   useEffect(() => {
-    if (authenticated) {
-      fetchMockIDRXBalance();
+    if (isConnected) {
+      fetchUserData();
       fetchStats();
       fetchRecentActivity();
-      checkCooldown();
 
       // Refresh stats every 30 seconds
       const interval = setInterval(() => {
         fetchStats();
         fetchRecentActivity();
-        checkCooldown();
       }, 30000);
 
       return () => clearInterval(interval);
     }
-  }, [authenticated, fetchMockIDRXBalance, fetchStats, fetchRecentActivity, checkCooldown]);
-
-  // Countdown faucet cooldown timer
-  useEffect(() => {
-    if (faucetCooldown > 0) {
-      const interval = setInterval(() => {
-        setFaucetCooldown(prev => Math.max(0, prev - 1));
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [faucetCooldown]);
+  }, [isConnected, fetchUserData, fetchStats, fetchRecentActivity]);
 
   // Auto-rotate showcase cars
   useEffect(() => {
@@ -399,13 +264,13 @@ export default function Dashboard() {
   // Handle pull to refresh
   const handleRefresh = async () => {
     await Promise.all([
-      fetchMockIDRXBalance(),
+      fetchUserData(),
       fetchStats(),
       fetchRecentActivity()
     ]);
   };
 
-  if (!ready || !authenticated) {
+  if (!isConnected) {
     return null;
   }
 
@@ -426,7 +291,7 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <PullToRefresh onRefresh={handleRefresh}>
-        <div className={`relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24 ${showUsernameModal ? 'blur-sm pointer-events-none' : ''}`}>
+        <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
           {/* Error Banner */}
           {fetchError && (
             <div className="mx-4 mt-3 mb-2 bg-red-500/90 border-2 border-red-400 rounded-lg p-3 flex items-center justify-between animate-in slide-in-from-top">
@@ -453,21 +318,21 @@ export default function Dashboard() {
 
           {/* Header */}
           <header className="px-4 pt-3 pb-4">
-            {/* Top Row - Balance and Username */}
-            <div className="flex items-center justify-between gap-2 mb-3">
-              {/* MockIDRX Balance Badge */}
-              <button
-                onClick={fetchMockIDRXBalance}
-                className="flex items-center gap-1.5 bg-yellow-400 rounded-full px-3 py-1.5 shadow-lg hover:scale-105 transition-transform"
-              >
-                <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center">
-                  <Wallet size={14} className="text-yellow-300" strokeWidth={3} />
+            {/* Top Row - Username + OCT Balance */}
+            <div className="flex items-center justify-end gap-2 mb-3">
+              {/* OCT Balance Badge */}
+              {walletAddress && (
+                <div className="bg-orange-500/90 border-2 border-orange-400 rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-lg">
+                  <Coins size={12} className="text-yellow-200" />
+                  {balanceLoading ? (
+                    <span className="w-10 h-3 bg-orange-400/60 rounded animate-pulse inline-block" />
+                  ) : (
+                    <span className="text-white text-xs font-black">
+                      {octBalance ?? "—"} OCT
+                    </span>
+                  )}
                 </div>
-                <span className="font-black text-sm text-orange-900">
-                  {loadingMockIDRX ? "..." : Math.floor(mockIDRXBalance).toLocaleString()}
-                </span>
-                <span className="text-xs font-bold text-orange-900 opacity-80">IDRX</span>
-              </button>
+              )}
 
               {/* User Info Badge */}
               {(userInfo.username || userInfo.email || walletAddress) && (
@@ -479,21 +344,6 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-
-            {/* Bottom - Faucet Button (Full Width) */}
-            <button
-              onClick={handleClaimFaucet}
-              disabled={faucetCooldown > 0 || claimingFaucet}
-              className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 shadow-xl transition-all font-bold ${faucetCooldown > 0 || claimingFaucet
-                ? 'bg-gray-400 cursor-not-allowed opacity-60'
-                : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:scale-[1.02] hover:shadow-2xl'
-                }`}
-            >
-              <Droplet size={16} className="text-white" strokeWidth={3} />
-              <span className="text-sm text-white">
-                {claimingFaucet ? "Claiming..." : faucetCooldown > 0 ? `Wait ${formatCooldownTime(faucetCooldown)}` : "Claim Free 1,000,000 IDRX"}
-              </span>
-            </button>
           </header>
 
           {/* Content Container */}
@@ -502,18 +352,18 @@ export default function Dashboard() {
             <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-5 shadow-2xl border-2 border-yellow-400 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full -mr-16 -mt-16" />
               <div className="relative">
-                <p className="text-gray-400 text-xs font-bold mb-1">TOTAL MINTED</p>
+                <p className="text-gray-400 text-xs font-bold mb-1">MY GACHA PULLS</p>
                 <div className="flex items-end justify-between">
                   <div>
                     <h2 className="text-5xl font-black text-white mb-1">
                       {stats.totalMinted.toLocaleString()}
                     </h2>
                     <p className="text-yellow-400 text-sm font-bold">
-                      NFTs
+                      Total Pulls
                     </p>
                     <p className="text-orange-400 text-xs mt-2 flex items-center gap-1">
                       <Flame size={14} className="text-orange-400" fill="currentColor" />
-                      <span>Last hour: <span className="font-bold">{stats.lastHourMinted}</span></span>
+                      <span>Cars pulled: <span className="font-bold">{stats.lastHourMinted}</span></span>
                     </p>
                   </div>
                   <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center">
@@ -527,7 +377,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-900 rounded-xl p-4 shadow-lg">
                 <p className="text-gray-400 text-xs font-bold mb-1">MY FRAGMENTS</p>
-                {loadingMockIDRX ? (
+                {loadingUserData ? (
                   <div className="h-8 bg-gray-700 rounded animate-pulse" />
                 ) : (
                   <p className="text-white text-2xl font-black">{userStats.totalFragments}</p>
@@ -535,7 +385,7 @@ export default function Dashboard() {
               </div>
               <div className="bg-gray-900 rounded-xl p-4 shadow-lg">
                 <p className="text-yellow-400 text-xs font-bold mb-1">MY NFTs</p>
-                {loadingMockIDRX ? (
+                {loadingUserData ? (
                   <div className="h-8 bg-gray-700 rounded animate-pulse" />
                 ) : (
                   <p className="text-white text-2xl font-black">{userStats.totalCars}</p>
@@ -543,79 +393,40 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Tier Supply Progress */}
+            {/* Gacha Tier Rates */}
             <div className="bg-gray-900/80 rounded-2xl p-4 shadow-2xl">
               <h3 className="text-white font-black text-sm mb-3 tracking-wide">
-                NFT SUPPLY BY TIER
+                GACHA TIER RATES
               </h3>
               {supplyData.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-3">
                   {supplyData.map((tier) => {
-                    const percentage = tier.maxSupply > 0 ? (tier.currentMinted / tier.maxSupply) * 100 : 0;
-
-                    // Tier color configurations
                     const tierColors = {
-                      Economy: {
-                        bg: "bg-gradient-to-br from-gray-700 to-gray-800",
-                        text: "text-gray-300",
-                        bar: "bg-gray-500",
-                        indicatorColor: "text-gray-400"
-                      },
-                      Sport: {
-                        bg: "bg-gradient-to-br from-blue-900 to-blue-950",
-                        text: "text-blue-400",
-                        bar: "bg-blue-500",
-                        indicatorColor: "text-blue-400"
-                      },
-                      Supercar: {
-                        bg: "bg-gradient-to-br from-purple-900 to-purple-950",
-                        text: "text-purple-400",
-                        bar: "bg-purple-500",
-                        indicatorColor: "text-purple-400"
-                      },
-                      Hypercar: {
-                        bg: "bg-gradient-to-br from-yellow-900 to-orange-950",
-                        text: "text-yellow-400",
-                        bar: "bg-yellow-500",
-                        indicatorColor: "text-yellow-400"
-                      }
+                      1: { bg: "bg-gradient-to-br from-gray-700 to-gray-800", text: "text-gray-300", bar: "bg-gray-400" },
+                      2: { bg: "bg-gradient-to-br from-blue-900 to-blue-950", text: "text-blue-400", bar: "bg-blue-500" },
+                      3: { bg: "bg-gradient-to-br from-yellow-900 to-orange-950", text: "text-yellow-400", bar: "bg-yellow-500" },
                     };
-
-                    const config = tierColors[tier.series] || tierColors.Economy;
+                    const cfg = tierColors[tier.id] || tierColors[1];
+                    const probs = tier.probabilities || {};
 
                     return (
-                      <div key={tier.series} className={`${config.bg} rounded-2xl p-4 shadow-xl border border-gray-700/50`}>
-                        {/* Tier Name with Indicator */}
-                        <div className="flex items-center justify-between mb-3">
-                          <span className={`text-xs font-black ${config.text} tracking-wider`}>
-                            {tier.series.toUpperCase()}
+                      <div key={tier.id} className={`${cfg.bg} rounded-xl p-3 border border-gray-700/50`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-xs font-black ${cfg.text} tracking-wider`}>
+                            {tier.name?.toUpperCase() || `TIER ${tier.id}`}
                           </span>
-                          {tier.soldOut && (
-                            <Lock size={12} className="text-gray-400" />
-                          )}
-                          {tier.almostSoldOut && !tier.soldOut && (
-                            <Circle size={10} className={config.indicatorColor} fill="currentColor" />
-                          )}
+                          <span className="text-white text-xs font-bold">{tier.price} ONE</span>
                         </div>
-
-                        {/* Big Number */}
-                        <div className="mb-3">
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-white text-4xl font-black">
-                              {tier.currentMinted}
-                            </span>
-                            <span className="text-gray-500 text-sm font-bold">
-                              /{tier.maxSupply}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="relative w-full h-2 bg-gray-800/50 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${config.bar} transition-all duration-500 ease-out`}
-                            style={{ width: `${percentage}%` }}
-                          />
+                        <div className="space-y-1">
+                          {Object.entries(probs).map(([rarity, pct]) => (
+                            <div key={rarity} className="flex items-center gap-2">
+                              <span className="text-gray-400 text-[10px] w-16 uppercase">{rarity}</span>
+                              <div className="flex-1 h-1.5 bg-gray-800/60 rounded-full overflow-hidden">
+                                <div className={`h-full ${cfg.bar}`} style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="text-gray-300 text-[10px] w-8 text-right">{pct}%</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     );
@@ -626,7 +437,7 @@ export default function Dashboard() {
                   <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center mb-3 animate-pulse">
                     <Car size={24} className="text-gray-600" strokeWidth={1.5} />
                   </div>
-                  <p className="text-gray-500 text-sm font-medium">Loading supply data...</p>
+                  <p className="text-gray-500 text-sm font-medium">Loading tier data...</p>
                 </div>
               )}
             </div>
@@ -774,12 +585,7 @@ export default function Dashboard() {
       {/* Bottom Navigation */}
       <BottomNavigation />
 
-      {/* Set Username Modal */}
-      <SetUsernameModal
-        isOpen={showUsernameModal}
-        onClose={() => { }} // Cannot close - must set username
-        onSubmit={handleSetUsername}
-      />
+
 
       {/* Onboarding Tutorial */}
       <OnboardingTutorial

@@ -1,627 +1,150 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import {
-  Wallet, Tag, Search, List, Sparkles, Gem,
-  ShoppingBag, PartyPopper, Frown, X, CheckCircle
+  Tag, Search, List, Sparkles, Gem,
+  ShoppingBag, X
 } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
-import { BrowserProvider, Contract, parseUnits, formatUnits } from "ethers";
 import { toast } from "sonner";
 import { PullToRefresh } from "@/components/shared";
 import { RARITY_CONFIG } from "@/constants";
-import { getCarImagePath, handleImageError } from "@/utils/imageHelpers";
-import { validateNetwork, waitForTransaction, formatBlockchainError } from "@/utils/blockchain";
-import { validatePrice } from "@/utils/validation";
-import ProgressSteps from "@/components/shared/ProgressSteps";
-import ErrorBanner from "@/components/shared/ErrorBanner";
-import { useNFTApprovals } from "@/hooks/useNFTApprovals";
-import ApprovalManager from "@/components/shared/ApprovalManager";
+
+const RARITY_MAP = { 0: "common", 1: "rare", 2: "epic", 3: "legendary" };
+
+// Map car/part name → image
+const getItemImage = (name = "") => {
+  const n = name.toLowerCase();
+  if (n.includes("bugatti")) return "/assets/car_no_background/02-Bugatti-Chiron-removebg-preview.png";
+  if (n.includes("jesko") || n.includes("koenigsegg")) return "/assets/car_no_background/03-Koenigsegg_Jesko-removebg-preview.png";
+  if (n.includes("bmw m3")) return "/assets/car_no_background/04-BMW-M3-GTR-removebg-preview.png";
+  if (n.includes("huracan") || n.includes("lamborghini")) return "/assets/car_no_background/05-Lamborghini-Huracan-removebg-preview.png";
+  if (n.includes("audi")) return "/assets/car_no_background/06-Audi-RS-Superwagon-removebg-preview.png";
+  if (n.includes("ferrari f8")) return "/assets/car_no_background/07-Ferrari-F8-Turbo-removebg-preview.png";
+  if (n.includes("pagani") || n.includes("huayra")) return "/assets/car_no_background/08-Pagain-Huayra-removebg-preview.png";
+  if (n.includes("mercedes amg gt")) return "/assets/car_no_background/11-Mercedes-AMG-GT-removebg-preview.png";
+  if (n.includes("mercedes")) return "/assets/car_no_background/09-Mercede-AMG-removebg-preview.png";
+  if (n.includes("civic") || n.includes("honda")) return "/assets/car_no_background/10-Honda-Civic-removebg-preview.png";
+  if (n.includes("corolla") || n.includes("toyota")) return "/assets/car_no_background/12-Toyota-Corrola-removebg-preview.png";
+  if (n.includes("porsche 911 turbo")) return "/assets/car_no_background/01-Porche-911-Turbo-removebg-preview.png";
+  if (n.includes("porsche")) return "/assets/car_no_background/13-Proche-911-removebg-preview.png";
+  if (n.includes("720s") || n.includes("mclaren")) return "/assets/car_no_background/14-McLAREN-720s-removebg-preview.png";
+  if (n.includes("body")) return "/assets/Fragments/Body.png";
+  if (n.includes("engine")) return "/assets/Fragments/Engine.png";
+  if (n.includes("wheel")) return "/assets/Fragments/Wheels.png";
+  return "/assets/car/High Speed.png";
+};
+
+// Helper: get rarity config from listing
+function getRarityConfig(listing) {
+  const item = listing.car || listing.sparePart;
+  if (!item) return RARITY_CONFIG.common;
+  const rarityKey =
+    typeof item.rarity === "number"
+      ? RARITY_MAP[item.rarity]
+      : item.rarity?.toLowerCase() || "common";
+  return RARITY_CONFIG[rarityKey] || RARITY_CONFIG.common;
+}
+
+function getItemName(listing) {
+  return listing.car?.name || listing.sparePart?.name || "Unknown";
+}
+
 
 export default function MarketplacePage() {
-  const { authenticated, ready, getAccessToken } = usePrivy();
-  const { embeddedWallet, walletAddress } = useWallet();
+  const { isConnected, walletAddress, getAuthToken } = useWallet();
   const router = useRouter();
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState("browse"); // "browse" or "my-listings"
+  const [activeTab, setActiveTab] = useState("browse");
 
   // Browse state
   const [listings, setListings] = useState([]);
   const [loadingListings, setLoadingListings] = useState(true);
-  const [seriesFilter, setSeriesFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+  const [typeFilter, setTypeFilter] = useState("all"); // all | car | sparePart
 
   // My listings state
-  const [myListings, setMyListings] = useState({ active: [], sold: [], cancelled: [], all: [] });
+  const [myListings, setMyListings] = useState([]);
+  const [soldListings, setSoldListings] = useState([]);
   const [loadingMyListings, setLoadingMyListings] = useState(false);
-  const [myListingsFilter, setMyListingsFilter] = useState("all");
+  const [myTab, setMyTab] = useState("active"); // active | sold
 
-  // Modal states
+  // Detail modal
   const [selectedListing, setSelectedListing] = useState(null);
-  const [showBuyModal, setShowBuyModal] = useState(false);
-  const [showSellModal, setShowSellModal] = useState(false);
-  const [showDetailModal, setShowDetailModal] = useState(false);
 
-  // Buy flow state
-  const [buyStep, setBuyStep] = useState("approve"); // "approve" | "buying" | "success" | "error"
-  const [buyError, setBuyError] = useState("");
-  const [buyTxHash, setBuyTxHash] = useState("");
-
-  // Sell flow state
-  const [sellStep, setSellStep] = useState("select"); // "select" | "price" | "approve" | "listing" | "success" | "error"
-  const [sellCar, setSellCar] = useState(null);
-  const [sellPrice, setSellPrice] = useState("");
-  const [sellError, setSellError] = useState("");
-  const [sellPriceError, setSellPriceError] = useState("");
-  const [myCars, setMyCars] = useState([]);
-
-  // Transaction lock to prevent concurrent transactions
-  const [transactionInProgress, setTransactionInProgress] = useState(false);
-
-  // NFT approval tracking
-  const { trackApproval, clearApproval, getOrphanedApprovals } = useNFTApprovals();
-
-  // Progress tracking
-  const [buyProgress, setBuyProgress] = useState(1);
-  const [sellProgress, setSellProgress] = useState(1);
-
-  // Balance and user info
-  const [mockIDRXBalance, setMockIDRXBalance] = useState(0);
-  const [userInfo, setUserInfo] = useState({
-    username: null,
-    email: null,
-    usernameSet: false
-  });
-
-  const seriesOptions = ["all", "Economy", "Sport", "Supercar", "Hypercar"];
-
-  // Redirect if not authenticated
   useEffect(() => {
-    if (ready && !authenticated) {
-      router.push("/");
-    }
-  }, [ready, authenticated, router]);
+    if (!isConnected) router.push("/");
+  }, [isConnected, router]);
 
-  // Fetch listings
+  // Fetch all listings
   const fetchListings = useCallback(async () => {
+    setLoadingListings(true);
     try {
-      setLoadingListings(true);
-      const authToken = await getAccessToken();
+      const token = await getAuthToken();
+      const params = new URLSearchParams({ sortBy });
+      if (typeFilter !== "all") params.append("nftType", typeFilter);
 
-      const params = new URLSearchParams();
-      if (seriesFilter !== "all") params.append("series", seriesFilter);
-      params.append("sortBy", sortBy);
-
-      const response = await fetch(
+      const res = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/listings?${params}`,
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      if (!response.ok) throw new Error("Failed to fetch listings");
-
-      const data = await response.json();
-      const rawListings = Array.isArray(data.listings) ? data.listings : [];
-
-      // Fetch metadata for images
-      const enrichedListingsPromises = rawListings.map(async (listing) => {
-        try {
-          const metadataResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/metadata/cars/${listing.car.tokenId}`
-          );
-          const metadata = await metadataResponse.json();
-          return {
-            ...listing,
-            image: metadata.image || null
-          };
-        } catch (error) {
-          console.error(`Failed to fetch metadata for ${listing.car.tokenId}`, error);
-          return listing;
-        }
-      });
-
-      const enrichedListings = await Promise.all(enrichedListingsPromises);
-      setListings(enrichedListings);
-    } catch (error) {
-      console.error("Failed to fetch listings:", error);
-      toast.error("Failed to load marketplace listings. Pull to refresh.");
+      const data = await res.json();
+      setListings(data.data || []);
+    } catch (err) {
+      console.error("Failed to fetch listings:", err);
+      toast.error("Failed to load listings");
       setListings([]);
     } finally {
       setLoadingListings(false);
     }
-  }, [getAccessToken, seriesFilter, sortBy]);
+  }, [getAuthToken, sortBy, typeFilter]);
 
-  // Fetch my listings
+  // Fetch my listings and sold
   const fetchMyListings = useCallback(async () => {
+    setLoadingMyListings(true);
     try {
-      setLoadingMyListings(true);
-      const authToken = await getAccessToken();
-
-      let rawListings = [];
-
-      if (myListingsFilter === "all") {
-        const statuses = ["active", "sold", "cancelled"];
-        const responses = await Promise.all(
-          statuses.map(status =>
-            fetch(
-              `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/my-listings?status=${status}`,
-              {
-                headers: { Authorization: `Bearer ${authToken}` },
-              }
-            ).then(res => res.ok ? res.json() : { listings: [] })
-          )
-        );
-        rawListings = responses.flatMap(data => Array.isArray(data.listings) ? data.listings : []);
-      } else {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/my-listings?status=${myListingsFilter}`,
-          {
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-            },
-          }
-        );
-
-        if (!response.ok) throw new Error("Failed to fetch my listings");
-        const data = await response.json();
-        rawListings = Array.isArray(data.listings) ? data.listings : [];
-      }
-
-      // Fetch metadata for images
-      const enrichedListingsPromises = rawListings.map(async (listing) => {
-        try {
-          const metadataResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/metadata/cars/${listing.car.tokenId}`
-          );
-          const metadata = await metadataResponse.json();
-          return {
-            ...listing,
-            image: metadata.image || null
-          };
-        } catch (error) {
-          console.error(`Failed to fetch metadata for ${listing.car.tokenId}`, error);
-          return listing;
-        }
-      });
-
-      const enrichedListings = await Promise.all(enrichedListingsPromises);
-
-      if (myListingsFilter === "all") {
-        setMyListings(prev => ({ ...prev, all: enrichedListings }));
-      } else {
-        setMyListings(prev => ({ ...prev, [myListingsFilter]: enrichedListings }));
-      }
-    } catch (error) {
-      console.error("Failed to fetch my listings:", error);
-      toast.error("Failed to load your listings. Pull to refresh.");
+      const token = await getAuthToken();
+      const [activeRes, soldRes] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/my-listings`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/sold`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+      const activeData = await activeRes.json();
+      const soldData = await soldRes.json();
+      setMyListings(activeData.data || []);
+      setSoldListings(soldData.data || []);
+    } catch (err) {
+      console.error("Failed to fetch my listings:", err);
+      toast.error("Failed to load your listings");
     } finally {
       setLoadingMyListings(false);
     }
-  }, [getAccessToken, myListingsFilter]);
-
-  // Fetch user's cars for selling
-  const fetchMyCars = useCallback(async () => {
-    try {
-      const authToken = await getAccessToken();
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/cars`,
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) throw new Error("Failed to fetch cars");
-
-      const data = await response.json();
-      const rawCars = data.cars || [];
-
-      // Fetch metadata for images
-      const enrichedCarsPromises = rawCars.map(async (car) => {
-        try {
-          const metadataResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/metadata/cars/${car.tokenId}`
-          );
-          const metadata = await metadataResponse.json();
-          return {
-            ...car,
-            image: metadata.image || null
-          };
-        } catch (error) {
-          console.error(`Failed to fetch metadata for car ${car.tokenId}`, error);
-          return car;
-        }
-      });
-
-      const enrichedCars = await Promise.all(enrichedCarsPromises);
-      setMyCars(enrichedCars);
-    } catch (error) {
-      console.error("Failed to fetch cars:", error);
-      toast.error("Failed to load your cars.");
-      setMyCars([]);
-    }
-  }, [getAccessToken]);
-
-  // Fetch MockIDRX balance and user info
-  const fetchBalance = useCallback(async () => {
-    try {
-      const authToken = await getAccessToken();
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/overview`,
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
-      );
-      const data = await response.json();
-      setMockIDRXBalance(data.user?.mockIDRX || 0);
-      setUserInfo({
-        username: data.user?.username || null,
-        email: data.user?.email || null,
-        usernameSet: data.user?.usernameSet || false
-      });
-    } catch (error) {
-      console.error("Failed to fetch balance:", error);
-      toast.error("Failed to load balance. Click refresh to try again.");
-    }
-  }, [getAccessToken]);
-
-  // Initial data fetch
-  useEffect(() => {
-    if (authenticated) {
-      fetchListings();
-      fetchBalance();
-    }
-  }, [authenticated, fetchListings, fetchBalance]);
+  }, [getAuthToken]);
 
   useEffect(() => {
-    if (authenticated && activeTab === "my-listings") {
-      fetchMyListings();
-    }
-  }, [authenticated, activeTab, fetchMyListings]);
+    if (isConnected) fetchListings();
+  }, [isConnected, fetchListings]);
 
-  // Handle buy NFT
-  const handleBuyClick = (listing) => {
-    setSelectedListing(listing);
-    setShowBuyModal(true);
-    setBuyStep("approve");
-    setBuyError("");
-    setBuyTxHash("");
-  };
+  useEffect(() => {
+    if (isConnected && activeTab === "my-listings") fetchMyListings();
+  }, [isConnected, activeTab, fetchMyListings]);
 
-  const handleBuyApprove = async () => {
-    if (!embeddedWallet || !selectedListing) return;
-
-    // Prevent concurrent transactions
-    if (transactionInProgress) {
-      toast.error("Another transaction is in progress");
-      return;
-    }
-
-    setTransactionInProgress(true);
-
-    try {
-      setBuyStep("buying");
-      setBuyProgress(1);
-      setBuyError("");
-
-      console.log("Starting purchase:", {
-        listingId: selectedListing.id,
-        price: selectedListing.price,
-        tokenId: selectedListing.carTokenId,
-        seller: selectedListing.seller
-      });
-
-      // Step 1: Validate network FIRST
-      const networkValidation = await validateNetwork(embeddedWallet);
-      if (!networkValidation.valid) {
-        throw new Error(networkValidation.error);
-      }
-
-      // Get backend wallet address from env
-      const backendWallet = process.env.NEXT_PUBLIC_BACKEND_WALLET_ADDRESS;
-      if (!backendWallet) {
-        throw new Error("Backend wallet address not configured");
-      }
-
-      // Get Ethereum provider
-      const ethereumProvider = await embeddedWallet.getEthereumProvider();
-      const provider = new BrowserProvider(ethereumProvider);
-      const signer = await provider.getSigner();
-
-      const mockIDRXAddress = process.env.NEXT_PUBLIC_MOCKIDRX_CONTRACT_ADDRESS;
-      const mockIDRXABI = [
-        "function approve(address spender, uint256 amount) external returns (bool)",
-        "function balanceOf(address account) external view returns (uint256)",
-      ];
-
-      const mockIDRXContract = new Contract(mockIDRXAddress, mockIDRXABI, signer);
-
-      // Step 2: Check balance on-chain (single source of truth)
-      setBuyProgress(2);
-      const balance = await mockIDRXContract.balanceOf(await signer.getAddress());
-      const balanceFormatted = parseFloat(formatUnits(balance, 2));
-      console.log("On-chain IDRX balance:", balanceFormatted);
-
-      if (balanceFormatted < selectedListing.price) {
-        throw new Error(`Insufficient balance. You have ${balanceFormatted} IDRX but need ${selectedListing.price} IDRX`);
-      }
-
-      // Step 3: Approve IDRX spend with retry logic
-      setBuyProgress(3);
-      console.log("Approving IDRX spend...");
-      const priceWei = parseUnits(selectedListing.price.toString(), 2);
-      const approveTx = await mockIDRXContract.approve(backendWallet, priceWei);
-      console.log("Approve tx sent:", approveTx.hash);
-
-      const approveReceipt = await waitForTransaction(approveTx, provider);
-      console.log("Approve tx confirmed:", approveReceipt.status === 1 ? "Success" : "Failed");
-
-      if (approveReceipt.status !== 1) {
-        throw new Error("Approval transaction failed on-chain");
-      }
-
-      // Step 4: Call backend to execute purchase
-      setBuyProgress(4);
-      console.log("Calling backend to execute purchase...");
-      const authToken = await getAccessToken();
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/buy/${selectedListing.id}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-      console.log("Backend response:", data);
-
-      if (!response.ok) {
-        throw new Error(data.error || "Purchase failed");
-      }
-
-      setBuyTxHash(data.purchase.txHash);
-      setBuyStep("success");
-
-      // Step 5: Refresh data (wait for confirmation, no setTimeout)
-      await Promise.all([fetchListings(), fetchBalance()]);
-      toast.success("Purchase successful!");
-    } catch (error) {
-      console.error("Buy error:", error);
-      const errorMessage = formatBlockchainError(error);
-      setBuyError(errorMessage);
-      toast.error(errorMessage);
-      setBuyStep("error");
-    } finally {
-      setTransactionInProgress(false);
-    }
-  };
-
-  // Handle sell NFT
-  const handleSellClick = () => {
-    setShowSellModal(true);
-    setSellStep("select");
-    setSellError("");
-    setSellPrice("");
-    setSellCar(null);
-    fetchMyCars();
-  };
-
-  const handleCloseSellModal = () => {
-    setShowSellModal(false);
-    setTimeout(() => {
-      setSellStep("select");
-      setSellError("");
-      setSellPrice("");
-      setSellCar(null);
-    }, 300);
-  };
-
-  const handleSellSelectCar = (car) => {
-    setSellCar(car);
-    setSellStep(car ? "price" : "select");
-  };
-
-  const handleSellSetPrice = () => {
-    // Validate price with real-time validation helper
-    const validation = validatePrice(sellPrice);
-    if (!validation.valid) {
-      setSellPriceError(validation.error);
-      setSellError(validation.error);
-      return;
-    }
-    setSellPriceError("");
-    setSellError("");
-    setSellStep("approve");
-  };
-
-  const handleSellApprove = async () => {
-    if (!embeddedWallet || !sellCar || !sellPrice) return;
-
-    // Prevent concurrent transactions
-    if (transactionInProgress) {
-      toast.error("Another transaction is in progress");
-      return;
-    }
-
-    setTransactionInProgress(true);
-
-    try {
-      setSellStep("listing");
-      setSellProgress(1);
-      setSellError("");
-
-      // Validate tokenId
-      if (!sellCar.tokenId || sellCar.tokenId < 0) {
-        throw new Error("Invalid NFT token ID");
-      }
-
-      console.log("Approving NFT:", {
-        tokenId: sellCar.tokenId,
-        carName: sellCar.name,
-        series: sellCar.series
-      });
-
-      // Step 1: Validate network FIRST
-      const networkValidation = await validateNetwork(embeddedWallet);
-      if (!networkValidation.valid) {
-        throw new Error(networkValidation.error);
-      }
-
-      // Get backend wallet address
-      const backendWallet = process.env.NEXT_PUBLIC_BACKEND_WALLET_ADDRESS;
-      if (!backendWallet) {
-        throw new Error("Backend wallet address not configured");
-      }
-
-      // Get Ethereum provider
-      const ethereumProvider = await embeddedWallet.getEthereumProvider();
-      const provider = new BrowserProvider(ethereumProvider);
-      const signer = await provider.getSigner();
-
-      const carAddress = process.env.NEXT_PUBLIC_CAR_CONTRACT_ADDRESS;
-      const carABI = [
-        "function approve(address to, uint256 tokenId) external",
-        "function ownerOf(uint256 tokenId) external view returns (address)",
-      ];
-
-      const carContract = new Contract(carAddress, carABI, signer);
-
-      // Step 2: Verify ownership before approving
-      setSellProgress(2);
-      try {
-        const owner = await carContract.ownerOf(sellCar.tokenId);
-        const userAddress = await signer.getAddress();
-        console.log("NFT owner:", owner);
-        console.log("User address:", userAddress);
-
-        if (owner.toLowerCase() !== userAddress.toLowerCase()) {
-          throw new Error("You don't own this NFT");
-        }
-      } catch (error) {
-        console.error("Ownership check failed:", error);
-        throw new Error("Failed to verify NFT ownership. Make sure you own this NFT.");
-      }
-
-      // Step 3: Approve NFT with retry logic
-      setSellProgress(3);
-      console.log("Sending approve transaction...");
-      const approveTx = await carContract.approve(backendWallet, sellCar.tokenId);
-      console.log("Approve tx sent:", approveTx.hash);
-
-      // Track approval in case listing fails
-      trackApproval(sellCar.tokenId, backendWallet, approveTx.hash);
-
-      const approveReceipt = await waitForTransaction(approveTx, provider);
-      console.log("Approve tx confirmed:", approveReceipt.status === 1 ? "Success" : "Failed");
-
-      if (approveReceipt.status !== 1) {
-        throw new Error("Approval transaction failed on-chain");
-      }
-
-      // Step 4: Create listing
-      setSellProgress(4);
-      const authToken = await getAccessToken();
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/list`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: JSON.stringify({
-            tokenId: sellCar.tokenId,
-            price: parseFloat(sellPrice),
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Listing failed");
-      }
-
-      // Clear approval tracking on success
-      clearApproval(sellCar.tokenId);
-
-      setSellStep("success");
-
-      // Step 5: Refresh data (wait for confirmation, no setTimeout)
-      await fetchListings();
-      if (activeTab === "my-listings") {
-        await fetchMyListings();
-      }
-      toast.success("Listing created successfully!");
-    } catch (error) {
-      console.error("Sell error:", error);
-      const errorMessage = formatBlockchainError(error);
-      setSellError(errorMessage);
-      toast.error(errorMessage);
-      setSellStep("error");
-    } finally {
-      setTransactionInProgress(false);
-    }
-  };
-
-  // Handle cancel listing
-  const handleCancelListing = async (listingId) => {
-    if (!confirm("Are you sure you want to cancel this listing?")) return;
-
-    try {
-      const authToken = await getAccessToken();
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/cancel/${listingId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Cancel failed");
-      }
-
-      toast.success("Listing cancelled successfully!");
-      fetchMyListings();
-    } catch (error) {
-      console.error("Cancel error:", error);
-      toast.error(error.message || "Failed to cancel listing");
-    }
-  };
-
-  // Handle pull to refresh
   const handleRefresh = async () => {
-    if (activeTab === "browse") {
-      await fetchListings();
-    } else {
-      await fetchMyListings();
-    }
+    if (activeTab === "browse") await fetchListings();
+    else await fetchMyListings();
   };
 
-  if (!ready || !authenticated) {
-    return null;
-  }
+  if (!isConnected) return null;
+
+  const displayedMyListings = myTab === "active" ? myListings : soldListings;
 
   return (
     <main className="relative min-h-screen bg-gradient-to-b from-orange-400 via-orange-500 to-orange-600 text-white overflow-hidden">
-      {/* Checkered Pattern Background */}
       <div
         className="absolute inset-0 opacity-30"
         style={{
@@ -632,39 +155,21 @@ export default function MarketplacePage() {
         }}
       />
 
-      {/* Main Content */}
       <PullToRefresh onRefresh={handleRefresh}>
         <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
           {/* Header */}
           <header className="px-4 pt-3 pb-4">
-            {/* Top Row - Balance and Username */}
-            <div className="flex items-center justify-between gap-2 mb-4">
-              {/* MockIDRX Balance Badge */}
-              <button
-                onClick={fetchBalance}
-                className="flex items-center gap-1.5 bg-yellow-400 rounded-full px-3 py-1.5 shadow-lg transition-transform hover:scale-[1.02] active:scale-95"
-              >
-                <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center">
-                  <Wallet size={14} className="text-yellow-300" strokeWidth={3} />
-                </div>
-                <span className="font-black text-sm text-orange-900">
-                  {Math.floor(mockIDRXBalance).toLocaleString()}
-                </span>
-                <span className="text-xs font-bold text-orange-900 opacity-80">IDRX</span>
-              </button>
-
-              {/* User Info Badge */}
-              {(userInfo.username || userInfo.email || walletAddress) && (
+            <div className="flex items-center justify-end mb-3">
+              {walletAddress && (
                 <div className="bg-emerald-500 border-2 border-emerald-400 rounded-full px-3 py-1.5 flex items-center gap-2 shadow-lg">
                   <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                   <span className="text-white text-xs font-bold">
-                    {userInfo.username || (userInfo.email ? userInfo.email.split('@')[0] : null) || `${walletAddress?.slice(0, 6)}...${walletAddress?.slice(-4)}`}
+                    {`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
                   </span>
                 </div>
               )}
             </div>
 
-            {/* Title */}
             <h1 className="text-4xl font-black text-white mb-4 flex items-center gap-3">
               <ShoppingBag size={36} strokeWidth={2.5} />
               Marketplace
@@ -674,276 +179,224 @@ export default function MarketplacePage() {
             <div className="flex gap-2 mb-4">
               <button
                 onClick={() => setActiveTab("browse")}
-                className={`flex-1 py-3 rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === "browse"
-                  ? "bg-white text-orange-600 shadow-lg"
-                  : "bg-orange-600/50 text-white hover:bg-orange-600/70"
-                  }`}
+                className={`flex-1 py-3 rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                  activeTab === "browse"
+                    ? "bg-white text-orange-600 shadow-lg"
+                    : "bg-orange-600/50 text-white"
+                }`}
               >
                 <Search size={16} strokeWidth={2.5} />
                 Browse
               </button>
               <button
                 onClick={() => setActiveTab("my-listings")}
-                className={`flex-1 py-3 rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === "my-listings"
-                  ? "bg-white text-orange-600 shadow-lg"
-                  : "bg-orange-600/50 text-white hover:bg-orange-600/70"
-                  }`}
+                className={`flex-1 py-3 rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                  activeTab === "my-listings"
+                    ? "bg-white text-orange-600 shadow-lg"
+                    : "bg-orange-600/50 text-white"
+                }`}
               >
                 <List size={16} strokeWidth={2.5} />
                 My Listings
               </button>
             </div>
 
-            {/* Filters (Browse tab) */}
+            {/* Browse Filters */}
             {activeTab === "browse" && (
               <div className="space-y-2">
-                {/* Series Filter */}
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                  {seriesOptions.map((series) => (
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                  {["all", "car", "sparePart"].map((t) => (
                     <button
-                      key={series}
-                      onClick={() => setSeriesFilter(series)}
-                      className={`px-4 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all ${seriesFilter === series
-                        ? "bg-white text-orange-600 shadow-lg"
-                        : "bg-orange-600/50 text-white hover:bg-orange-600/70"
-                        }`}
+                      key={t}
+                      onClick={() => setTypeFilter(t)}
+                      className={`px-4 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all ${
+                        typeFilter === t
+                          ? "bg-white text-orange-600 shadow-lg"
+                          : "bg-orange-600/50 text-white"
+                      }`}
                     >
-                      {series === "all" ? "All Series" : series}
+                      {t === "all" ? "All" : t === "car" ? "Cars" : "Parts"}
                     </button>
                   ))}
                 </div>
-
-                {/* Sort */}
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                  <button
-                    onClick={() => setSortBy("newest")}
-                    className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1 whitespace-nowrap ${sortBy === "newest"
-                      ? "bg-white text-orange-600"
-                      : "bg-orange-600/50 text-white"
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                  {[
+                    { key: "newest", label: "Newest", Icon: Sparkles },
+                    { key: "price_asc", label: "↑ Price", Icon: null },
+                    { key: "price_desc", label: "↓ Price", Icon: Gem },
+                  ].map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setSortBy(key)}
+                      className={`px-4 py-2 rounded-full font-bold text-xs whitespace-nowrap transition-all ${
+                        sortBy === key
+                          ? "bg-white text-orange-600"
+                          : "bg-orange-600/50 text-white"
                       }`}
-                  >
-                    <Sparkles size={12} strokeWidth={2.5} />
-                    Newest
-                  </button>
-                  <button
-                    onClick={() => setSortBy("price_asc")}
-                    className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1 whitespace-nowrap ${sortBy === "price_asc"
-                      ? "bg-white text-orange-600"
-                      : "bg-orange-600/50 text-white"
-                      }`}
-                  >
-                    <Wallet size={12} strokeWidth={2.5} />
-                    Low → High
-                  </button>
-                  <button
-                    onClick={() => setSortBy("price_desc")}
-                    className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1 whitespace-nowrap ${sortBy === "price_desc"
-                      ? "bg-white text-orange-600"
-                      : "bg-orange-600/50 text-white"
-                      }`}
-                  >
-                    <Gem size={12} strokeWidth={2.5} />
-                    High → Low
-                  </button>
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* My Listings Filter */}
+            {/* My Listings Sub-tabs */}
             {activeTab === "my-listings" && (
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {["all", "active", "sold", "cancelled"].map((status) => (
+              <div className="flex gap-2">
+                {["active", "sold"].map((t) => (
                   <button
-                    key={status}
-                    onClick={() => setMyListingsFilter(status)}
-                    className={`px-4 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all ${myListingsFilter === status
-                      ? "bg-white text-orange-600 shadow-lg"
-                      : "bg-orange-600/50 text-white hover:bg-orange-600/70"
-                      }`}
+                    key={t}
+                    onClick={() => setMyTab(t)}
+                    className={`px-4 py-2 rounded-full font-bold text-sm capitalize transition-all ${
+                      myTab === t
+                        ? "bg-white text-orange-600 shadow-lg"
+                        : "bg-orange-600/50 text-white"
+                    }`}
                   >
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                    {t}
                   </button>
                 ))}
               </div>
             )}
           </header>
 
-          {/* Browse Listings */}
+          {/* Browse Content */}
           {activeTab === "browse" && (
             <div className="flex-1 px-4 mb-4">
               <div className="bg-orange-700/50 backdrop-blur-sm rounded-3xl p-4 min-h-[300px]">
                 {loadingListings ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                      <p className="text-white/60 text-sm">Loading listings...</p>
-                    </div>
+                  <div className="flex items-center justify-center h-48">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
                   </div>
                 ) : listings.length > 0 ? (
                   <div className="grid grid-cols-2 gap-4">
-                    {listings.map((listing, index) => (
-                      <div
-                        key={listing.id}
-                        onClick={() => {
-                          setSelectedListing(listing);
-                          setShowDetailModal(true);
-                        }}
-                        className={`relative bg-gradient-to-br ${RARITY_CONFIG[listing.car.rarity] || "from-gray-500 to-gray-600"
-                          } rounded-2xl p-3 shadow-xl cursor-pointer transition-transform hover:scale-105 active:scale-[0.98] group marketplace-card animate-rise`}
-                        style={{ animationDelay: `${index * 70}ms` }}
-                      >
-                        {/* Rarity Badge */}
-                        <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 z-10">
-                          <span className="text-white text-[10px] font-black uppercase">
-                            {listing.car.rarity}
-                          </span>
-                        </div>
+                    {listings.map((listing) => {
+                      const rc = getRarityConfig(listing);
+                      const name = getItemName(listing);
+                      return (
+                        <div
+                          key={listing.listingId}
+                          onClick={() => setSelectedListing(listing)}
+                          className={`relative bg-gradient-to-br ${rc.gradient} rounded-2xl p-3 shadow-xl cursor-pointer hover:scale-105 active:scale-[0.98] transition-transform`}
+                        >
+                          {/* Rarity */}
+                          <div className="absolute top-2 left-2 bg-black/60 rounded-full px-2 py-0.5">
+                            <span className="text-white text-[9px] font-black uppercase">{rc.label}</span>
+                          </div>
 
-                        {/* Token ID Badge */}
-                        <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 z-10">
-                          <span className="text-white text-[10px] font-bold">
-                            #{listing.car.tokenId}
-                          </span>
-                        </div>
+                          {/* NFT type badge */}
+                          <div className="absolute top-2 right-2 bg-black/60 rounded-full px-2 py-0.5">
+                            <span className="text-white text-[9px] font-bold">
+                              {listing.nftType === "car" ? "🚗" : "🔧"}
+                            </span>
+                          </div>
 
-                        <div className="aspect-square flex items-center justify-center mb-2">
-                          <img
-                            src={listing.image || getCarImagePath(listing.car.modelName)}
-                            alt={listing.car.modelName}
-                            className="w-full h-full object-contain drop-shadow-2xl"
-                            onError={handleImageError}
-                          />
-                        </div>
+                          {/* Image */}
+                          <div className="aspect-square flex items-center justify-center mb-2 mt-4">
+                            <img
+                              src={getItemImage(name)}
+                              alt={name}
+                              className="w-full h-full object-contain drop-shadow-2xl"
+                              onError={(e) => { e.target.src = "/assets/car/High Speed.png"; }}
+                            />
+                          </div>
 
-                        {/* Car Info */}
-                        <div className="text-center px-1 mb-2">
-                          <p className="text-white text-xs font-black uppercase truncate">
-                            {listing.car.modelName}
-                          </p>
-                          <p className="text-white/70 text-[10px] font-semibold truncate">
-                            {listing.car.series}
-                          </p>
-                        </div>
+                          {/* Name */}
+                          <p className="text-white text-xs font-black uppercase truncate text-center mb-1">{name}</p>
 
-                        {/* Price */}
-                        <div className="bg-yellow-400 rounded-full py-1 px-2 flex items-center justify-center gap-1">
-                          <span className="text-orange-900 text-xs font-black">
-                            {listing.price.toLocaleString()}
-                          </span>
-                          <span className="text-orange-900 text-[8px] font-bold">IDRX</span>
+                          {/* Price */}
+                          <div className="bg-yellow-400 rounded-full py-1 flex items-center justify-center">
+                            <span className="text-orange-900 text-xs font-black">
+                              {Number(listing.price).toLocaleString()} ONE
+                            </span>
+                          </div>
                         </div>
-
-                        <div className="absolute inset-0 rounded-2xl bg-black/40 opacity-0 transition-opacity duration-200 flex items-center justify-center group-hover:opacity-100 group-active:opacity-100">
-                          <span className="px-3 py-1 rounded-full bg-black/60 text-orange-200 text-[10px] font-bold tracking-[0.3em] uppercase">
-                            View
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full min-h-[280px]">
-                    <div className="text-center px-4">
-                      <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                        <ShoppingBag size={40} className="text-white/40" strokeWidth={1.5} />
-                      </div>
-                      <h3 className="text-white text-xl font-black mb-2">
-                        No Listings Found
-                      </h3>
-                      <p className="text-white/60 text-sm mb-6 max-w-[220px] mx-auto">
-                        {seriesFilter !== "all"
-                          ? "Try a different series filter or check back later"
-                          : "Be the first to list your car on the marketplace!"}
-                      </p>
-                      <button
-                        onClick={handleSellClick}
-                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-3 px-6 rounded-full shadow-lg transform hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto"
-                      >
-                        <Tag size={18} strokeWidth={2.5} />
-                        Sell Your Car
-                      </button>
-                    </div>
+                  <div className="flex flex-col items-center justify-center h-48">
+                    <ShoppingBag size={40} className="text-white/30 mb-3" />
+                    <p className="text-white/60 font-bold">No listings found</p>
+                    <p className="text-white/40 text-sm">Try a different filter</p>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* My Listings */}
+          {/* My Listings Content */}
           {activeTab === "my-listings" && (
             <div className="flex-1 px-4 mb-4">
               <div className="bg-orange-700/50 backdrop-blur-sm rounded-3xl p-4 min-h-[300px]">
                 {loadingMyListings ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                      <p className="text-white/60 text-sm">Loading...</p>
-                    </div>
+                  <div className="flex items-center justify-center h-48">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
                   </div>
-                ) : (
+                ) : displayedMyListings.length > 0 ? (
                   <div className="space-y-3">
-                    {myListingsFilter === "all"
-                      ? myListings.all.map((listing) => (
-                        <ListingCard
-                          key={listing.id}
-                          listing={listing}
-                          onCancel={handleCancelListing}
-                          onClick={() => {
-                            setSelectedListing(listing);
-                            setShowDetailModal(true);
-                          }}
-                        />
-                      ))
-                      : myListings[myListingsFilter]?.map((listing) => (
-                        <ListingCard
-                          key={listing.id}
-                          listing={listing}
-                          onCancel={handleCancelListing}
-                          onClick={() => {
-                            setSelectedListing(listing);
-                            setShowDetailModal(true);
-                          }}
-                        />
-                      ))}
-                    {((myListingsFilter === "all" && myListings.all.length === 0) ||
-                      (myListingsFilter !== "all" && myListings[myListingsFilter]?.length === 0)) && (
-                        <div className="flex items-center justify-center min-h-[280px]">
-                          <div className="text-center px-4">
-                            <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                              <List size={40} className="text-white/40" strokeWidth={1.5} />
+                    {displayedMyListings.map((listing) => {
+                      const rc = getRarityConfig(listing);
+                      const name = getItemName(listing);
+                      return (
+                        <div
+                          key={listing.listingId}
+                          onClick={() => setSelectedListing(listing)}
+                          className={`bg-gradient-to-br ${rc.gradient} rounded-2xl p-4 cursor-pointer hover:scale-[1.02] transition-transform`}
+                        >
+                          <div className="flex gap-3 items-center">
+                            <img
+                              src={getItemImage(name)}
+                              alt={name}
+                              className="w-16 h-16 object-contain flex-shrink-0"
+                              onError={(e) => { e.target.src = "/assets/car/High Speed.png"; }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-white font-black text-sm uppercase truncate">{name}</p>
+                              <p className="text-white/60 text-xs">
+                                {listing.nftType === "car" ? "Car" : "Spare Part"}
+                              </p>
+                              <p className="text-yellow-300 font-black text-sm mt-1">
+                                {Number(listing.price).toLocaleString()} ONE
+                              </p>
+                              {listing.isSold && listing.soldAt && (
+                                <p className="text-green-300 text-xs">
+                                  Sold {new Date(listing.soldAt).toLocaleDateString()}
+                                </p>
+                              )}
                             </div>
-                            <h3 className="text-white text-xl font-black mb-2">
-                              {myListingsFilter === "all" ? "No Listings Yet" : `No ${myListingsFilter.charAt(0).toUpperCase() + myListingsFilter.slice(1)} Listings`}
-                            </h3>
-                            <p className="text-white/60 text-sm mb-6 max-w-[220px] mx-auto">
-                              {myListingsFilter === "all"
-                                ? "Start selling your cars to earn IDRX!"
-                                : `You don't have any ${myListingsFilter} listings`}
-                            </p>
-                            {myListingsFilter === "all" && (
-                              <button
-                                onClick={handleSellClick}
-                                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-3 px-6 rounded-full shadow-lg transform hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto"
-                              >
-                                <Tag size={18} strokeWidth={2.5} />
-                                List Your First Car
-                              </button>
-                            )}
+                            <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                              listing.isSold ? "bg-blue-500 text-white" :
+                              listing.isActive ? "bg-green-500 text-white" :
+                              "bg-gray-500 text-white"
+                            }`}>
+                              {listing.isSold ? "Sold" : listing.isActive ? "Active" : "Ended"}
+                            </span>
                           </div>
                         </div>
-                      )}
-
-                    {((myListingsFilter === "all" && myListings.all?.length > 0) ||
-                      (myListingsFilter !== "all" && myListings[myListingsFilter]?.length > 0)) && (
-                        <button
-                          onClick={handleSellClick}
-                          className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-3 px-6 rounded-2xl shadow-lg transform hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 mt-4"
-                        >
-                          <Tag size={18} strokeWidth={2.5} />
-                          Sell NFT
-                        </button>
-                      )}
+                      );
+                    })}
                   </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-48">
+                    <List size={40} className="text-white/30 mb-3" />
+                    <p className="text-white/60 font-bold">No {myTab} listings</p>
+                    {myTab === "active" && (
+                      <p className="text-white/40 text-sm mt-1">Go to Inventory to sell your NFTs</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Link to inventory for selling */}
+                {activeTab === "my-listings" && myTab === "active" && (
+                  <button
+                    onClick={() => router.push("/inventory")}
+                    className="w-full mt-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-black py-3 rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <Tag size={16} />
+                    Go to Inventory to Sell
+                  </button>
                 )}
               </div>
             </div>
@@ -951,539 +404,70 @@ export default function MarketplacePage() {
         </div>
       </PullToRefresh>
 
-      {/* Buy Modal */}
-      {showBuyModal && selectedListing && (
-        <BuyModal
-          listing={selectedListing}
-          step={buyStep}
-          error={buyError}
-          txHash={buyTxHash}
-          balance={mockIDRXBalance}
-          onClose={() => setShowBuyModal(false)}
-          onApprove={handleBuyApprove}
-          buyProgress={buyProgress}
-        />
-      )}
-
-      {/* Sell Modal */}
-      {showSellModal && (
-        <SellModal
-          step={sellStep}
-          car={sellCar}
-          price={sellPrice}
-          error={sellError}
-          priceError={sellPriceError}
-          cars={myCars}
-          onClose={handleCloseSellModal}
-          onSelectCar={handleSellSelectCar}
-          onSetPrice={(price) => {
-            setSellPrice(price);
-            // Real-time validation
-            const validation = validatePrice(price);
-            if (!validation.valid) {
-              setSellPriceError(validation.error);
-            } else {
-              setSellPriceError("");
-            }
-          }}
-          onConfirmPrice={handleSellSetPrice}
-          onApprove={handleSellApprove}
-          sellProgress={sellProgress}
-        />
-      )}
-
       {/* Detail Modal */}
-      {showDetailModal && selectedListing && (
-        <DetailModal
-          listing={selectedListing}
-          balance={mockIDRXBalance}
-          onClose={() => setShowDetailModal(false)}
-          onBuy={() => {
-            setShowDetailModal(false);
-            handleBuyClick(selectedListing);
-          }}
-          onCancel={activeTab === "my-listings" ? handleCancelListing : null}
-        />
-      )}
-
-      {/* Bottom Navigation */}
-      <BottomNavigation />
-    </main>
-  );
-}
-
-// Listing Card Component for My Listings
-function ListingCard({ listing, onCancel, onClick }) {
-  const getStatusBadge = (status) => {
-    const badges = {
-      active: { bg: "bg-green-500", text: "Active" },
-      sold: { bg: "bg-blue-500", text: "Sold" },
-      cancelled: { bg: "bg-gray-500", text: "Cancelled" },
-      processing: { bg: "bg-yellow-500", text: "Processing" },
-    };
-    const badge = badges[status] || badges.active;
-    return (
-      <span className={`${badge.bg} text-white text-xs font-bold px-2 py-1 rounded-full`}>
-        {badge.text}
-      </span>
-    );
-  };
-
-  return (
-    <div
-      onClick={onClick}
-      className={`bg-gradient-to-br ${RARITY_CONFIG[listing.car.rarity] || "from-gray-500 to-gray-600"
-        } rounded-2xl p-4 shadow-xl cursor-pointer hover:scale-[1.02] active:scale-[0.99] transition-transform marketplace-card`}
-    >
-      <div className="flex gap-3">
-        {/* Car Image */}
-        <div className="w-24 h-24 flex-shrink-0">
-          <img
-            src={listing.image || getCarImagePath(listing.car.modelName)}
-            alt={listing.car.modelName}
-            className="w-full h-full object-contain drop-shadow-xl"
-            onError={handleImageError}
-          />
-        </div>
-
-        {/* Info */}
-        <div className="flex-1 flex flex-col justify-between min-w-0">
-          <div>
-            <div className="flex items-center justify-between mb-1 gap-2">
-              <h3 className="text-white font-black text-sm uppercase truncate">
-                {listing.car.modelName}
-              </h3>
-              {getStatusBadge(listing.status)}
-            </div>
-            <p className="text-white/70 text-xs mb-2 truncate">{listing.car.series}</p>
-            <div className="flex items-center gap-1">
-              <span className="text-yellow-300 text-sm font-black">
-                {listing.price.toLocaleString()}
-              </span>
-              <span className="text-yellow-300 text-[10px] font-bold">IDRX</span>
-            </div>
-          </div>
-
-          {/* Actions */}
-          {listing.status === "active" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCancel(listing.id);
-              }}
-              className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-3 rounded-full mt-2"
-            >
-              Cancel
-            </button>
-          )}
-          {listing.status === "sold" && listing.buyer && (
-            <p className="text-white/60 text-[10px] mt-1">
-              Sold to {listing.buyer?.username
-                || (listing.buyer?.walletAddress
-                  ? `${listing.buyer.walletAddress.slice(0, 6)}...${listing.buyer.walletAddress.slice(-4)}`
-                  : 'Unknown')}
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Buy Modal Component
-function BuyModal({ listing, step, error, txHash, balance, onClose, onApprove, buyProgress }) {
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto animate-backdrop-in">
-      <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-3xl p-6 max-w-sm w-full shadow-2xl my-8 animate-modal-in">
-        {step === "approve" && (
-          <>
-            <h3 className="text-2xl font-black text-white mb-4">Buy NFT</h3>
-            <div className="bg-white/20 rounded-2xl p-4 mb-4">
-              <p className="text-white font-bold mb-2">{listing.car.modelName}</p>
-              <p className="text-white/70 text-sm mb-3">{listing.car.series}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-white text-sm">Price:</span>
-                <span className="text-yellow-300 font-black">
-                  {listing.price.toLocaleString()} IDRX
-                </span>
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-white text-sm">Your Balance:</span>
-                <span
-                  className={`font-black ${balance >= listing.price ? "text-green-300" : "text-red-300"
-                    }`}
-                >
-                  {Math.floor(balance).toLocaleString()} IDRX
-                </span>
-              </div>
-            </div>
-            {balance < listing.price && (
-              <div className="bg-red-500/30 border border-red-400 rounded-xl p-3 mb-4">
-                <p className="text-red-100 text-xs">Insufficient balance!</p>
-              </div>
-            )}
-            <p className="text-white/80 text-sm mb-4">
-              This will approve and purchase the NFT in one transaction.
-            </p>
-            <div className="flex gap-2">
+      {selectedListing && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className={`bg-gradient-to-br ${getRarityConfig(selectedListing).gradient} rounded-3xl p-6 max-w-sm w-full shadow-2xl`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-black text-white">Listing Details</h3>
               <button
-                onClick={onClose}
-                className="flex-1 bg-white/20 text-white font-bold py-3 rounded-full"
+                onClick={() => setSelectedListing(null)}
+                className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center"
               >
-                Cancel
-              </button>
-              <button
-                onClick={onApprove}
-                disabled={balance < listing.price}
-                className="flex-1 bg-white text-orange-600 font-black py-3 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Buy Now
+                <X size={16} className="text-white" />
               </button>
             </div>
-          </>
-        )}
-        {step === "buying" && (
-          <div className="text-center">
-            <h3 className="text-2xl font-black text-white mb-4">Processing Purchase</h3>
-            <ProgressSteps
-              steps={[
-                "Validating network",
-                "Checking balance",
-                "Approving IDRX",
-                "Completing purchase"
-              ]}
-              currentStep={buyProgress}
-              className="mb-4"
-            />
-          </div>
-        )}
-        {step === "success" && (
-          <div className="text-center">
-            <div className="mb-4 flex justify-center">
-              <PartyPopper size={64} className="text-white" strokeWidth={1.5} />
-            </div>
-            <h3 className="text-2xl font-black text-white mb-2">Purchase Complete!</h3>
-            <p className="text-white/80 text-sm mb-4">
-              The NFT is now yours. Check your inventory!
-            </p>
-            {txHash && (
-              <a
-                href={`https://sepolia.basescan.org/tx/${txHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-yellow-300 text-xs underline"
-              >
-                View Transaction
-              </a>
-            )}
-            <button
-              onClick={onClose}
-              className="w-full bg-white text-orange-600 font-black py-3 rounded-full mt-4"
-            >
-              Close
-            </button>
-          </div>
-        )}
-        {step === "error" && (
-          <div className="text-center">
-            <div className="mb-4 flex justify-center">
-              <Frown size={64} className="text-white" strokeWidth={1.5} />
-            </div>
-            <h3 className="text-2xl font-black text-white mb-2">Purchase Failed</h3>
-            <p className="text-white/80 text-sm mb-4">{error}</p>
-            <button
-              onClick={onClose}
-              className="w-full bg-white text-orange-600 font-black py-3 rounded-full"
-            >
-              Close
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
-// Sell Modal Component
-function SellModal({
-  step,
-  car,
-  price,
-  error,
-  priceError,
-  cars,
-  onClose,
-  onSelectCar,
-  onSetPrice,
-  onConfirmPrice,
-  onApprove,
-  sellProgress,
-}) {
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto animate-backdrop-in">
-      <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-3xl p-6 max-w-sm w-full shadow-2xl my-8 animate-modal-in">
-        {step === "select" && (
-          <>
-            <h3 className="text-2xl font-black text-white mb-4">Select NFT to Sell</h3>
-            <div className="max-h-96 overflow-y-auto space-y-2 mb-4">
-              {cars.length > 0 ? (
-                cars.map((c) => (
-                  <div
-                    key={c.tokenId}
-                    onClick={() => onSelectCar(c)}
-                    className="bg-white/20 rounded-xl p-3 cursor-pointer hover:bg-white/30 transition-colors"
-                  >
-                    <div className="flex gap-3 items-center">
-                      <img
-                        src={c.image || getCarImagePath(c.modelName)}
-                        alt={c.modelName}
-                        className="w-16 h-16 object-contain"
-                        onError={handleImageError}
-                      />
-                      <div>
-                        <p className="text-white font-bold text-sm">{c.modelName}</p>
-                        <p className="text-white/70 text-xs">{c.series}</p>
-                        <p className="text-yellow-300 text-xs">#{c.tokenId}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-white/60 text-center py-8">No cars available to sell</p>
-              )}
+            {/* Image */}
+            <div className="bg-white/10 rounded-2xl p-4 mb-4">
+              <img
+                src={getItemImage(getItemName(selectedListing))}
+                alt={getItemName(selectedListing)}
+                className="w-full h-40 object-contain"
+                onError={(e) => { e.target.src = "/assets/car/High Speed.png"; }}
+              />
             </div>
+
+            {/* Info */}
+            <div className="bg-white/20 rounded-xl p-4 space-y-2 mb-4">
+              {[
+                ["Name", getItemName(selectedListing)],
+                ["Type", selectedListing.nftType === "car" ? "Car NFT" : "Spare Part"],
+                ["Rarity", getRarityConfig(selectedListing).label],
+                ["Price", `${Number(selectedListing.price).toLocaleString()} ONE`],
+                ["Seller", selectedListing.sellerUser?.username ||
+                  (selectedListing.sellerUser?.address
+                    ? `${selectedListing.sellerUser.address.slice(0, 6)}...${selectedListing.sellerUser.address.slice(-4)}`
+                    : "Unknown")],
+                ["Status", selectedListing.isSold ? "Sold" : selectedListing.isActive ? "Active" : "Ended"],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between">
+                  <span className="text-white/70 text-sm">{label}:</span>
+                  <span className="text-white font-bold text-sm">{value}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Note: Buy requires on-chain tx */}
+            {selectedListing.isActive && !selectedListing.isSold && (
+              <div className="bg-black/20 rounded-xl p-3 mb-4">
+                <p className="text-white/70 text-xs text-center">
+                  On-chain purchase coming soon via OneChain wallet
+                </p>
+              </div>
+            )}
+
             <button
-              onClick={onClose}
+              onClick={() => setSelectedListing(null)}
               className="w-full bg-white/20 text-white font-bold py-3 rounded-full"
             >
-              Cancel
-            </button>
-          </>
-        )}
-        {step === "price" && car && (
-          <>
-            <h3 className="text-2xl font-black text-white mb-4">Set Price</h3>
-            <div className="bg-white/20 rounded-xl p-4 mb-4">
-              <p className="text-white font-bold mb-1">{car.modelName}</p>
-              <p className="text-white/70 text-xs">#{car.tokenId}</p>
-            </div>
-            <div className="mb-4">
-              <label className="text-white text-sm font-bold mb-2 block">
-                Price in IDRX:
-              </label>
-              <input
-                type="number"
-                value={price}
-                onChange={(e) => onSetPrice(e.target.value)}
-                placeholder="Enter price..."
-                className="w-full bg-white/20 border-2 border-white/30 rounded-xl px-4 py-3 text-white font-bold placeholder-white/50 outline-none focus:border-white"
-              />
-              {priceError && (
-                <p className="text-red-200 text-xs mt-2">{priceError}</p>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => onSelectCar(null)}
-                className="flex-1 bg-white/20 text-white font-bold py-3 rounded-full"
-              >
-                Back
-              </button>
-              <button
-                onClick={onConfirmPrice}
-                className="flex-1 bg-white text-green-600 font-black py-3 rounded-full"
-              >
-                Next
-              </button>
-            </div>
-          </>
-        )}
-        {step === "approve" && car && (
-          <>
-            <h3 className="text-2xl font-black text-white mb-4">Confirm Listing</h3>
-            <div className="bg-white/20 rounded-xl p-4 mb-4">
-              <p className="text-white font-bold mb-1">{car.modelName}</p>
-              <p className="text-white/70 text-xs mb-3">#{car.tokenId}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-white text-sm">List Price:</span>
-                <span className="text-yellow-300 font-black">
-                  {parseFloat(price).toLocaleString()} IDRX
-                </span>
-              </div>
-            </div>
-            <p className="text-white/80 text-sm mb-4">
-              This will approve the NFT for transfer and create the listing.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={onClose}
-                className="flex-1 bg-white/20 text-white font-bold py-3 rounded-full"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={onApprove}
-                className="flex-1 bg-white text-green-600 font-black py-3 rounded-full"
-              >
-                List NFT
-              </button>
-            </div>
-          </>
-        )}
-        {step === "listing" && (
-          <div className="text-center">
-            <h3 className="text-2xl font-black text-white mb-4">Creating Listing</h3>
-            <ProgressSteps
-              steps={[
-                "Validating network",
-                "Verifying ownership",
-                "Approving NFT",
-                "Creating listing"
-              ]}
-              currentStep={sellProgress}
-              className="mb-4"
-            />
-          </div>
-        )}
-        {step === "success" && (
-          <div className="text-center">
-            <div className="mb-4 flex justify-center">
-              <CheckCircle size={64} className="text-white" strokeWidth={1.5} />
-            </div>
-            <h3 className="text-2xl font-black text-white mb-2">Listed Successfully!</h3>
-            <p className="text-white/80 text-sm mb-4">
-              Your NFT is now on the marketplace!
-            </p>
-            <button
-              onClick={onClose}
-              className="w-full bg-white text-green-600 font-black py-3 rounded-full"
-            >
               Close
             </button>
           </div>
-        )}
-        {step === "error" && (
-          <div className="text-center">
-            <div className="mb-4 flex justify-center">
-              <X size={64} className="text-white" strokeWidth={1.5} />
-            </div>
-            <h3 className="text-2xl font-black text-white mb-2">Listing Failed</h3>
-            <p className="text-white/80 text-sm mb-4">{error}</p>
-            <button
-              onClick={onClose}
-              className="w-full bg-white text-green-600 font-black py-3 rounded-full"
-            >
-              Close
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Detail Modal Component
-function DetailModal({ listing, balance, onClose, onBuy, onCancel }) {
-  const isOwner = onCancel !== null;
-  const canBuy = !isOwner && listing.status === "active" && balance >= listing.price;
-
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div
-        className={`bg-gradient-to-br ${RARITY_CONFIG[listing.car.rarity] || "from-gray-500 to-gray-600"
-          } rounded-3xl p-6 max-w-sm w-full shadow-2xl my-8`}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-2xl font-black text-white">NFT Details</h3>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
-          >
-            <X size={18} className="text-white" strokeWidth={2.5} />
-          </button>
         </div>
+      )}
 
-        {/* Car Image */}
-        <div className="bg-white/10 rounded-2xl p-6 mb-4">
-          <img
-            src={listing.image || getCarImagePath(listing.car.modelName)}
-            alt={listing.car.modelName}
-            className="w-full h-48 object-contain drop-shadow-2xl"
-            onError={handleImageError}
-          />
-        </div>
-
-        {/* Info */}
-        <div className="bg-white/20 rounded-2xl p-4 mb-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-white/80 text-sm">Name:</span>
-            <span className="text-white font-bold">{listing.car.modelName}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-white/80 text-sm">Series:</span>
-            <span className="text-white font-bold">{listing.car.series}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-white/80 text-sm">Rarity:</span>
-            <span className="text-white font-bold uppercase">{listing.car.rarity}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-white/80 text-sm">Token ID:</span>
-            <span className="text-white font-bold">#{listing.car.tokenId}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-white/80 text-sm">Price:</span>
-            <span className="text-yellow-300 font-black text-lg">
-              {listing.price.toLocaleString()} IDRX
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-white/80 text-sm">Seller:</span>
-            <span className="text-white font-bold text-sm">
-              {listing.seller?.username
-                || (listing.seller?.walletAddress
-                  ? `${listing.seller.walletAddress.slice(0, 6)}...${listing.seller.walletAddress.slice(-4)}`
-                  : 'Unknown')}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-white/80 text-sm">Status:</span>
-            <span className="text-white font-bold uppercase">{listing.status}</span>
-          </div>
-        </div>
-
-        {/* Actions */}
-        {!isOwner && listing.status === "active" && (
-          <button
-            onClick={onBuy}
-            disabled={!canBuy}
-            className="w-full bg-white text-orange-600 font-black py-3 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {!canBuy && balance < listing.price
-              ? "Insufficient Balance"
-              : "Buy Now"}
-          </button>
-        )}
-        {isOwner && listing.status === "active" && (
-          <button
-            onClick={() => {
-              onClose();
-              onCancel(listing.id);
-            }}
-            className="w-full bg-red-500 text-white font-black py-3 rounded-full"
-          >
-            Cancel Listing
-          </button>
-        )}
-        {listing.status !== "active" && (
-          <button
-            onClick={onClose}
-            className="w-full bg-white/20 text-white font-bold py-3 rounded-full"
-          >
-            Close
-          </button>
-        )}
-      </div>
-    </div>
+      <BottomNavigation />
+    </main>
   );
 }

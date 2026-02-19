@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useWallet } from "@/hooks/useWallet";
 import { RARITY_CONFIG } from "@/constants";
 
 /**
@@ -11,12 +11,12 @@ export function useInventory() {
   const [inventoryData, setInventoryData] = useState([]);
   const [loadingInventory, setLoadingInventory] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState("all");
-  const { getAccessToken } = usePrivy();
+  const { getAuthToken } = useWallet();
 
   const fetchInventory = useCallback(async () => {
     try {
       setLoadingInventory(true);
-      const authToken = await getAccessToken();
+      const authToken = await getAuthToken();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/cars`,
         {
@@ -52,7 +52,7 @@ export function useInventory() {
     } finally {
       setLoadingInventory(false);
     }
-  }, [getAccessToken]);
+  }, [getAuthToken]);
 
   const filteredInventory =
     selectedFilter === "all"

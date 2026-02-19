@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useWallet } from "@/hooks/useWallet";
 
 /**
  * Custom hook for managing fragments state and fetching
@@ -9,12 +9,12 @@ import { usePrivy } from "@privy-io/react-auth";
 export function useFragments() {
   const [fragmentsData, setFragmentsData] = useState([]);
   const [loadingFragments, setLoadingFragments] = useState(true);
-  const { getAccessToken } = usePrivy();
+  const { getAuthToken } = useWallet();
 
   const fetchFragments = useCallback(async () => {
     try {
       setLoadingFragments(true);
-      const authToken = await getAccessToken();
+      const authToken = await getAuthToken();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/fragments`,
         {
@@ -36,7 +36,7 @@ export function useFragments() {
     } finally {
       setLoadingFragments(false);
     }
-  }, [getAccessToken]);
+  }, [getAuthToken]);
 
   return {
     fragmentsData,

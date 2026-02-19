@@ -1,35 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import {
-  Car, User, Twitter, MessageCircle, Mail, CreditCard,
-  MapPin, Globe, Compass, MessageSquare, Info,
+  Car, MapPin, Globe, Compass, Info,
   ChevronRight, Wallet, HistoryIcon, BookOpen
 } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
-import NetworkModal from "@/components/shared/NetworkModal";
 import ShippingInfoModal from "@/components/ShippingInfoModal";
 import OnboardingTutorial from "@/components/OnboardingTutorial";
 import { toast } from "sonner";
 
 
 export default function ProfilePage() {
-  const { authenticated, ready, user, logout, getAccessToken } = usePrivy();
-  const { isConnected, walletAddress, getBalance, currencySymbol, chainId } = useWallet();
+  const { isConnected, walletAddress, getAuthToken, disconnect } = useWallet();
   const router = useRouter();
-  const [balance, setBalance] = useState(0);
   const [mockIDRXBalance, setMockIDRXBalance] = useState(0);
-  const [loadingBalance, setLoadingBalance] = useState(false);
   const [loadingMockIDRX, setLoadingMockIDRX] = useState(false);
-  const [showNetworkModal, setShowNetworkModal] = useState(false);
-  const [userInfo, setUserInfo] = useState({
-    username: null,
-    email: null,
-    usernameSet: false
-  });
   const [showShippingModal, setShowShippingModal] = useState(false);
   const [shippingInfo, setShippingInfo] = useState({
     shippingName: null,
@@ -59,44 +47,24 @@ export default function ProfilePage() {
     };
   }, [showLogoutConfirm]);
 
-  // Redirect if not authenticated
+  // Redirect if not connected
   useEffect(() => {
-    if (ready && !authenticated) {
+    if (!isConnected) {
       router.push("/");
     }
-  }, [ready, authenticated, router]);
-
-  // Fetch ETH balance when wallet is connected
-  useEffect(() => {
-    if (isConnected) {
-      fetchBalance();
-    }
-  }, [isConnected]);
+  }, [isConnected, router]);
 
   // Fetch MockIDRX balance from backend
   useEffect(() => {
-    if (authenticated) {
+    if (isConnected) {
       fetchMockIDRXBalance();
     }
-  }, [authenticated]);
-
-  const fetchBalance = async () => {
-    try {
-      setLoadingBalance(true);
-      const bal = await getBalance();
-      setBalance(bal);
-    } catch (error) {
-      console.error("Failed to fetch balance:", error);
-      setBalance(0);
-    } finally {
-      setLoadingBalance(false);
-    }
-  };
+  }, [isConnected]);
 
   const fetchMockIDRXBalance = async () => {
     try {
       setLoadingMockIDRX(true);
-      const authToken = await getAccessToken();
+      const authToken = await getAuthToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/overview`, {
         headers: {
           Authorization: `Bearer ${authToken}`,
@@ -104,13 +72,6 @@ export default function ProfilePage() {
       });
       const data = await response.json();
       setMockIDRXBalance(data.user?.mockIDRX || 0);
-
-      // Store user info from backend
-      setUserInfo({
-        username: data.user?.username || null,
-        email: data.user?.email || null,
-        usernameSet: data.user?.usernameSet || false
-      });
 
       // Store shipping info
       setShippingInfo({
@@ -126,81 +87,26 @@ export default function ProfilePage() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      router.push("/");
-    } catch (error) {
-      console.error("Logout error:", error);
-      toast.error("Failed to logout");
-    }
+  const handleLogout = () => {
+    disconnect();
+    router.push("/");
   };
 
-  if (!ready || !authenticated) {
+  if (!isConnected) {
     return null;
   }
 
-  // Get user info - Priority: Custom Username > Twitter/Discord > Email > Wallet Address
-  const userEmail = user?.email?.address || userInfo.email || "";
-
-  // Determine account type and username
-  let userName = "Racer";
-  let accountType = "Guest";
-
-  // Priority 1: Custom username from database
-  if (userInfo.usernameSet && userInfo.username) {
-    userName = userInfo.username;
-    accountType = "Username";
-  }
-  // Priority 2: Twitter username
-  else if (user?.twitter?.username) {
-    userName = user.twitter.username;
-    accountType = "Twitter";
-  }
-  // Priority 3: Discord username
-  else if (user?.discord?.username) {
-    userName = user.discord.username;
-    accountType = "Discord";
-  }
-  // Priority 4: Email username
-  else if (userEmail) {
-    userName = userEmail.split('@')[0];
-    accountType = "Email";
-  }
-  // Priority 5: Wallet address (fallback)
-  else if (walletAddress) {
-    userName = `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
-    accountType = "Wallet";
-  }
-
-  // Shorten wallet address for display
-  const shortAddress = isConnected && walletAddress
+  // Determine display name from wallet address
+  const userName = walletAddress
     ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
-    : authenticated
-      ? "Creating wallet..."
-      : "Not connected";
+    : "Racer";
 
-  const hasWallet = isConnected && walletAddress;
-  const chainLabel = chainId === 8453
-    ? "Base Mainnet"
-    : chainId === 84532
-      ? "Base Sepolia"
-      : chainId === 1
-        ? "Ethereum Mainnet"
-        : chainId
-          ? `Chain ${chainId}`
-          : "Detecting network...";
-
-  const explorerBaseUrl = chainId === 8453
-    ? "https://basescan.org"
-    : chainId === 84532
-      ? "https://sepolia.basescan.org"
-      : chainId === 1
-        ? "https://etherscan.io"
-        : null;
+  const shortAddress = walletAddress
+    ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+    : "Not connected";
 
   const handleCopyAddress = async () => {
-    if (!hasWallet) {
+    if (!walletAddress) {
       toast.error("Wallet not connected yet");
       return;
     }
@@ -218,15 +124,11 @@ export default function ProfilePage() {
   };
 
   const handleOpenExplorer = () => {
-    if (!hasWallet) {
+    if (!walletAddress) {
       toast.error("Wallet not connected yet");
       return;
     }
-    if (!explorerBaseUrl) {
-      toast.error("Explorer not available");
-      return;
-    }
-    window.open(`${explorerBaseUrl}/address/${walletAddress}`, "_blank", "noopener,noreferrer");
+    toast.info("Explorer not available for OneChain");
   };
 
   const handleComingSoon = (label) => {
@@ -241,23 +143,6 @@ export default function ProfilePage() {
       subtitle: shortAddress,
       hint: "Tap to copy",
       onClick: handleCopyAddress,
-    },
-    {
-      id: "network",
-      Icon: Globe,
-      title: "Network",
-      subtitle: chainLabel,
-      hint: "Tap to switch",
-      onClick: () => setShowNetworkModal(true),
-    },
-    {
-      id: "explorer",
-      Icon: Compass,
-      title: "View on Explorer",
-      subtitle: explorerBaseUrl ? chainLabel : "Explorer unavailable",
-      hint: "Open in browser",
-      onClick: handleOpenExplorer,
-      disabled: !hasWallet || !explorerBaseUrl,
     },
     {
       id: "history",
@@ -314,12 +199,7 @@ export default function ProfilePage() {
               </div>
               <div className="flex-1">
                 <h2 className="text-2xl font-black text-gray-800">{userName}</h2>
-                {userEmail && (
-                  <p className="text-sm text-gray-500 mt-0.5">{userEmail}</p>
-                )}
-                {!userEmail && walletAddress && (
-                  <p className="text-sm text-gray-500 mt-0.5 font-mono">{shortAddress}</p>
-                )}
+                <p className="text-sm text-gray-500 mt-0.5 font-mono">{shortAddress}</p>
               </div>
             </div>
 
@@ -340,22 +220,6 @@ export default function ProfilePage() {
                   {loadingMockIDRX ? "..." : Math.floor(mockIDRXBalance)}
                 </span>
                 <span className="text-sm font-bold text-orange-900 opacity-90">IDRX</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={fetchBalance}
-                className="flex items-center gap-2 rounded-full border border-gray-200 bg-gray-100 px-4 py-2 profile-badge transition-transform hover:scale-[1.02] active:scale-95"
-                aria-label="Refresh wallet balance"
-                title="Tap to refresh wallet balance"
-              >
-                <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-700 font-black text-sm">
-                  Ξ
-                </div>
-                <span className="font-black text-lg text-gray-800">
-                  {loadingBalance ? "..." : balance.toFixed(4)}
-                </span>
-                <span className="text-sm font-bold text-gray-500">{currencySymbol}</span>
               </button>
             </div>
           </div>
@@ -419,15 +283,6 @@ export default function ProfilePage() {
 
       {/* Bottom Navigation */}
       <BottomNavigation />
-
-      {/* Network Switcher Modal */}
-      <NetworkModal
-        isOpen={showNetworkModal}
-        onClose={() => setShowNetworkModal(false)}
-        onNetworkChanged={() => {
-          fetchBalance();
-        }}
-      />
 
       {/* Shipping Information Modal */}
       <ShippingInfoModal

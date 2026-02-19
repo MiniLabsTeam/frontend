@@ -4,17 +4,19 @@
     "version": "0.0.0",
     "type": "module",
     "scripts": {
-        "dev": "next dev",
+        "dev": "next dev --port 3001",
         "build": "next build",
         "start": "next start",
         "lint": "next lint"
     },
     "dependencies": {
         "@farcaster/miniapp-sdk": "^0.2.1",
-        "@privy-io/react-auth": "^3.12.0",
+        "@onelabs/dapp-kit": "^0.15.6",
+        "@onelabs/sui": "^1.26.2",
         "@solana-program/system": "latest",
         "@solana-program/token": "latest",
         "@solana/kit": "latest",
+        "@tanstack/react-query": "^5.90.21",
         "ethers": "^6.16.0",
         "lucide-react": "^0.563.0",
         "next": "^15.5.9",
