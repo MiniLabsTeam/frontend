@@ -259,7 +259,7 @@ export default function HistoryPage() {
                         {/* TX Hash */}
                         {activity.txHash && (
                           <a
-                            href={`https://sepolia.basescan.org/tx/${activity.txHash}`}
+                            href={`https://explorer.testnet.onelabs.cc/tx/${activity.txHash}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[10px] sm:text-xs text-orange-400 hover:text-orange-300 underline"

@@ -6,8 +6,8 @@ import { X, ChevronRight, ChevronLeft, Wallet, Car, Flame, Gift } from 'lucide-r
 const TUTORIAL_STEPS = [
   {
     icon: '👋',
-    title: 'Welcome to MiniGarage!',
-    description: 'Your gateway to collecting rare NFT cars on Base blockchain',
+    title: 'Welcome to MiniLabs!',
+    description: 'Your gateway to collecting rare NFT cars on OneChain',
     image: '/assets/car/Blaze Runner.png',
     color: 'from-orange-500 to-red-600'
   },

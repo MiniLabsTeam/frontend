@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Car, Flame, Activity, BadgeCheck, Coins } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
+import WalletButton from "@/components/shared/WalletButton";
 import OnboardingTutorial from "@/components/OnboardingTutorial";
 import { useWallet } from "@/hooks/useWallet";
 import { useSuiClientQuery } from "@onelabs/dapp-kit";
@@ -67,7 +68,7 @@ export default function Dashboard() {
   const handleOnboardingClose = () => {
     setShowOnboarding(false);
     localStorage.setItem('hasSeenTutorial', 'true');
-    toast.success('Welcome to MiniGarage! 🎉');
+    toast.success('Welcome to MiniLabs! 🎉');
   };
 
   // Rare pool showcase cars - Images matched with rarity tiers (based on backend gacha config)
@@ -335,14 +336,7 @@ export default function Dashboard() {
               )}
 
               {/* User Info Badge */}
-              {(userInfo.username || userInfo.email || walletAddress) && (
-                <div className="bg-emerald-500 border-2 border-emerald-400 rounded-full px-3 py-1.5 flex items-center gap-2 shadow-lg">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                  <span className="text-white text-xs font-bold">
-                    {userInfo.username || (userInfo.email ? userInfo.email.split('@')[0] : null) || `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
-                  </span>
-                </div>
-              )}
+              <WalletButton />
             </div>
           </header>
 

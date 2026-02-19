@@ -9,6 +9,7 @@ import { getGachaTiers, getGachaPricing, revealGacha, getRarityConfig, tierNameT
 import { toast } from "sonner";
 import GachaRoulette from "@/components/GachaRoulette";
 import ProgressSteps from "@/components/shared/ProgressSteps";
+import WalletButton from "@/components/shared/WalletButton";
 
 // ==================== On-Chain Constants ====================
 
@@ -369,14 +370,7 @@ export default function GachaTierPage() {
               <span className="text-white text-xl">‹</span>
             </button>
 
-            {walletAddress && (
-              <div className="bg-emerald-500 border-2 border-emerald-400 rounded-full px-3 py-1.5 flex items-center gap-2 shadow-lg">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                <span className="text-white text-xs font-bold">
-                  {`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
-                </span>
-              </div>
-            )}
+            <WalletButton />
           </div>
 
           <div className="text-center">

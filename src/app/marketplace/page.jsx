@@ -10,6 +10,7 @@ import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
 import { toast } from "sonner";
 import { PullToRefresh } from "@/components/shared";
+import WalletButton from "@/components/shared/WalletButton";
 import { RARITY_CONFIG } from "@/constants";
 
 const RARITY_MAP = { 0: "common", 1: "rare", 2: "epic", 3: "legendary" };
@@ -160,14 +161,7 @@ export default function MarketplacePage() {
           {/* Header */}
           <header className="px-4 pt-3 pb-4">
             <div className="flex items-center justify-end mb-3">
-              {walletAddress && (
-                <div className="bg-emerald-500 border-2 border-emerald-400 rounded-full px-3 py-1.5 flex items-center gap-2 shadow-lg">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                  <span className="text-white text-xs font-bold">
-                    {`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
-                  </span>
-                </div>
-              )}
+              <WalletButton />
             </div>
 
             <h1 className="text-4xl font-black text-white mb-4 flex items-center gap-3">

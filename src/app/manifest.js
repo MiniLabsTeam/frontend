@@ -1,8 +1,8 @@
 ﻿export default function manifest() {
   return {
-    name: "MiniGarage - NFT Car Collection on Base",
-    short_name: "MiniGarage",
-    description: "Collect, race, and own digital collectible cars as NFTs on Base blockchain.",
+    name: "MiniLabs - NFT Car Racing on OneChain",
+    short_name: "MiniLabs",
+    description: "Collect, race, and own digital collectible cars as NFTs on OneChain.",
     start_url: "/",
     display: "standalone",
     background_color: "#0b0907",

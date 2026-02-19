@@ -15,40 +15,33 @@ export default function NetworkModal({ isOpen, onClose, onNetworkChanged }) {
 
   // Network configurations
   const NETWORKS = {
-    BASE_SEPOLIA: {
-      chainId: "0x14A34", // 84532
+    ONECHAIN_TESTNET: {
+      chainId: "0x14A34", // OneChain Testnet
       chainIdDecimal: 84532,
-      name: "Base Sepolia",
-      symbol: "ETH",
-      symbolIcon: "Ξ",
-      rpcUrls: ["https://sepolia.base.org"],
-      blockExplorerUrls: ["https://sepolia.basescan.org"],
+      name: "OneChain Testnet",
+      symbol: "ONE",
+      symbolIcon: "◈",
+      rpcUrls: ["https://rpc-testnet.onelabs.cc"],
+      blockExplorerUrls: ["https://explorer.testnet.onelabs.cc"],
       nativeCurrency: {
-        name: "Ethereum",
-        symbol: "ETH",
+        name: "OneChain",
+        symbol: "ONE",
         decimals: 18,
       },
     },
-    BASE: {
-      chainId: "0x2105", // 8453
+    ONECHAIN: {
+      chainId: "0x2105", // OneChain Mainnet
       chainIdDecimal: 8453,
-      name: "Base Mainnet",
-      symbol: "ETH",
-      symbolIcon: "Ξ",
-      rpcUrls: ["https://mainnet.base.org"],
-      blockExplorerUrls: ["https://basescan.org"],
+      name: "OneChain Mainnet",
+      symbol: "ONE",
+      symbolIcon: "◈",
+      rpcUrls: ["https://rpc.onelabs.cc"],
+      blockExplorerUrls: ["https://explorer.onelabs.cc"],
       nativeCurrency: {
-        name: "Ethereum",
-        symbol: "ETH",
+        name: "OneChain",
+        symbol: "ONE",
         decimals: 18,
       },
-    },
-    ETHEREUM: {
-      chainId: "0x1", // 1
-      chainIdDecimal: 1,
-      name: "Ethereum Mainnet",
-      symbol: "ETH",
-      symbolIcon: "Ξ",
     },
   };
 

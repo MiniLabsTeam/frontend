@@ -59,6 +59,7 @@ export default function Home() {
   const [showLoading, setShowLoading] = useState(false);
   const [loginError, setLoginError] = useState(null);
   const heroRef = useRef(null);
+  const halftoneRef = useRef(null);
 
   // Horizontal swipe state
   const [currentPage, setCurrentPage] = useState(0);
@@ -151,6 +152,70 @@ export default function Home() {
     };
   }, []);
 
+  // Animated halftone canvas for PAGE 3
+  useEffect(() => {
+    const canvas = halftoneRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let animationId;
+    let time = 0;
+    const spacing = 18;
+
+    const resize = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const draw = () => {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const cols = Math.ceil(w / spacing) + 2;
+      const rows = Math.ceil(h / spacing) + 2;
+
+      // Three slow-moving light blobs
+      const blobs = [
+        { x: w * (0.25 + 0.25 * Math.sin(time * 0.5)), y: h * (0.3 + 0.2 * Math.cos(time * 0.4)), r: w * 0.45 },
+        { x: w * (0.75 + 0.2 * Math.cos(time * 0.35)), y: h * (0.65 + 0.2 * Math.sin(time * 0.55)), r: w * 0.4 },
+        { x: w * (0.5 + 0.3 * Math.sin(time * 0.25 + 1.5)), y: h * (0.5 + 0.3 * Math.cos(time * 0.3 + 1)), r: w * 0.35 },
+      ];
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const x = col * spacing;
+          const y = row * spacing;
+
+          let brightness = 0;
+          for (const blob of blobs) {
+            const d = Math.sqrt((x - blob.x) ** 2 + (y - blob.y) ** 2);
+            brightness += Math.max(0, 1 - d / blob.r) ** 1.8;
+          }
+          brightness = Math.min(1, brightness);
+
+          const radius = brightness * (spacing / 2 - 4);
+          if (radius > 0.4) {
+            ctx.fillStyle = `rgba(220,150,0,${brightness.toFixed(3)})`;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      time += 0.012;
+      animationId = requestAnimationFrame(draw);
+    };
+
+    draw();
+    return () => {
+      cancelAnimationFrame(animationId);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
   const handleLoadingComplete = () => {
     setShowLoading(false);
     router.push("/dashboard");
@@ -226,11 +291,15 @@ export default function Home() {
           </div>
 
           <div className="relative z-10 mx-auto max-w-4xl px-4 text-center">
-            <h1 className="minigarage-title minigarage-gradient-text mb-4 text-3xl font-black leading-tight sm:text-4xl md:text-6xl">
-              The Ultimate NFT Car Collection on Base
+            <h1 className="minigarage-title minigarage-gradient-text mb-4 text-3xl font-black leading-tight sm:text-4xl md:text-6xl"
+              style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))" }}
+            >
+              The Ultimate NFT Car Racing Game on OneChain
             </h1>
 
-            <p className="minigarage-tagline mb-12 text-sm uppercase tracking-widest sm:text-base md:text-lg">
+            <p className="minigarage-tagline mb-12 text-sm uppercase tracking-widest sm:text-base md:text-lg"
+              style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.8))" }}
+            >
               Collect. Build. Own.
             </p>
 
@@ -261,9 +330,18 @@ export default function Home() {
 
         {/* PAGE 2: COLLECTION PREVIEW */}
         <div className="min-w-full h-full relative flex items-center justify-center bg-gradient-to-b from-white to-gray-100">
-          <div className="mx-auto w-full px-4 py-8">
+          {/* Retro dot pattern */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            aria-hidden="true"
+            style={{
+              backgroundImage: "radial-gradient(circle, #00000045 2px, transparent 2px)",
+              backgroundSize: "22px 22px",
+            }}
+          />
+          <div className="relative z-10 mx-auto w-full px-4 py-8">
             <h2 className="mb-3 text-center text-2xl font-bold leading-tight text-slate-900 sm:text-3xl md:text-4xl">
-              Collect Exclusive NFTs on Base
+              Collect Exclusive NFTs on OneChain
             </h2>
             <p className="mx-auto mb-8 w-full text-center text-sm leading-snug text-slate-600 max-w-lg sm:text-base">
               Premium digital cars with seamless blockchain integration. Own rare collectibles that are truly yours.
@@ -318,7 +396,7 @@ export default function Home() {
                 <p className="text-xs text-white/80">Rarity Tiers</p>
               </div>
               <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl p-3 text-center shadow-lg">
-                <p className="text-2xl font-black text-white">Base</p>
+                <p className="text-2xl font-black text-white">ONE</p>
                 <p className="text-xs text-white/80">Blockchain</p>
               </div>
             </div>
@@ -338,9 +416,18 @@ export default function Home() {
 
         {/* PAGE 3: FEATURES + CTA */}
         <div className="min-w-full h-full relative flex items-center justify-center bg-gradient-to-b from-gray-900 to-black">
-          <div className="mx-auto max-w-2xl px-4 py-8">
-            <h2 className="minigarage-title minigarage-gradient-text mb-8 text-center text-2xl font-black sm:text-3xl md:text-4xl">
-              How MiniGarage Works
+          {/* Animated halftone canvas background */}
+          <canvas
+            ref={halftoneRef}
+            className="absolute inset-0 w-full h-full"
+            aria-hidden="true"
+          />
+          <div className="relative z-10 mx-auto max-w-2xl px-4 py-8">
+            <h2
+              className="minigarage-title minigarage-gradient-text mb-8 text-center text-2xl font-black sm:text-3xl md:text-4xl"
+              style={{ filter: "drop-shadow(0 0 6px #000) drop-shadow(0 0 12px #000)" }}
+            >
+              How MiniLabs Works
             </h2>
 
             {/* Features Grid */}
@@ -371,10 +458,16 @@ export default function Home() {
 
             {/* Final CTA */}
             <div className="text-center">
-              <h3 className="mb-4 text-xl font-black text-white sm:text-2xl">
+              <h3
+                className="mb-4 text-xl font-black text-white sm:text-2xl"
+                style={{ textShadow: "0 0 8px #000, 0 0 16px #000, 0 2px 4px #000" }}
+              >
                 Ready to Build Your Collection? 🏎️
               </h3>
-              <p className="mb-6 text-sm text-gray-300 sm:text-base">
+              <p
+                className="mb-6 text-sm text-gray-300 sm:text-base"
+                style={{ textShadow: "0 0 6px #000, 0 1px 4px #000" }}
+              >
                 Collect legendary racing machines as NFTs. Each car is unique, tradeable, and exclusively yours.
               </p>
 
@@ -406,7 +499,7 @@ export default function Home() {
             className={`h-2 rounded-full transition-all ${
               index === currentPage
                 ? "w-8 bg-orange-500"
-                : "w-2 bg-white/40 hover:bg-white/60"
+                : "w-2 bg-gray-500/70 hover:bg-gray-400"
             }`}
             aria-label={`Go to page ${index + 1}`}
           />

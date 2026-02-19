@@ -5,7 +5,7 @@
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Validates that the wallet is connected to the correct network (Base Sepolia)
+ * Validates that the wallet is connected to the correct network (OneChain Testnet)
  * @param {Object} embeddedWallet - The wallet instance
  * @returns {Promise<boolean>} - true if valid, false otherwise
  */
@@ -19,12 +19,12 @@ export async function validateNetwork(embeddedWallet) {
     const network = await provider.request({ method: "eth_chainId" });
     const chainId = parseInt(network, 16);
 
-    const expectedChainId = 84532; // Base Sepolia
+    const expectedChainId = 84532; // OneChain Testnet
 
     if (chainId !== expectedChainId) {
       return {
         valid: false,
-        error: `Please switch to Base Sepolia network. Current: ${chainId}, Expected: ${expectedChainId}`
+        error: `Please switch to OneChain Testnet. Current: ${chainId}, Expected: ${expectedChainId}`
       };
     }
 
