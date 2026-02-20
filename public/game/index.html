@@ -3,39 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OneChain Racing - Endless Race</title>
+    <title>OneChain Racing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <script>
-      // Auto-initialize credentials from Next.js frontend (shared localStorage - same origin)
-      (function() {
-        window.__AUTH_TOKEN__     = localStorage.getItem('auth_token') || '';
-        window.__WALLET_ADDRESS__ = localStorage.getItem('wallet_address') || '';
-        window.__CAR_UID__        = localStorage.getItem('game_car_uid') || '';
-        window.__BACKEND_URL__    = localStorage.getItem('backend_url') || 'http://localhost:3000/api';
-      })();
-    </script>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
 </head>
 <body>
-    <div id="ui-overlay" style="display:none">
-        <div class="input-group">
-            <label for="player-address">Player Address:</label>
-            <input id="player-address" type="text" placeholder="0x..." />
+    <!-- Speed lines decoration -->
+    <div class="speed-lines" aria-hidden="true"></div>
+
+    <!-- Credentials Panel -->
+    <div id="ui-overlay">
+        <div class="panel-header">
+            <span class="panel-dot"></span>
+            <span class="panel-title">CREDENTIALS</span>
         </div>
         <div class="input-group">
-            <label for="jwt-token">JWT Token:</label>
-            <input id="jwt-token" type="text" placeholder="eyJ..." />
+            <label for="player-address">Wallet Address</label>
+            <input id="player-address" type="text" placeholder="0x..." autocomplete="off" />
         </div>
         <div class="input-group">
-            <label for="car-uid">Car UID:</label>
-            <input id="car-uid" type="text" placeholder="0xCAR..." />
+            <label for="jwt-token">Auth Token</label>
+            <input id="jwt-token" type="password" placeholder="eyJ..." autocomplete="off" />
         </div>
+        <div class="input-group">
+            <label for="car-uid">Car UID</label>
+            <input id="car-uid" type="text" placeholder="uid..." autocomplete="off" />
+        </div>
+        <div class="panel-status" id="panel-status"></div>
     </div>
 
     <div id="game-container"></div>
 
-    <!-- Load game scripts -->
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
     <script src="js/websocket.js"></script>

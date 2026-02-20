@@ -1,5 +1,5 @@
 /**
- * MenuScene - Main menu for creating/joining rooms
+ * MenuScene - Racing-themed main menu
  */
 
 class MenuScene extends Phaser.Scene {
@@ -8,209 +8,362 @@ class MenuScene extends Phaser.Scene {
   }
 
   create() {
-    const centerX = CONFIG.CANVAS_WIDTH / 2;
-    const centerY = CONFIG.CANVAS_HEIGHT / 2;
+    const W = CONFIG.CANVAS_WIDTH;
+    const H = CONFIG.CANVAS_HEIGHT;
+    const cx = W / 2;
 
-    // Title
-    this.add.text(centerX, 80, 'ONECHAIN RACING', {
-      fontSize: '48px',
-      fontFamily: 'Arial',
-      color: '#ffffff',
+    // ── Background ─────────────────────────────────────────────────────────
+    this.cameras.main.setBackgroundColor(0x080a10);
+
+    // Subtle grid
+    const grid = this.add.graphics();
+    grid.lineStyle(1, 0xffffff, 0.04);
+    for (let x = 0; x <= W; x += 40) { grid.lineBetween(x, 0, x, H); }
+    for (let y = 0; y <= H; y += 40) { grid.lineBetween(0, y, W, y); }
+
+    // Orange accent lines
+    const accent = this.add.graphics();
+    accent.lineStyle(2, 0xff7800, 0.6);
+    accent.lineBetween(0, 110, W, 110);
+    accent.lineBetween(0, 112, W, 112);
+    accent.lineStyle(2, 0xff7800, 0.6);
+    accent.lineBetween(0, H - 110, W, H - 110);
+    accent.lineBetween(0, H - 112, W, H - 112);
+
+    // Corner decorations
+    const corners = this.add.graphics();
+    corners.lineStyle(2, 0xff7800, 0.8);
+    // top-left
+    corners.strokeRect(20, 20, 40, 40);
+    corners.fillStyle(0xff7800, 1);
+    corners.fillRect(20, 20, 8, 8);
+    // top-right
+    corners.strokeRect(W - 60, 20, 40, 40);
+    corners.fillRect(W - 28, 20, 8, 8);
+    // bottom-left
+    corners.strokeRect(20, H - 60, 40, 40);
+    corners.fillRect(20, H - 28, 8, 8);
+    // bottom-right
+    corners.strokeRect(W - 60, H - 60, 40, 40);
+    corners.fillRect(W - 28, H - 28, 8, 8);
+
+    // ── Title ──────────────────────────────────────────────────────────────
+    // Glow layer
+    this.add.text(cx, 58, 'ONECHAIN RACING', {
+      fontSize: '46px',
+      fontFamily: 'Orbitron, Arial',
       fontStyle: 'bold',
+      color: '#ff7800',
+      alpha: 0.15,
+    }).setOrigin(0.5).setAlpha(0.25);
+
+    // Main title
+    this.add.text(cx, 55, 'ONECHAIN RACING', {
+      fontSize: '46px',
+      fontFamily: 'Orbitron, Arial',
+      fontStyle: 'bold',
+      color: '#ffffff',
+      stroke: '#ff7800',
+      strokeThickness: 1,
     }).setOrigin(0.5);
 
-    this.add.text(centerX, 130, 'Endless Race Mode', {
-      fontSize: '20px',
-      fontFamily: 'Arial',
-      color: '#b2bec3',
-    }).setOrigin(0.5);
+    // Orange underline
+    const underline = this.add.graphics();
+    underline.fillStyle(0xff7800, 1);
+    underline.fillRect(cx - 160, 85, 320, 3);
+    underline.fillStyle(0xff7800, 0.3);
+    underline.fillRect(cx - 200, 89, 400, 1);
 
-    // Instructions
-    this.add.text(centerX, 180, 'Enter your credentials in the top-right panel', {
+    // Subtitle
+    this.add.text(cx, 100, '🏁  ENDLESS RACE MODE  🏁', {
       fontSize: '14px',
-      fontFamily: 'Arial',
-      color: '#636e72',
-    }).setOrigin(0.5);
-
-    // Create Room Button
-    const createButton = this.add.rectangle(centerX, 250, 200, 50, 0x00b894);
-    createButton.setInteractive({ useHandCursor: true });
-
-    const createText = this.add.text(centerX, 250, 'CREATE ROOM', {
-      fontSize: '18px',
-      fontFamily: 'Arial',
-      color: '#ffffff',
+      fontFamily: 'Rajdhani, Arial',
       fontStyle: 'bold',
+      color: '#ff7800',
+      letterSpacing: 4,
     }).setOrigin(0.5);
 
-    createButton.on('pointerover', () => {
-      createButton.setFillStyle(0x00d2a5);
-    });
+    // ── Divider ────────────────────────────────────────────────────────────
+    const div = this.add.graphics();
+    div.fillStyle(0xff7800, 0.15);
+    div.fillRect(cx - 120, 130, 240, 1);
 
-    createButton.on('pointerout', () => {
-      createButton.setFillStyle(0x00b894);
-    });
+    // ── CREATE ROOM Button ─────────────────────────────────────────────────
+    const createY = 220;
+    const btnW = 260, btnH = 52;
 
-    createButton.on('pointerdown', () => {
-      this.createRoom();
-    });
+    const createBg = this.add.graphics();
+    this._drawButton(createBg, cx, createY, btnW, btnH, 0xff7800, 1);
 
-    // Join Room Section
-    this.add.text(centerX, 330, 'Or Join Existing Room:', {
+    const createHitArea = this.add.rectangle(cx, createY, btnW, btnH, 0x000000, 0)
+      .setInteractive({ useHandCursor: true });
+
+    this.add.text(cx, createY, '⚡  CREATE ROOM', {
       fontSize: '16px',
-      fontFamily: 'Arial',
-      color: '#b2bec3',
+      fontFamily: 'Orbitron, Arial',
+      fontStyle: 'bold',
+      color: '#000000',
     }).setOrigin(0.5);
 
-    // Room UID Input (text display)
-    const inputBg = this.add.rectangle(centerX, 370, 300, 40, 0x2d3436);
-    inputBg.setStrokeStyle(2, 0x636e72);
+    createHitArea.on('pointerover', () => {
+      createBg.clear();
+      this._drawButton(createBg, cx, createY, btnW, btnH, 0xffa040, 1);
+      this.tweens.add({ targets: createHitArea, scaleX: 1.03, scaleY: 1.03, duration: 100 });
+    });
+    createHitArea.on('pointerout', () => {
+      createBg.clear();
+      this._drawButton(createBg, cx, createY, btnW, btnH, 0xff7800, 1);
+      this.tweens.add({ targets: createHitArea, scaleX: 1, scaleY: 1, duration: 100 });
+    });
+    createHitArea.on('pointerdown', () => this.createRoom());
 
-    this.roomUidText = this.add.text(centerX, 370, 'Enter Room UID...', {
-      fontSize: '14px',
-      fontFamily: 'Arial',
-      color: '#636e72',
+    // VS AI Button (below CREATE ROOM)
+    const vsAiY = 295;
+    const vsAiBg = this.add.graphics();
+    this._drawButton(vsAiBg, cx, vsAiY, btnW, btnH, 0x0d1020, 1, 0xff7800);
+
+    const vsAiHitArea = this.add.rectangle(cx, vsAiY, btnW, btnH, 0x000000, 0)
+      .setInteractive({ useHandCursor: true });
+
+    this.add.text(cx, vsAiY, '🤖  PLAY VS AI', {
+      fontSize: '16px',
+      fontFamily: 'Orbitron, Arial',
+      fontStyle: 'bold',
+      color: '#ff7800',
     }).setOrigin(0.5);
 
-    // Prompt for room UID
-    inputBg.setInteractive({ useHandCursor: true });
-    inputBg.on('pointerdown', () => {
+    vsAiHitArea.on('pointerover', () => {
+      vsAiBg.clear();
+      this._drawButton(vsAiBg, cx, vsAiY, btnW, btnH, 0x1a1020, 1, 0xffa040);
+      this.tweens.add({ targets: vsAiHitArea, scaleX: 1.03, scaleY: 1.03, duration: 100 });
+    });
+    vsAiHitArea.on('pointerout', () => {
+      vsAiBg.clear();
+      this._drawButton(vsAiBg, cx, vsAiY, btnW, btnH, 0x0d1020, 1, 0xff7800);
+      this.tweens.add({ targets: vsAiHitArea, scaleX: 1, scaleY: 1, duration: 100 });
+    });
+    vsAiHitArea.on('pointerdown', () => this.createRoomVsAI());
+
+    // ── Separator ─────────────────────────────────────────────────────────
+    this.add.text(cx, 365, '── OR JOIN EXISTING ROOM ──', {
+      fontSize: '11px',
+      fontFamily: 'Rajdhani, Arial',
+      fontStyle: 'bold',
+      color: '#ffffff',
+      alpha: 0.3,
+      letterSpacing: 2,
+    }).setOrigin(0.5).setAlpha(0.35);
+
+    // ── Room UID Input ─────────────────────────────────────────────────────
+    const inputY = 415;
+    const inputBgG = this.add.graphics();
+    inputBgG.fillStyle(0x0d1020, 1);
+    inputBgG.fillRoundedRect(cx - 150, inputY - 20, 300, 40, 8);
+    inputBgG.lineStyle(1, 0xff7800, 0.3);
+    inputBgG.strokeRoundedRect(cx - 150, inputY - 20, 300, 40, 8);
+
+    this.roomUidText = this.add.text(cx, inputY, 'Click to enter Room UID', {
+      fontSize: '13px',
+      fontFamily: 'Rajdhani, Arial',
+      color: '#ffffff',
+      alpha: 0.3,
+    }).setOrigin(0.5).setAlpha(0.35);
+
+    const inputHit = this.add.rectangle(cx, inputY, 300, 40, 0x000000, 0)
+      .setInteractive({ useHandCursor: true });
+
+    inputHit.on('pointerover', () => {
+      inputBgG.clear();
+      inputBgG.fillStyle(0x131828, 1);
+      inputBgG.fillRoundedRect(cx - 150, inputY - 20, 300, 40, 8);
+      inputBgG.lineStyle(1, 0xff7800, 0.7);
+      inputBgG.strokeRoundedRect(cx - 150, inputY - 20, 300, 40, 8);
+    });
+    inputHit.on('pointerout', () => {
+      inputBgG.clear();
+      inputBgG.fillStyle(0x0d1020, 1);
+      inputBgG.fillRoundedRect(cx - 150, inputY - 20, 300, 40, 8);
+      inputBgG.lineStyle(1, 0xff7800, 0.3);
+      inputBgG.strokeRoundedRect(cx - 150, inputY - 20, 300, 40, 8);
+    });
+    inputHit.on('pointerdown', () => {
       const roomUid = prompt('Enter Room UID:');
       if (roomUid) {
         this.roomUid = roomUid;
-        this.roomUidText.setText(roomUid.substring(0, 20) + '...');
-        this.roomUidText.setColor('#ffffff');
+        this.roomUidText.setText(roomUid.length > 22 ? roomUid.substring(0, 22) + '…' : roomUid);
+        this.roomUidText.setColor('#ff7800').setAlpha(1);
       }
     });
 
-    // Join Button
-    const joinButton = this.add.rectangle(centerX, 430, 200, 50, 0x0984e3);
-    joinButton.setInteractive({ useHandCursor: true });
+    // ── JOIN ROOM Button ───────────────────────────────────────────────────
+    const joinY = 485;
+    const joinBg = this.add.graphics();
+    this._drawButton(joinBg, cx, joinY, btnW, btnH, 0x0d1020, 1, 0xff7800);
 
-    const joinText = this.add.text(centerX, 430, 'JOIN ROOM', {
-      fontSize: '18px',
-      fontFamily: 'Arial',
-      color: '#ffffff',
+    const joinHitArea = this.add.rectangle(cx, joinY, btnW, btnH, 0x000000, 0)
+      .setInteractive({ useHandCursor: true });
+
+    this.add.text(cx, joinY, '🔗  JOIN ROOM', {
+      fontSize: '16px',
+      fontFamily: 'Orbitron, Arial',
       fontStyle: 'bold',
+      color: '#ff7800',
     }).setOrigin(0.5);
 
-    joinButton.on('pointerover', () => {
-      joinButton.setFillStyle(0x0aa0ff);
+    joinHitArea.on('pointerover', () => {
+      joinBg.clear();
+      this._drawButton(joinBg, cx, joinY, btnW, btnH, 0x1a1020, 1, 0xffa040);
+      this.tweens.add({ targets: joinHitArea, scaleX: 1.03, scaleY: 1.03, duration: 100 });
     });
-
-    joinButton.on('pointerout', () => {
-      joinButton.setFillStyle(0x0984e3);
+    joinHitArea.on('pointerout', () => {
+      joinBg.clear();
+      this._drawButton(joinBg, cx, joinY, btnW, btnH, 0x0d1020, 1, 0xff7800);
+      this.tweens.add({ targets: joinHitArea, scaleX: 1, scaleY: 1, duration: 100 });
     });
+    joinHitArea.on('pointerdown', () => this.joinRoom());
 
-    joinButton.on('pointerdown', () => {
-      this.joinRoom();
-    });
-
-    // Status text
-    this.statusText = this.add.text(centerX, 520, '', {
-      fontSize: '14px',
-      fontFamily: 'Arial',
-      color: '#636e72',
+    // ── Status Text ────────────────────────────────────────────────────────
+    this.statusText = this.add.text(cx, 565, '', {
+      fontSize: '13px',
+      fontFamily: 'Rajdhani, Arial',
+      fontStyle: 'bold',
+      color: '#ff7800',
+      letterSpacing: 1,
     }).setOrigin(0.5);
 
-    console.log('MenuScene initialized');
+    // ── Footer ─────────────────────────────────────────────────────────────
+    this.add.text(cx, H - 30, 'POWERED BY ONECHAIN  •  NFT RACING', {
+      fontSize: '10px',
+      fontFamily: 'Orbitron, Arial',
+      color: '#ffffff',
+    }).setOrigin(0.5).setAlpha(0.15);
+
+    // ── Blinking cursor animation ──────────────────────────────────────────
+    this.time.addEvent({
+      delay: 800,
+      loop: true,
+      callback: () => {
+        if (!this.roomUid) {
+          const visible = this.roomUidText.alpha > 0.1;
+          this.tweens.add({ targets: this.roomUidText, alpha: visible ? 0.35 : 0.6, duration: 300 });
+        }
+      }
+    });
   }
 
+  // ── Helper: draw a rounded button ────────────────────────────────────────
+  _drawButton(g, x, y, w, h, fillColor, fillAlpha, strokeColor = null) {
+    g.fillStyle(fillColor, fillAlpha);
+    g.fillRoundedRect(x - w / 2, y - h / 2, w, h, 10);
+    if (strokeColor) {
+      g.lineStyle(1.5, strokeColor, 1);
+      g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 10);
+    }
+  }
+
+  // ── Actions (unchanged logic) ─────────────────────────────────────────────
   async createRoom() {
     try {
-      this.statusText.setText('Creating room...').setColor('#00b894');
+      this.statusText.setText('Creating room…').setColor('#ff7800');
 
       if (!window.gameAPI.token) {
-        this.statusText.setText('❌ Please enter JWT token first').setColor('#d63031');
+        this.statusText.setText('❌ Please enter JWT token first').setColor('#e74c3c');
         return;
       }
 
-      // Create room with default settings
       const response = await window.gameAPI.createRoom(
         'ENDLESS_RACE',
-        1, // Max 1 player for solo testing
-        '1000000', // Entry fee
-        new Date(Date.now() + 3600000).toISOString() // 1 hour from now
+        1,
+        '1000000',
+        new Date(Date.now() + 3600000).toISOString()
       );
-
-      console.log('Room created:', response);
-      console.log('response.data:', response.data);
-      console.log('response.data.roomUid:', response.data?.roomUid);
 
       if (response.success && response.data) {
         const roomUid = response.data.roomUid;
 
         if (!roomUid) {
-          console.error('❌ roomUid is undefined!', response.data);
-          this.statusText.setText('❌ Room created but UID missing').setColor('#d63031');
+          this.statusText.setText('❌ Room created but UID missing').setColor('#e74c3c');
           return;
         }
 
-        this.statusText.setText(`✅ Room created: ${roomUid.substring(0, 10)}...`).setColor('#00b894');
+        this.statusText.setText(`✅ Room: ${roomUid.substring(0, 12)}…`).setColor('#2ecc71');
 
-        // Auto-join the room we just created
         try {
           if (!window.carUid) {
-            this.statusText.setText('❌ Please enter Car UID first').setColor('#d63031');
+            this.statusText.setText('❌ Please enter Car UID first').setColor('#e74c3c');
             return;
           }
 
-          this.statusText.setText('Joining room...').setColor('#00b894');
-
-          // Join via WebSocket (registers in database AND subscribes to events)
+          this.statusText.setText('Joining room…').setColor('#ff7800');
           await window.wsClient.joinRoom(roomUid, window.carUid);
 
           setTimeout(() => {
-            this.scene.start('LobbyScene', {
-              roomUid: roomUid,
-              isHost: true,
-            });
+            this.scene.start('LobbyScene', { roomUid, isHost: true });
           }, 500);
         } catch (joinError) {
-          console.error('Failed to auto-join room:', joinError);
-          this.statusText.setText(`❌ Error joining: ${joinError.message}`).setColor('#d63031');
+          this.statusText.setText(`❌ Error joining: ${joinError.message}`).setColor('#e74c3c');
         }
       }
     } catch (error) {
-      console.error('Failed to create room:', error);
-      this.statusText.setText(`❌ Error: ${error.message}`).setColor('#d63031');
+      this.statusText.setText(`❌ Error: ${error.message}`).setColor('#e74c3c');
     }
   }
 
   async joinRoom() {
     try {
       if (!this.roomUid) {
-        this.statusText.setText('❌ Please enter Room UID first').setColor('#d63031');
+        this.statusText.setText('❌ Please enter Room UID first').setColor('#e74c3c');
+        return;
+      }
+      if (!window.gameAPI.token) {
+        this.statusText.setText('❌ Please enter JWT token first').setColor('#e74c3c');
+        return;
+      }
+      if (!window.carUid) {
+        this.statusText.setText('❌ Please enter Car UID first').setColor('#e74c3c');
         return;
       }
 
+      this.statusText.setText('Joining room…').setColor('#ff7800');
+      await window.wsClient.joinRoom(this.roomUid, window.carUid);
+      this.statusText.setText('✅ Joined successfully!').setColor('#2ecc71');
+
+      setTimeout(() => {
+        this.scene.start('LobbyScene', { roomUid: this.roomUid, isHost: false });
+      }, 1000);
+    } catch (error) {
+      this.statusText.setText(`❌ Error: ${error.message}`).setColor('#e74c3c');
+    }
+  }
+
+  async createRoomVsAI() {
+    try {
+      this.statusText.setText('Setting up AI match…').setColor('#ff7800');
+
       if (!window.gameAPI.token) {
-        this.statusText.setText('❌ Please enter JWT token first').setColor('#d63031');
+        this.statusText.setText('❌ Please enter JWT token first').setColor('#e74c3c');
         return;
       }
 
       if (!window.carUid) {
-        this.statusText.setText('❌ Please enter Car UID first').setColor('#d63031');
+        this.statusText.setText('❌ Please enter Car UID first').setColor('#e74c3c');
         return;
       }
 
-      this.statusText.setText('Joining room...').setColor('#00b894');
+      const response = await window.gameAPI.createRoomWithAI(window.carUid);
 
-      // Join via WebSocket (registers in database AND subscribes to events)
-      await window.wsClient.joinRoom(this.roomUid, window.carUid);
+      if (response.success && response.data) {
+        const roomUid = response.data.roomUid;
+        this.statusText.setText('✅ Joining AI match…').setColor('#2ecc71');
 
-      console.log('✅ Joined room via WebSocket');
-      this.statusText.setText('✅ Joined successfully!').setColor('#00b894');
+        await window.wsClient.joinRoom(roomUid, window.carUid);
 
-      setTimeout(() => {
-        this.scene.start('LobbyScene', {
-          roomUid: this.roomUid,
-          isHost: false,
-        });
-      }, 1000);
+        setTimeout(() => {
+          this.scene.start('LobbyScene', { roomUid, isHost: true, vsAI: true });
+        }, 500);
+      }
     } catch (error) {
-      console.error('Failed to join room:', error);
-      this.statusText.setText(`❌ Error: ${error.message}`).setColor('#d63031');
+      this.statusText.setText(`❌ Error: ${error.message}`).setColor('#e74c3c');
     }
   }
 }

@@ -74,6 +74,13 @@ class GameAPI {
   }
 
   /**
+   * Create a room with AI opponent
+   */
+  async createRoomWithAI(carUid) {
+    return await this._request('POST', '/game/room/create-vs-ai', { carUid });
+  }
+
+  /**
    * Join an existing room
    */
   async joinRoom(roomUid, carUid) {

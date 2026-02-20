@@ -3,8 +3,8 @@
  */
 
 const CONFIG = {
-  // Backend API (configurable via localStorage 'backend_url' set by Next.js frontend)
-  API_BASE_URL: window.__BACKEND_URL__ || 'http://localhost:3000/api',
+  // Backend API
+  API_BASE_URL: 'http://localhost:3001/api',
 
   // Canvas dimensions
   CANVAS_WIDTH: 800,

@@ -38,48 +38,49 @@ window.addEventListener('load', () => {
   const playerAddressInput = document.getElementById('player-address');
   const jwtTokenInput = document.getElementById('jwt-token');
   const carUidInput = document.getElementById('car-uid');
+  const panelStatus = document.getElementById('panel-status');
 
-  // Auto-fill credentials from Next.js frontend (shared localStorage - same origin)
-  if (window.__AUTH_TOKEN__) {
-    window.gameAPI.setToken(window.__AUTH_TOKEN__);
-    console.log('✅ JWT token auto-loaded from frontend');
+  // Auto-fill from localStorage (set by Next.js game page)
+  const lsAddress = localStorage.getItem('wallet_address');
+  const lsToken   = localStorage.getItem('auth_token');
+  const lsCarUid  = localStorage.getItem('game_car_uid');
+  const lsBackend = localStorage.getItem('backend_url');
+
+  if (lsAddress && playerAddressInput) {
+    playerAddressInput.value = lsAddress;
+    window.playerAddress = lsAddress;
   }
-  if (window.__WALLET_ADDRESS__) {
-    window.playerAddress = window.__WALLET_ADDRESS__;
-    if (playerAddressInput) playerAddressInput.value = window.__WALLET_ADDRESS__;
-    console.log('✅ Wallet address auto-loaded:', window.__WALLET_ADDRESS__);
+  if (lsToken && jwtTokenInput) {
+    jwtTokenInput.value = lsToken;
+    window.gameAPI.setToken(lsToken);
   }
-  if (window.__CAR_UID__) {
-    window.carUid = window.__CAR_UID__;
-    if (carUidInput) carUidInput.value = window.__CAR_UID__;
-    console.log('✅ Car UID auto-loaded:', window.__CAR_UID__);
+  if (lsCarUid && carUidInput) {
+    carUidInput.value = lsCarUid;
+    window.carUid = lsCarUid;
+  }
+  if (lsBackend) {
+    CONFIG.API_BASE_URL = lsBackend;
+    window.gameAPI.baseUrl = lsBackend;
   }
 
-  // Store credentials when they change
+  if ((lsAddress || lsToken || lsCarUid) && panelStatus) {
+    panelStatus.textContent = '✅ Auto-filled from MiniLabs';
+  }
+
+  // Listen for manual changes
   if (playerAddressInput) {
-    // Use 'input' event for real-time updates
     playerAddressInput.addEventListener('input', (e) => {
       window.playerAddress = e.target.value;
-      console.log('Player address set:', window.playerAddress);
     });
-    // Also set initial value if present
-    if (playerAddressInput.value) {
-      window.playerAddress = playerAddressInput.value;
-      console.log('Player address initialized:', window.playerAddress);
-    }
   }
-
   if (jwtTokenInput) {
     jwtTokenInput.addEventListener('change', (e) => {
-      const token = e.target.value;
-      window.gameAPI.setToken(token);
+      window.gameAPI.setToken(e.target.value);
     });
   }
-
   if (carUidInput) {
     carUidInput.addEventListener('change', (e) => {
       window.carUid = e.target.value;
-      console.log('Car UID set:', window.carUid);
     });
   }
 
