@@ -10,18 +10,21 @@ import { toast } from "sonner";
 const TABS = ["Daily", "Weekly"];
 
 const QUEST_TYPE_COLORS = {
-  GACHA: { bg: "from-orange-500 to-red-600", icon: "🎰", label: "Gacha" },
-  RACE: { bg: "from-blue-500 to-indigo-600", icon: "🏁", label: "Race" },
-  MARKETPLACE: { bg: "from-green-500 to-emerald-600", icon: "🏪", label: "Market" },
-  INVENTORY: { bg: "from-purple-500 to-violet-600", icon: "📦", label: "Inventory" },
-  LOGIN: { bg: "from-yellow-500 to-amber-600", icon: "🔐", label: "Login" },
-  DEFAULT: { bg: "from-gray-500 to-gray-600", icon: "⭐", label: "Quest" },
+  RACE:     { bg: "from-blue-500 to-indigo-600",   icon: "🏁", label: "Race" },
+  GACHA:    { bg: "from-orange-500 to-red-600",    icon: "🎰", label: "Gacha" },
+  DISTANCE: { bg: "from-green-500 to-emerald-600", icon: "🛣️", label: "Distance" },
+  MARKETPLACE: { bg: "from-purple-500 to-violet-600", icon: "🏪", label: "Market" },
+  LOGIN:    { bg: "from-yellow-500 to-amber-600",  icon: "🔐", label: "Login" },
+  DEFAULT:  { bg: "from-gray-500 to-gray-600",     icon: "⭐", label: "Quest" },
 };
 
 function QuestCard({ quest, onClaim, claiming }) {
-  const cfg = QUEST_TYPE_COLORS[quest.type] || QUEST_TYPE_COLORS.DEFAULT;
-  const progress = Math.min(quest.progress || 0, quest.requirement || 1);
-  const pct = quest.requirement > 0 ? Math.round((progress / quest.requirement) * 100) : 0;
+  // requirementType e.g. "RACE_COMPLETE" → category "RACE"
+  const category = (quest.requirementType || "").split("_")[0] || "DEFAULT";
+  const cfg = QUEST_TYPE_COLORS[category] || QUEST_TYPE_COLORS.DEFAULT;
+  const total = quest.requirementCount || 1;
+  const progress = Math.min(quest.progress || 0, total);
+  const pct = Math.round((progress / total) * 100);
 
   return (
     <div
@@ -51,7 +54,7 @@ function QuestCard({ quest, onClaim, claiming }) {
           {!quest.isCompleted && (
             <div className="mb-2">
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-500">{progress}/{quest.requirement}</span>
+                <span className="text-gray-500">{progress}/{total}</span>
                 <span className="text-gray-500">{pct}%</span>
               </div>
               <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
@@ -68,11 +71,9 @@ function QuestCard({ quest, onClaim, claiming }) {
             <div className="flex items-center gap-1">
               <Gift size={12} className="text-yellow-400" />
               <span className="text-yellow-400 text-xs font-bold">
-                {typeof quest.reward === "object"
-                  ? Object.entries(quest.reward)
-                      .map(([k, v]) => `${v} ${k}`)
-                      .join(", ")
-                  : quest.reward || "Reward"}
+                {quest.reward && typeof quest.reward === "object"
+                  ? Object.entries(quest.reward).map(([k, v]) => `${v} ${k}`).join(", ")
+                  : "Reward"}
               </span>
             </div>
 
@@ -107,6 +108,7 @@ export default function QuestPage() {
   const [activeTab, setActiveTab] = useState(0); // 0=Daily, 1=Weekly
   const [quests, setQuests] = useState([]);
   const [stats, setStats] = useState(null);
+  const [tokenBalance, setTokenBalance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(null);
 
@@ -120,18 +122,23 @@ export default function QuestPage() {
     try {
       const token = await getAuthToken();
       const endpoint = activeTab === 0 ? "/api/quest/daily" : "/api/quest/weekly";
-      const [questsRes, statsRes] = await Promise.all([
+      const [questsRes, statsRes, meRes] = await Promise.all([
         fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${endpoint}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/quest/stats`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
+        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
       const questsData = await questsRes.json();
       const statsData = await statsRes.json();
+      const meData = await meRes.json();
       setQuests(questsData.data || []);
       setStats(statsData.data || null);
+      setTokenBalance(meData.data?.tokenBalance ?? 0);
     } catch (err) {
       console.error("Failed to fetch quests:", err);
       toast.error("Failed to load quests");
@@ -149,7 +156,7 @@ export default function QuestPage() {
     try {
       const token = await getAuthToken();
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/quest/${questId}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/quest/${questId}/claim`,
         {
           method: "POST",
           headers: {
@@ -212,6 +219,17 @@ export default function QuestPage() {
                 <p className="text-green-400 font-black text-lg">{claimableCount}</p>
                 <p className="text-gray-400 text-[10px] uppercase tracking-wide">Ready</p>
               </div>
+            </div>
+          )}
+
+          {/* Token Balance */}
+          {tokenBalance !== null && (
+            <div className="bg-purple-900/30 border border-purple-500/30 rounded-xl p-2.5 flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🪙</span>
+                <p className="text-gray-400 text-xs uppercase tracking-wide">Token Balance</p>
+              </div>
+              <p className="text-purple-400 font-black text-lg">{tokenBalance.toLocaleString()}</p>
             </div>
           )}
 

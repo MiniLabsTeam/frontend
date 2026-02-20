@@ -23,6 +23,9 @@ const CLOCK_OBJ = "0x6"; // Sui system clock object
 // Car probability per tier (matches backend GachaTiers.ts)
 const CAR_PROBABILITY = { 1: 0.30, 2: 0.50, 3: 0.60 };
 
+// Token costs per tier (must match backend TOKEN_GACHA_COSTS)
+const TOKEN_COSTS = { 1: 500, 2: 1500, 3: 3000 };
+
 // ==================== Helpers ====================
 
 const hexToUint8 = (hex) => {
@@ -91,6 +94,8 @@ export default function GachaTierPage() {
   const [pricing, setPricing] = useState(null);
   const [loadingPricing, setLoadingPricing] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [tokenBalance, setTokenBalance] = useState(null);
+  const [tokenPulling, setTokenPulling] = useState(false);
   const sliderRef = useRef(null);
   const startXRef = useRef(0);
   const isDraggingRef = useRef(false);
@@ -127,6 +132,24 @@ export default function GachaTierPage() {
     };
     load();
   }, [tierType]);
+
+  // Load token balance
+  useEffect(() => {
+    if (!isConnected) return;
+    const load = async () => {
+      try {
+        const authToken = await getAuthToken();
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        const data = await res.json();
+        setTokenBalance(data.data?.tokenBalance ?? 0);
+      } catch (err) {
+        console.error("Failed to load token balance:", err);
+      }
+    };
+    load();
+  }, [isConnected, getAuthToken]);
 
   useEffect(() => {
     const handleGlobalMove = (e) => {
@@ -337,6 +360,56 @@ export default function GachaTierPage() {
     }
   };
 
+  // ==================== Token Gacha Flow ====================
+
+  const handleTokenPull = async () => {
+    if (tokenPulling || isSpinning) return;
+    const tierId = tierNameToId(tierType);
+    const cost = TOKEN_COSTS[tierId];
+    if (tokenBalance < cost) {
+      toast.error(`Not enough tokens. Need ${cost.toLocaleString()}, you have ${tokenBalance.toLocaleString()}.`);
+      return;
+    }
+
+    setTokenPulling(true);
+    setErrorMessage("");
+    try {
+      const authToken = await getAuthToken();
+      const isCar = Math.random() < (CAR_PROBABILITY[tierId] ?? 0.30);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/gacha/pull-with-tokens`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tierId, is_car: isCar }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Token pull failed");
+
+      const { rarity, name, newTokenBalance } = data.data;
+      setTokenBalance(newTokenBalance);
+
+      const rarityConfig = getRarityConfig(rarity);
+      const rewardName = name || (isCar ? "Mystery Car" : "Mystery Part");
+      setReward({
+        name: rewardName,
+        rarity: rarityConfig.label,
+        rarityColor: rarityConfig.color,
+        image: getAssetImage(rewardName),
+        isCar,
+        paidWithTokens: true,
+      });
+      setShowAnimation(true);
+    } catch (err) {
+      const msg = err.message || "Token pull failed";
+      setErrorMessage(msg);
+      toast.error(msg);
+    } finally {
+      setTokenPulling(false);
+    }
+  };
+
   const handleClaim = () => {
     setHasSpun(false);
     setShowAnimation(false);
@@ -408,16 +481,55 @@ export default function GachaTierPage() {
 
               {/* Pricing Info */}
               {!loadingPricing && pricing && (
-                <div className="bg-black/60 backdrop-blur-sm rounded-2xl p-3 mb-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400 text-xs font-bold">COST</span>
+                <div className="bg-black/60 backdrop-blur-sm rounded-2xl p-3 mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-400 text-xs font-bold">OCT COST</span>
                     <span className="text-orange-400 font-black text-lg">
                       {pricing.price || pricing.cost || "—"}
                       {pricing.currency ? ` ${pricing.currency}` : ""}
                     </span>
                   </div>
+                  {tokenBalance !== null && (
+                    <div className="flex items-center justify-between border-t border-gray-700/50 pt-2">
+                      <span className="text-gray-400 text-xs font-bold">YOUR TOKENS</span>
+                      <span className="text-purple-400 font-black">🪙 {tokenBalance.toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
               )}
+
+              {/* Pay with Tokens Button */}
+              {tokenBalance !== null && (() => {
+                const tierId = tierNameToId(tierType);
+                const cost = TOKEN_COSTS[tierId];
+                const canAfford = tokenBalance >= cost;
+                return (
+                  <button
+                    onClick={handleTokenPull}
+                    disabled={tokenPulling || isSpinning || !canAfford}
+                    className={`w-full py-3 rounded-2xl font-bold text-sm mb-4 transition-all flex items-center justify-center gap-2 ${
+                      canAfford
+                        ? "bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 text-white shadow-lg shadow-purple-500/30"
+                        : "bg-gray-800 text-gray-500 cursor-not-allowed"
+                    }`}
+                  >
+                    {tokenPulling ? (
+                      <>
+                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        Opening…
+                      </>
+                    ) : (
+                      <>
+                        🪙 Pay {cost.toLocaleString()} Tokens
+                        {!canAfford && <span className="text-xs ml-1">(Need {(cost - tokenBalance).toLocaleString()} more)</span>}
+                      </>
+                    )}
+                  </button>
+                );
+              })()}
 
               {/* Slide to Open */}
               <div className="relative mt-3">
@@ -519,7 +631,8 @@ export default function GachaTierPage() {
               </div>
 
               <p className="text-gray-300 text-sm mb-4">
-                {reward?.isCar ? "🚗 Car NFT" : "🔧 Spare Part NFT"} · Minted on OneChain
+                {reward?.isCar ? "🚗 Car" : "🔧 Spare Part"}
+                {reward?.paidWithTokens ? " · Paid with 🪙 Tokens" : " NFT · Minted on OneChain"}
               </p>
 
               <button

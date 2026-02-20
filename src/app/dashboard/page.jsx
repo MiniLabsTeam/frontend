@@ -48,6 +48,7 @@ export default function Dashboard() {
     email: null,
     username: null,
     walletAddress: null,
+    tokenBalance: 0,
   });
   const [fetchError, setFetchError] = useState(null);
   const [loadingActivity, setLoadingActivity] = useState(false);
@@ -120,6 +121,7 @@ export default function Dashboard() {
         email: meData.data?.email || null,
         username: meData.data?.username || null,
         walletAddress: meData.data?.address || null,
+        tokenBalance: meData.data?.tokenBalance ?? 0,
       });
 
       // Fetch inventory stats (cars + spare parts count)
@@ -145,13 +147,19 @@ export default function Dashboard() {
     try {
       const authToken = await getAuthToken();
 
-      // Fetch user's gacha stats
-      const gachaStatsRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/gacha/stats`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      const gachaStatsData = await gachaStatsRes.json();
-      const gd = gachaStatsData.data || {};
+      // Fetch gacha stats + tiers in parallel (tiers needs no auth)
+      const [gachaStatsRes, tiersRes] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/gacha/stats`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        }),
+        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/gacha/tiers`),
+      ]);
+      const [gachaStatsData, tiersData] = await Promise.all([
+        gachaStatsRes.json(),
+        tiersRes.json(),
+      ]);
 
+      const gd = gachaStatsData.data || {};
       setStats({
         totalMinted: gd.totalPulls || 0,
         lastHourMinted: gd.carVsPartRatio?.cars || 0,
@@ -159,10 +167,6 @@ export default function Dashboard() {
         totalUsers: 0,
         popularSeries: { name: "Epic", count: gd.rarityBreakdown?.EPIC || 0 },
       });
-
-      // Fetch gacha tiers for display (no auth needed)
-      const tiersRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/gacha/tiers`);
-      const tiersData = await tiersRes.json();
       setSupplyData(tiersData.data || []);
 
     } catch (error) {
@@ -321,6 +325,16 @@ export default function Dashboard() {
           <header className="px-4 pt-3 pb-4">
             {/* Top Row - Username + OCT Balance */}
             <div className="flex items-center justify-end gap-2 mb-3">
+              {/* Token Balance Badge */}
+              {walletAddress && (
+                <div className="bg-purple-600/90 border-2 border-purple-400 rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-lg">
+                  <span className="text-yellow-300 text-xs">🪙</span>
+                  <span className="text-white text-xs font-black">
+                    {userInfo.tokenBalance.toLocaleString()}
+                  </span>
+                </div>
+              )}
+
               {/* OCT Balance Badge */}
               {walletAddress && (
                 <div className="bg-orange-500/90 border-2 border-orange-400 rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-lg">
@@ -390,48 +404,77 @@ export default function Dashboard() {
             {/* Gacha Tier Rates */}
             <div className="bg-gray-900/80 rounded-2xl p-4 shadow-2xl">
               <h3 className="text-white font-black text-sm mb-3 tracking-wide">
-                GACHA TIER RATES
+                🎰 GACHA TIER RATES
               </h3>
               {supplyData.length > 0 ? (
                 <div className="space-y-3">
                   {supplyData.map((tier) => {
-                    const tierColors = {
-                      1: { bg: "bg-gradient-to-br from-gray-700 to-gray-800", text: "text-gray-300", bar: "bg-gray-400" },
-                      2: { bg: "bg-gradient-to-br from-blue-900 to-blue-950", text: "text-blue-400", bar: "bg-blue-500" },
-                      3: { bg: "bg-gradient-to-br from-yellow-900 to-orange-950", text: "text-yellow-400", bar: "bg-yellow-500" },
+                    const tierCfg = {
+                      1: { bg: "bg-gray-800/80", border: "border-gray-600/40", text: "text-gray-300", icon: "📦", bars: ["bg-gray-400", "bg-blue-400", "bg-purple-400", "bg-yellow-400"] },
+                      2: { bg: "bg-blue-900/40", border: "border-blue-500/40", text: "text-blue-300", icon: "🎲", bars: ["bg-gray-400", "bg-blue-400", "bg-purple-400", "bg-yellow-400"] },
+                      3: { bg: "bg-amber-900/30", border: "border-yellow-500/40", text: "text-yellow-300", icon: "💎", bars: ["bg-gray-400", "bg-blue-400", "bg-purple-400", "bg-yellow-400"] },
                     };
-                    const cfg = tierColors[tier.id] || tierColors[1];
+                    const RARITY_NAMES = { "0": "Common", "1": "Rare", "2": "Epic", "3": "Legendary" };
+                    const cfg = tierCfg[tier.id] || tierCfg[1];
                     const probs = tier.probabilities || {};
+                    const octPrice = tier.price
+                      ? (Number(tier.price) / 1_000_000_000).toLocaleString("en", { maximumFractionDigits: 2 })
+                      : "—";
 
                     return (
-                      <div key={tier.id} className={`${cfg.bg} rounded-xl p-3 border border-gray-700/50`}>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className={`text-xs font-black ${cfg.text} tracking-wider`}>
-                            {tier.name?.toUpperCase() || `TIER ${tier.id}`}
+                      <div key={tier.id} className={`${cfg.bg} rounded-xl p-3 border ${cfg.border}`}>
+                        <div className="flex items-center justify-between mb-2.5">
+                          <div className="flex items-center gap-1.5">
+                            <span>{cfg.icon}</span>
+                            <span className={`text-xs font-black ${cfg.text} tracking-wider`}>
+                              {tier.name?.toUpperCase() || `TIER ${tier.id}`}
+                            </span>
+                          </div>
+                          <span className="text-orange-300 text-xs font-bold bg-black/30 px-2 py-0.5 rounded-full">
+                            {octPrice} OCT
                           </span>
-                          <span className="text-white text-xs font-bold">{tier.price} ONE</span>
                         </div>
-                        <div className="space-y-1">
-                          {Object.entries(probs).map(([rarity, pct]) => (
-                            <div key={rarity} className="flex items-center gap-2">
-                              <span className="text-gray-400 text-[10px] w-16 uppercase">{rarity}</span>
-                              <div className="flex-1 h-1.5 bg-gray-800/60 rounded-full overflow-hidden">
-                                <div className={`h-full ${cfg.bar}`} style={{ width: `${pct}%` }} />
-                              </div>
-                              <span className="text-gray-300 text-[10px] w-8 text-right">{pct}%</span>
-                            </div>
-                          ))}
+                        <div className="space-y-1.5">
+                          {Object.entries(probs)
+                            .filter(([, v]) => v > 0)
+                            .map(([key, val], idx) => {
+                              const label = RARITY_NAMES[key] || key;
+                              const pct = Math.round(Number(val) * 100 * 10) / 10;
+                              const barColor = cfg.bars[idx] || "bg-gray-400";
+                              return (
+                                <div key={key} className="flex items-center gap-2">
+                                  <span className="text-gray-400 text-[10px] w-14 truncate">{label}</span>
+                                  <div className="flex-1 h-1.5 bg-gray-800/60 rounded-full overflow-hidden">
+                                    <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className="text-gray-300 text-[10px] w-8 text-right tabular-nums">{pct}%</span>
+                                </div>
+                              );
+                            })}
                         </div>
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center mb-3 animate-pulse">
-                    <Car size={24} className="text-gray-600" strokeWidth={1.5} />
-                  </div>
-                  <p className="text-gray-500 text-sm font-medium">Loading tier data...</p>
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="bg-gray-800/50 rounded-xl p-3 animate-pulse">
+                      <div className="flex justify-between mb-2.5">
+                        <div className="h-3 w-24 bg-gray-700 rounded" />
+                        <div className="h-3 w-16 bg-gray-700 rounded" />
+                      </div>
+                      <div className="space-y-1.5">
+                        {[1, 2, 3].map((j) => (
+                          <div key={j} className="flex items-center gap-2">
+                            <div className="h-2 w-14 bg-gray-700 rounded" />
+                            <div className="flex-1 h-1.5 bg-gray-700 rounded-full" />
+                            <div className="h-2 w-8 bg-gray-700 rounded" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
