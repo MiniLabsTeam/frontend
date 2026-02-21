@@ -273,7 +273,7 @@ class MenuScene extends Phaser.Scene {
 
       const response = await window.gameAPI.createRoom(
         'ENDLESS_RACE',
-        1,
+        2,
         '1000000',
         new Date(Date.now() + 3600000).toISOString()
       );

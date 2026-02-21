@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
 import { useSignAndExecuteTransaction } from "@onelabs/dapp-kit";
 import { Transaction } from "@onelabs/sui/transactions";
-import { getGachaTiers, getGachaPricing, revealGacha, getRarityConfig, tierNameToId } from "@/lib/gachaApi";
+import { getGachaTiers, getGachaPricing, revealGacha, clearStuckGacha, getRarityConfig, tierNameToId } from "@/lib/gachaApi";
 import { toast } from "sonner";
 import GachaRoulette from "@/components/GachaRoulette";
 import ProgressSteps from "@/components/shared/ProgressSteps";
@@ -345,6 +345,24 @@ export default function GachaTierPage() {
       console.error("[Gacha] Error message:", errMsg);
       console.error("[Gacha] Error raw:", error);
       try { console.error("[Gacha] Error JSON:", JSON.stringify(error, Object.getOwnPropertyNames(error))); } catch {}
+
+      // Auto-recover: if stuck with pending commit, clear it and notify user
+      const isAlreadyCommitted =
+        errMsg.includes("MoveAbort") && errMsg.includes(", 1)") ||
+        errMsg.toLowerCase().includes("already committed") ||
+        errMsg.toLowerCase().includes("dry run");
+
+      if (isAlreadyCommitted && spinProgress === 3) {
+        console.log("[Gacha] Detected stuck commit. Attempting auto-clear...");
+        try {
+          const authToken = await getAuthToken();
+          await clearStuckGacha(authToken);
+          console.log("[Gacha] Stuck commit cleared! User can try again.");
+          toast.info("Previous stuck transaction cleared. Please try again!");
+        } catch (clearErr) {
+          console.error("[Gacha] Failed to auto-clear:", clearErr);
+        }
+      }
 
       setIsSpinning(false);
       setSlideProgress(0);

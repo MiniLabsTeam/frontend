@@ -49,6 +49,16 @@ export async function getGachaHistory(authToken, limit = 20) {
   return res.data ?? res;
 }
 
+/**
+ * Clear stuck gacha commit (when commit succeeded but reveal failed)
+ * @param {string} authToken
+ * @returns {Promise<Object>}
+ */
+export async function clearStuckGacha(authToken) {
+  const res = await apiPost("/api/gacha/clear-stuck", {}, authToken);
+  return res.data ?? res;
+}
+
 export { RARITY_CONFIG };
 
 /**
