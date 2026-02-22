@@ -2,7 +2,7 @@
 
 import { useWallets, useConnectWallet, useCurrentAccount, useDisconnectWallet } from "@onelabs/dapp-kit";
 import { Wallet, LogOut, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /**
  * Reusable wallet connect/disconnect button
@@ -15,6 +15,11 @@ export default function WalletButton({ className = "" }) {
   const { mutate: disconnect } = useDisconnectWallet();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showWalletList, setShowWalletList] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Format address for display
   const shortAddress = account
@@ -27,6 +32,19 @@ export default function WalletButton({ className = "" }) {
     disconnect();
     setShowDropdown(false);
   };
+
+  // Prevent hydration mismatch: SSR has no wallet info
+  if (!mounted) {
+    return (
+      <button
+        disabled
+        className={`flex items-center gap-2 bg-gray-700 border-2 border-gray-600 rounded-full px-3 py-1.5 opacity-60 ${className}`}
+      >
+        <Wallet size={14} className="text-gray-400" />
+        <span className="text-gray-400 text-xs font-bold">Loading...</span>
+      </button>
+    );
+  }
 
   // Connected state
   if (account) {

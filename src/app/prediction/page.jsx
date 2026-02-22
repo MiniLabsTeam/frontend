@@ -33,9 +33,21 @@ export default function PredictionPage() {
         apiGet("/api/prediction/my-bets", token),
         apiGet("/api/prediction/claimable", token),
       ]);
-      setPools(poolsData.pools || []);
-      setMyBets(betsData.bets || []);
-      setClaimable(claimData.bets || []);
+      // Backend returns { success, data } — transform pools to include status & players from room
+      const rawPools = poolsData.data || [];
+      const mappedPools = rawPools.map((p) => ({
+        ...p,
+        status: p.isSettled ? "SETTLED" : (p.room?.status === "STARTED" || p.room?.status === "READY") ? "OPEN" : p.room?.status === "FINISHED" ? "CLOSED" : "OPEN",
+        players: (p.room?.players || []).map((rp) => ({
+          id: rp.playerAddress,
+          address: rp.user?.address || rp.playerAddress,
+          username: rp.user?.username,
+          odds: null,
+        })),
+      }));
+      setPools(mappedPools);
+      setMyBets(betsData.data || []);
+      setClaimable(claimData.data || []);
     } catch (err) {
       console.error("Failed to fetch prediction data:", err);
       toast.error("Failed to load prediction data");
@@ -190,7 +202,7 @@ export default function PredictionPage() {
                             </span>
                             <span className="text-gray-400 text-xs flex items-center gap-1">
                               <TrendingUp size={10} />
-                              Pool: {(pool.totalPool || 0).toLocaleString()} IDRX
+                              Pool: {(pool.totalPool || 0).toLocaleString()} OCT
                             </span>
                           </div>
                         </div>
@@ -276,29 +288,29 @@ export default function PredictionPage() {
                     >
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-white font-black text-sm">
-                          🏁 {bet.roomUid || bet.poolId}
+                          🏁 {bet.pool?.roomUid || bet.poolId}
                         </p>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${statusColor(bet.status)}`}>
-                          {bet.status}
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${statusColor(bet.pool?.isSettled ? "SETTLED" : "OPEN")}`}>
+                          {bet.pool?.isSettled ? "SETTLED" : "OPEN"}
                         </span>
                       </div>
                       <div className="grid grid-cols-3 gap-2 mt-3">
                         <div className="bg-gray-900/60 rounded-xl p-2 text-center">
                           <p className="text-gray-400 text-xs">Bet On</p>
                           <p className="text-white font-black text-xs mt-1">
-                            {bet.predictedWinner?.username || "—"}
+                            {bet.predictedWinner ? `${bet.predictedWinner.slice(0, 8)}...` : "—"}
                           </p>
                         </div>
                         <div className="bg-gray-900/60 rounded-xl p-2 text-center">
                           <p className="text-gray-400 text-xs">Amount</p>
                           <p className="text-yellow-400 font-black text-xs mt-1">
-                            {(bet.amount || 0).toLocaleString()}
+                            {Number(bet.amount || 0).toLocaleString()}
                           </p>
                         </div>
                         <div className="bg-gray-900/60 rounded-xl p-2 text-center">
-                          <p className="text-gray-400 text-xs">Odds</p>
+                          <p className="text-gray-400 text-xs">Payout</p>
                           <p className="text-purple-400 font-black text-xs mt-1">
-                            {bet.odds ? `${bet.odds.toFixed(2)}x` : "—"}
+                            {bet.payout ? Number(bet.payout).toLocaleString() : "—"}
                           </p>
                         </div>
                       </div>
@@ -330,10 +342,10 @@ export default function PredictionPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-white text-sm font-bold">
-                            🏁 {bet.roomUid || bet.poolId}
+                            🏁 {bet.pool?.roomUid || bet.poolId}
                           </p>
                           <p className="text-yellow-300 font-black text-lg mt-1">
-                            +{(bet.payout || 0).toLocaleString()} IDRX
+                            +{Number(bet.payout || 0).toLocaleString()} OCT
                           </p>
                         </div>
                         <button
@@ -381,18 +393,18 @@ export default function PredictionPage() {
                 type="number"
                 value={betAmount}
                 onChange={(e) => setBetAmount(e.target.value)}
-                placeholder="Amount (IDRX)"
+                placeholder="Amount (OCT)"
                 className="flex-1 bg-transparent text-white font-black text-lg outline-none placeholder:text-gray-600"
                 min="1"
               />
-              <span className="text-orange-400 font-bold text-sm">IDRX</span>
+              <span className="text-orange-400 font-bold text-sm">OCT</span>
             </div>
 
             {betAmount && betModal.odds && (
               <p className="text-gray-400 text-xs mb-4">
                 Potential win:{" "}
                 <span className="text-yellow-400 font-black">
-                  {(Number(betAmount) * betModal.odds).toFixed(0)} IDRX
+                  {(Number(betAmount) * betModal.odds).toFixed(0)} OCT
                 </span>
               </p>
             )}
