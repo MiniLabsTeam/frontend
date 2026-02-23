@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Trophy, TrendingUp, Clock, CheckCircle, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Trophy, TrendingUp, Clock, CheckCircle, ChevronDown, ChevronUp, Loader2, Eye } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import WalletButton from "@/components/shared/WalletButton";
 import { useWallet } from "@/hooks/useWallet";
@@ -37,7 +37,7 @@ export default function PredictionPage() {
       const rawPools = poolsData.data || [];
       const mappedPools = rawPools.map((p) => ({
         ...p,
-        status: p.isSettled ? "SETTLED" : (p.room?.status === "STARTED" || p.room?.status === "READY") ? "OPEN" : p.room?.status === "FINISHED" ? "CLOSED" : "OPEN",
+        status: p.isSettled ? "SETTLED" : p.room?.status === "FINISHED" ? "CLOSED" : p.room?.status === "STARTED" ? "RACING" : "OPEN",
         players: (p.room?.players || []).map((rp) => ({
           id: rp.playerAddress,
           address: rp.user?.address || rp.playerAddress,
@@ -103,6 +103,7 @@ export default function PredictionPage() {
 
   const statusColor = (status) => {
     if (status === "OPEN") return "text-green-400 bg-green-400/10 border-green-400/30";
+    if (status === "RACING") return "text-orange-400 bg-orange-400/10 border-orange-400/30";
     if (status === "CLOSED") return "text-yellow-400 bg-yellow-400/10 border-yellow-400/30";
     if (status === "SETTLED") return "text-gray-400 bg-gray-400/10 border-gray-400/30";
     return "text-blue-400 bg-blue-400/10 border-blue-400/30";
@@ -123,7 +124,17 @@ export default function PredictionPage() {
                 <p className="text-gray-400 text-xs">Bet on race winners</p>
               </div>
             </div>
-            <WalletButton />
+            <div className="flex items-center gap-2">
+              <a
+                href="/game/index.html"
+                target="_blank"
+                className="flex items-center gap-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 font-black text-xs px-3 py-2 rounded-full transition-all active:scale-95"
+              >
+                <Eye size={14} />
+                WATCH LIVE
+              </a>
+              <WalletButton />
+            </div>
           </div>
 
           {/* Tabs */}
@@ -206,11 +217,24 @@ export default function PredictionPage() {
                             </span>
                           </div>
                         </div>
-                        {expandedPool === pool.id ? (
-                          <ChevronUp size={18} className="text-gray-400" />
-                        ) : (
-                          <ChevronDown size={18} className="text-gray-400" />
-                        )}
+                        <div className="flex items-center gap-2">
+                          {pool.status === "RACING" && (
+                            <a
+                              href={`/game/index.html?spectate=${encodeURIComponent(pool.roomUid)}`}
+                              target="_blank"
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 font-bold text-xs px-2.5 py-1.5 rounded-full transition-all"
+                            >
+                              <Eye size={12} />
+                              WATCH
+                            </a>
+                          )}
+                          {expandedPool === pool.id ? (
+                            <ChevronUp size={18} className="text-gray-400" />
+                          ) : (
+                            <ChevronDown size={18} className="text-gray-400" />
+                          )}
+                        </div>
                       </button>
 
                       {/* Expanded: Player List */}

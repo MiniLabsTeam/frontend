@@ -22,6 +22,15 @@ class GameScene extends Phaser.Scene {
 
   init(data) {
     this.roomUid = data.roomUid;
+    this.isSpectator = data.spectator || false;
+  }
+
+  preload() {
+    this.load.image('car1', 'assets/car/Car.png');
+    this.load.image('car2', 'assets/car/Audi.png');
+    this.load.image('car3', 'assets/car/Black_viper.png');
+    this.load.image('car4', 'assets/car/car-1.png');
+    this.load.image('car5', 'assets/car/car-2.png');
   }
 
   create() {
@@ -40,8 +49,38 @@ class GameScene extends Phaser.Scene {
     // HUD on top of everything
     this._buildHUD();
 
-    this.cursors = this.input.keyboard.createCursorKeys();
+    if (!this.isSpectator) {
+      this.cursors = this.input.keyboard.createCursorKeys();
+    }
     this._setupWebSocket();
+
+    // BET button (top-right, available for both players and spectators)
+    this._buildBetButton();
+
+    // Auto-open prediction panel for spectators
+    if (this.isSpectator) {
+      this.time.delayedCall(1000, () => {
+        if (!this.scene.isActive('PredictionScene')) {
+          this.scene.launch('PredictionScene', { roomUid: this.roomUid });
+        }
+      });
+    }
+
+    // Spectator badge
+    if (this.isSpectator) {
+      const W = CONFIG.CANVAS_WIDTH;
+      const badgeBg = this.add.graphics();
+      badgeBg.fillStyle(0xff0040, 0.85);
+      badgeBg.fillRoundedRect(W / 2 - 55, 58, 110, 24, 6);
+      badgeBg.setScrollFactor(0).setDepth(12);
+
+      this.add.text(W / 2, 70, 'SPECTATING', {
+        fontSize: '11px',
+        fontFamily: 'Orbitron, Arial',
+        fontStyle: 'bold',
+        color: '#ffffff',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(12);
+    }
   }
 
   // ─────────────────────────────────────────────
@@ -135,18 +174,26 @@ class GameScene extends Phaser.Scene {
   _render() {
     if (!this.gameState) return;
 
-    const myPlayer = this.gameState.players.find(p => p.playerId === this.myPlayerId);
+    // For spectators, follow the race leader; for players, follow self
+    let focusPlayer;
+    if (this.isSpectator) {
+      // Follow the leader (rank 1 or highest position.z)
+      focusPlayer = this.gameState.players.reduce((best, p) =>
+        (!best || (p.position?.z || 0) > (best.position?.z || 0)) ? p : best, null);
+    } else {
+      focusPlayer = this.gameState.players.find(p => p.playerId === this.myPlayerId);
+    }
 
     // Scroll track
-    if (myPlayer) {
-      this.scrollOffset = (myPlayer.position.z * CONFIG.SCALE) % DASH_PERIOD;
+    if (focusPlayer) {
+      this.scrollOffset = (focusPlayer.position.z * CONFIG.SCALE) % DASH_PERIOD;
       this._drawLaneDividers(this.scrollOffset);
     }
 
-    this._renderPlayers(myPlayer);
-    this._renderObstacles(myPlayer);
-    this._renderPowerUps(myPlayer);
-    this._updateHUD(myPlayer);
+    this._renderPlayers(focusPlayer);
+    this._renderObstacles(focusPlayer);
+    this._renderPowerUps(focusPlayer);
+    this._updateHUD(focusPlayer);
   }
 
   // ─────────────────────────────────────────────
@@ -197,7 +244,7 @@ class GameScene extends Phaser.Scene {
         this.playerSprites[id] = g;
       }
 
-      const isMe = id === this.myPlayerId;
+      const isMe = !this.isSpectator && id === this.myPlayerId;
       g.x = this._screenX(player.position.x);
       g.y = isMe ? PLAYER_Y : this._screenY(player.position.z, myPlayer);
       g.setAlpha(player.isFinished ? 0.3 : 1.0);
@@ -216,24 +263,23 @@ class GameScene extends Phaser.Scene {
   }
 
   _createCarSprite(player, idx) {
-    const isMe = player.playerId === this.myPlayerId;
-    const color = CONFIG.getPlayerColor(idx);
-    const g = this.add.graphics();
+    const isMe = !this.isSpectator && player.playerId === this.myPlayerId;
+    const carKeys = ['car1', 'car2', 'car3', 'car4', 'car5'];
+    const carKey = carKeys[idx % carKeys.length];
+    const sprite = this.add.image(0, 0, carKey);
 
+    // Scale car image to fit player size (~40x70)
+    const scaleX = 40 / sprite.width;
+    const scaleY = 70 / sprite.height;
+    const scale = Math.max(scaleX, scaleY);
+    sprite.setScale(scale);
+
+    // Highlight current player with golden tint
     if (isMe) {
-      g.lineStyle(2, 0xffd700, 1);
-      g.strokeRect(-9, -16, 18, 32);
+      sprite.setTint(0xaaffaa);
     }
-    g.fillStyle(color, 1);
-    g.fillRoundedRect(-8, -15, 16, 30, 3);
-    g.fillStyle(0xaaddff, 0.85);
-    g.fillRect(-5, -12, 10, 8);
-    g.fillStyle(0xffffff, 1);
-    g.fillRect(-3, -15, 6, 3);
-    g.fillStyle(0xff2222, 1);
-    g.fillRect(-7, 12, 5, 3);
-    g.fillRect(2,  12, 5, 3);
-    return g;
+
+    return sprite;
   }
 
   // ─────────────────────────────────────────────
@@ -302,11 +348,11 @@ class GameScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
   //  HUD update
   // ─────────────────────────────────────────────
-  _updateHUD(myPlayer) {
-    if (myPlayer) {
-      this.distText.setText(`${Math.floor(myPlayer.position.z)}m`);
-      this.rankText.setText(`${myPlayer.rank || '?'}${this._rankSuffix(myPlayer.rank)}`);
-      this.speedText.setText(`${Math.floor(myPlayer.speed)}`);
+  _updateHUD(focusPlayer) {
+    if (focusPlayer) {
+      this.distText.setText(`${Math.floor(focusPlayer.position.z)}m`);
+      this.rankText.setText(`${focusPlayer.rank || '?'}${this._rankSuffix(focusPlayer.rank)}`);
+      this.speedText.setText(`${Math.floor(focusPlayer.speed)}`);
     }
     this.statusText.setText(this.gameState?.status || '');
   }
@@ -320,9 +366,44 @@ class GameScene extends Phaser.Scene {
   }
 
   // ─────────────────────────────────────────────
+  //  BET button (opens PredictionScene overlay)
+  // ─────────────────────────────────────────────
+  _buildBetButton() {
+    const W = CONFIG.CANVAS_WIDTH;
+    const btnX = W - 45;
+    const btnY = 22;
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x6c3ce6, 1);
+    bg.fillRoundedRect(btnX - 30, btnY - 13, 60, 26, 6);
+    bg.setScrollFactor(0).setDepth(12);
+
+    this.add.text(btnX, btnY, 'BET', {
+      fontSize: '12px',
+      fontFamily: 'Orbitron, Arial',
+      fontStyle: 'bold',
+      color: '#ffffff',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(12);
+
+    const hit = this.add.rectangle(btnX, btnY, 60, 26, 0x000000, 0)
+      .setInteractive({ useHandCursor: true })
+      .setScrollFactor(0).setDepth(12);
+
+    hit.on('pointerdown', () => {
+      if (this.scene.isActive('PredictionScene')) {
+        this.scene.stop('PredictionScene');
+      } else {
+        this.scene.launch('PredictionScene', { roomUid: this.roomUid });
+      }
+    });
+  }
+
+  // ─────────────────────────────────────────────
   //  Input
   // ─────────────────────────────────────────────
   update() {
+    if (this.isSpectator) return;
+    if (!this.cursors) return;
     if (Phaser.Input.Keyboard.JustDown(this.cursors.left))
       this._sendInput(CONFIG.ACTIONS.TURN_LEFT);
     if (Phaser.Input.Keyboard.JustDown(this.cursors.right))
@@ -341,6 +422,12 @@ class GameScene extends Phaser.Scene {
       window.wsClient.off('GAME_STATE');
       window.wsClient.off('GAME_END');
       window.wsClient.off('ERROR');
+      if (this.isSpectator) {
+        window.wsClient.spectateLeave(this.roomUid).catch(() => {});
+      }
+    }
+    if (this.scene.isActive('PredictionScene')) {
+      this.scene.stop('PredictionScene');
     }
   }
 }

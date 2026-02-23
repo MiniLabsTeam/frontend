@@ -149,6 +149,31 @@ class GameAPI {
   async getActiveGames() {
     return await this._request('GET', '/game/active');
   }
+
+  /**
+   * Get live racing rooms (for spectators)
+   */
+  async getLiveRooms() {
+    return await this._request('GET', '/game/rooms/live');
+  }
+
+  /**
+   * Get prediction pool for a room
+   */
+  async getPredictionPool(roomUid) {
+    return await this._request('GET', `/prediction/pool/${roomUid}`);
+  }
+
+  /**
+   * Place a bet on a prediction pool
+   */
+  async placeBet(poolId, predictedWinnerId, amount) {
+    return await this._request('POST', '/prediction/bet', {
+      poolId,
+      predictedWinnerId,
+      amount,
+    });
+  }
 }
 
 // Create global API instance

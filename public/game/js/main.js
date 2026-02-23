@@ -26,7 +26,7 @@ const gameConfig = {
 // Wait for DOM to load
 window.addEventListener('load', () => {
   // Add scenes to config (they're loaded from separate files)
-  gameConfig.scene = [MenuScene, LobbyScene, GameScene, ResultScene];
+  gameConfig.scene = [MenuScene, LobbyScene, SpectateListScene, GameScene, PredictionScene, ResultScene];
 
   // Create Phaser game instance
   const game = new Phaser.Game(gameConfig);
@@ -65,6 +65,9 @@ window.addEventListener('load', () => {
 
   if ((lsAddress || lsToken || lsCarUid) && panelStatus) {
     panelStatus.textContent = '✅ Auto-filled from MiniLabs';
+    // Hide credentials panel when auto-filled from Next.js
+    const uiOverlay = document.getElementById('ui-overlay');
+    if (uiOverlay) uiOverlay.style.display = 'none';
   }
 
   // Listen for manual changes
@@ -86,4 +89,37 @@ window.addEventListener('load', () => {
 
   console.log('🎮 OneChain Racing Game Initialized');
   console.log('📡 API Base URL:', CONFIG.API_BASE_URL);
+
+  // Handle ?spectate=roomUid query param (from prediction page WATCH button)
+  const urlParams = new URLSearchParams(window.location.search);
+  const spectateRoomUid = urlParams.get('spectate');
+
+  if (spectateRoomUid) {
+    // Hide credentials panel in spectate mode
+    const uiOverlay = document.getElementById('ui-overlay');
+    if (uiOverlay) uiOverlay.style.display = 'none';
+
+    console.log('👁️ Auto-spectate requested for room:', spectateRoomUid);
+    const autoSpectate = async () => {
+      try {
+        // Wait for WebSocket to be connected (setToken triggers initWebSocket)
+        let attempts = 0;
+        while ((!window.wsClient || !window.wsClient.connected) && attempts < 25) {
+          await new Promise(r => setTimeout(r, 200));
+          attempts++;
+        }
+        if (!window.wsClient || !window.wsClient.connected) {
+          console.error('❌ WebSocket not connected, cannot auto-spectate');
+          return;
+        }
+        await window.wsClient.spectateJoin(spectateRoomUid);
+        // Skip MenuScene → go directly to GameScene in spectator mode
+        game.scene.stop('MenuScene');
+        game.scene.start('GameScene', { roomUid: spectateRoomUid, spectator: true });
+      } catch (err) {
+        console.error('❌ Auto-spectate failed:', err);
+      }
+    };
+    setTimeout(autoSpectate, 500);
+  }
 });

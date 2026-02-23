@@ -144,8 +144,35 @@ class MenuScene extends Phaser.Scene {
     });
     vsAiHitArea.on('pointerdown', () => this.createRoomVsAI());
 
+    // WATCH LIVE Button
+    const watchY = 365;
+    const watchBg = this.add.graphics();
+    this._drawButton(watchBg, cx, watchY, btnW, btnH, 0x0d1020, 1, 0xff0040);
+
+    const watchHitArea = this.add.rectangle(cx, watchY, btnW, btnH, 0x000000, 0)
+      .setInteractive({ useHandCursor: true });
+
+    this.add.text(cx, watchY, '👁️  WATCH LIVE', {
+      fontSize: '16px',
+      fontFamily: 'Orbitron, Arial',
+      fontStyle: 'bold',
+      color: '#ff0040',
+    }).setOrigin(0.5);
+
+    watchHitArea.on('pointerover', () => {
+      watchBg.clear();
+      this._drawButton(watchBg, cx, watchY, btnW, btnH, 0x1a1020, 1, 0xff3366);
+      this.tweens.add({ targets: watchHitArea, scaleX: 1.03, scaleY: 1.03, duration: 100 });
+    });
+    watchHitArea.on('pointerout', () => {
+      watchBg.clear();
+      this._drawButton(watchBg, cx, watchY, btnW, btnH, 0x0d1020, 1, 0xff0040);
+      this.tweens.add({ targets: watchHitArea, scaleX: 1, scaleY: 1, duration: 100 });
+    });
+    watchHitArea.on('pointerdown', () => this.scene.start('SpectateListScene'));
+
     // ── Separator ─────────────────────────────────────────────────────────
-    this.add.text(cx, 365, '── OR JOIN EXISTING ROOM ──', {
+    this.add.text(cx, 425, '── OR JOIN EXISTING ROOM ──', {
       fontSize: '11px',
       fontFamily: 'Rajdhani, Arial',
       fontStyle: 'bold',
@@ -155,7 +182,7 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setAlpha(0.35);
 
     // ── Room UID Input ─────────────────────────────────────────────────────
-    const inputY = 415;
+    const inputY = 470;
     const inputBgG = this.add.graphics();
     inputBgG.fillStyle(0x0d1020, 1);
     inputBgG.fillRoundedRect(cx - 150, inputY - 20, 300, 40, 8);
@@ -196,7 +223,7 @@ class MenuScene extends Phaser.Scene {
     });
 
     // ── JOIN ROOM Button ───────────────────────────────────────────────────
-    const joinY = 485;
+    const joinY = 530;
     const joinBg = this.add.graphics();
     this._drawButton(joinBg, cx, joinY, btnW, btnH, 0x0d1020, 1, 0xff7800);
 
@@ -223,7 +250,7 @@ class MenuScene extends Phaser.Scene {
     joinHitArea.on('pointerdown', () => this.joinRoom());
 
     // ── Status Text ────────────────────────────────────────────────────────
-    this.statusText = this.add.text(cx, 565, '', {
+    this.statusText = this.add.text(cx, H - 45, '', {
       fontSize: '13px',
       fontFamily: 'Rajdhani, Arial',
       fontStyle: 'bold',

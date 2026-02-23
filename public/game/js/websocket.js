@@ -187,6 +187,38 @@ class WebSocketClient {
   }
 
   /**
+   * Join room as spectator (watch-only)
+   */
+  async spectateJoin(roomUid) {
+    return new Promise((resolve, reject) => {
+      console.log(`👁️ Spectating room ${roomUid}...`);
+      this.emit('SPECTATE_JOIN', { roomUid }, (response) => {
+        if (response && response.success) {
+          console.log('✅ Spectating room');
+          resolve(response.data);
+        } else {
+          reject(new Error(response?.message || 'Failed to spectate'));
+        }
+      });
+    });
+  }
+
+  /**
+   * Leave spectating
+   */
+  async spectateLeave(roomUid) {
+    return new Promise((resolve, reject) => {
+      this.emit('SPECTATE_LEAVE', { roomUid }, (response) => {
+        if (response && response.success) {
+          resolve();
+        } else {
+          reject(new Error(response?.message || 'Failed to leave spectate'));
+        }
+      });
+    });
+  }
+
+  /**
    * Leave room
    */
   async leaveRoom(roomUid) {
