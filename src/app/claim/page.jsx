@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Package, Truck, CheckCircle, Clock, MapPin, ChevronDown, ChevronUp } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
+import PageHeader from "@/components/shared/PageHeader";
 import { useWallet } from "@/hooks/useWallet";
 import { toast } from "sonner";
 
@@ -245,8 +246,9 @@ export default function ClaimPage() {
 
       <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
         {/* Header */}
-        <header className="px-4 pt-4 pb-3">
-          <div className="flex items-center gap-3 mb-4">
+        <header className="pt-0 pb-3">
+          <PageHeader />
+          <div className="flex items-center gap-3 mb-4 px-4">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-green-600 rounded-xl flex items-center justify-center">
               <Package size={20} className="text-white" />
             </div>
@@ -256,6 +258,7 @@ export default function ClaimPage() {
             </div>
           </div>
 
+          <div className="px-4">
           {/* Summary Badges */}
           <div className="grid grid-cols-2 gap-2 mb-4">
             <div className="bg-gray-800/80 rounded-xl p-3 text-center">
@@ -284,6 +287,7 @@ export default function ClaimPage() {
               </button>
             ))}
           </div>
+          </div>{/* end px-4 wrapper */}
         </header>
 
         {/* Content */}

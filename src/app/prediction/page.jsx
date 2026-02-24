@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import WalletButton from "@/components/shared/WalletButton";
+import PageHeader from "@/components/shared/PageHeader";
 import { useWallet } from "@/hooks/useWallet";
 import { useSignAndExecuteTransaction } from "@onelabs/dapp-kit";
 import { Transaction } from "@onelabs/sui/transactions";
@@ -256,8 +257,9 @@ export default function PredictionPage() {
 
       <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
         {/* Header */}
-        <header className="px-4 pt-6 pb-4">
-          <div className="flex items-center justify-between mb-3">
+        <header className="pt-0 pb-4">
+          <PageHeader />
+          <div className="flex items-center justify-between mb-3 px-4">
             <div className="flex items-center gap-2">
               <Trophy size={28} className="text-yellow-400" />
               <div>
@@ -274,13 +276,12 @@ export default function PredictionPage() {
                 <Eye size={14} />
                 WATCH LIVE
               </a>
-              <WalletButton />
             </div>
           </div>
 
           {/* Prediction Balance Card */}
           {isConnected && (
-            <div className="bg-gradient-to-r from-purple-900/60 to-indigo-900/60 border border-purple-500/30 rounded-2xl p-3 mb-3">
+            <div className="bg-gradient-to-r from-purple-900/60 to-indigo-900/60 border border-purple-500/30 rounded-2xl p-3 mb-3 mx-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Wallet size={16} className="text-purple-400" />
@@ -310,7 +311,7 @@ export default function PredictionPage() {
           )}
 
           {/* Tabs */}
-          <div className="flex gap-1 bg-gray-800/50 rounded-2xl p-1">
+          <div className="flex gap-1 bg-gray-800/50 rounded-2xl p-1 mx-4">
             {TABS.map((tab, i) => (
               <button
                 key={tab}

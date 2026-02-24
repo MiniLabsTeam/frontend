@@ -76,7 +76,7 @@ export function useWallet() {
       toast.error("No OneChain wallet found. Please install a wallet.");
       return;
     }
-    connectWallet({ wallet });
+    connectWallet({ wallet, chain: "onechain:testnet" });
   }, [wallets, connectWallet]);
 
   /**

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Trophy, Star, CheckCircle, Clock, Gift, Zap, RefreshCw } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
+import PageHeader from "@/components/shared/PageHeader";
 import { useWallet } from "@/hooks/useWallet";
 import { toast } from "sonner";
 
@@ -193,8 +194,9 @@ export default function QuestPage() {
 
       <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
         {/* Header */}
-        <header className="px-4 pt-4 pb-3">
-          <div className="flex items-center gap-3 mb-4">
+        <header className="pt-0 pb-3">
+          <PageHeader />
+          <div className="flex items-center gap-3 mb-4 px-4">
             <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center">
               <Trophy size={20} className="text-white" />
             </div>
@@ -204,6 +206,7 @@ export default function QuestPage() {
             </div>
           </div>
 
+          <div className="px-4">
           {/* Stats Row */}
           {stats && (
             <div className="grid grid-cols-3 gap-2 mb-4">
@@ -219,17 +222,6 @@ export default function QuestPage() {
                 <p className="text-green-400 font-black text-lg">{claimableCount}</p>
                 <p className="text-gray-400 text-[10px] uppercase tracking-wide">Ready</p>
               </div>
-            </div>
-          )}
-
-          {/* Token Balance */}
-          {tokenBalance !== null && (
-            <div className="bg-purple-900/30 border border-purple-500/30 rounded-xl p-2.5 flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🪙</span>
-                <p className="text-gray-400 text-xs uppercase tracking-wide">Token Balance</p>
-              </div>
-              <p className="text-purple-400 font-black text-lg">{tokenBalance.toLocaleString()}</p>
             </div>
           )}
 
@@ -249,6 +241,7 @@ export default function QuestPage() {
               </button>
             ))}
           </div>
+          </div>{/* end px-4 wrapper */}
         </header>
 
         {/* Quest List */}

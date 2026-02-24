@@ -7,6 +7,7 @@ import {
   ChevronRight, Wallet, HistoryIcon, BookOpen
 } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
+import PageHeader from "@/components/shared/PageHeader";
 import { useWallet } from "@/hooks/useWallet";
 import ShippingInfoModal from "@/components/ShippingInfoModal";
 import OnboardingTutorial from "@/components/OnboardingTutorial";
@@ -190,9 +191,10 @@ export default function ProfilePage() {
       {/* Main Content */}
       <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto">
         {/* Header */}
-        <header className="px-6 pt-4 pb-6">
+        <header className="pt-0 pb-6">
+          <PageHeader />
           {/* User Info Card */}
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-5 mb-4 shadow-xl border border-white/30">
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-5 mb-4 shadow-xl border border-white/30 mx-6">
             <div className="flex items-center gap-4 mb-4">
               <div className="w-18 h-18 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg p-4">
                 <Car size={36} className="text-white" strokeWidth={2} />

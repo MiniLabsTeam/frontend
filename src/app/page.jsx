@@ -280,13 +280,14 @@ export default function Home() {
       >
         {/* PAGE 1: HERO */}
         <div className="min-w-full h-full relative flex items-center justify-center">
-          <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 z-0 overflow-hidden">
             <video
               autoPlay
               loop
               muted
               playsInline
               className="absolute inset-0 w-full h-full object-cover"
+              style={{ transform: "scale(1.15)", transformOrigin: "center center" }}
               src="/assets/backgrounds/Permintaan_Video_Animasi_Gambar_Pengguna.mp4"
             />
             <div className="absolute inset-0 minigarage-hero-grid" aria-hidden="true" />

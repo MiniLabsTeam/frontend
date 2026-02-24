@@ -10,7 +10,7 @@ import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
 import { toast } from "sonner";
 import { PullToRefresh } from "@/components/shared";
-import WalletButton from "@/components/shared/WalletButton";
+import PageHeader from "@/components/shared/PageHeader";
 import { RARITY_CONFIG } from "@/constants";
 
 const RARITY_MAP = { 0: "common", 1: "rare", 2: "epic", 3: "legendary" };
@@ -159,18 +159,16 @@ export default function MarketplacePage() {
       <PullToRefresh onRefresh={handleRefresh}>
         <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
           {/* Header */}
-          <header className="px-4 pt-3 pb-4">
-            <div className="flex items-center justify-end mb-3">
-              <WalletButton />
-            </div>
+          <header className="pt-0 pb-4">
+            <PageHeader />
 
-            <h1 className="text-4xl font-black text-white mb-4 flex items-center gap-3">
+            <h1 className="text-4xl font-black text-white mb-4 px-4 flex items-center gap-3">
               <ShoppingBag size={36} strokeWidth={2.5} />
               Marketplace
             </h1>
 
             {/* Tab Switcher */}
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-4 px-4">
               <button
                 onClick={() => setActiveTab("browse")}
                 className={`flex-1 py-3 rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 ${
@@ -197,7 +195,7 @@ export default function MarketplacePage() {
 
             {/* Browse Filters */}
             {activeTab === "browse" && (
-              <div className="space-y-2">
+              <div className="space-y-2 px-4">
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                   {["all", "car", "sparePart"].map((t) => (
                     <button
@@ -237,7 +235,7 @@ export default function MarketplacePage() {
 
             {/* My Listings Sub-tabs */}
             {activeTab === "my-listings" && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 px-4">
                 {["active", "sold"].map((t) => (
                   <button
                     key={t}
@@ -289,7 +287,7 @@ export default function MarketplacePage() {
                           {/* Image */}
                           <div className="aspect-square flex items-center justify-center mb-2 mt-4">
                             <img
-                              src={getItemImage(name)}
+                              src={listing.car?.imageUrl || listing.sparePart?.imageUrl || getItemImage(name)}
                               alt={name}
                               className="w-full h-full object-contain drop-shadow-2xl"
                               onError={(e) => { e.target.src = "/assets/car/High Speed.png"; }}
@@ -341,7 +339,7 @@ export default function MarketplacePage() {
                         >
                           <div className="flex gap-3 items-center">
                             <img
-                              src={getItemImage(name)}
+                              src={listing.car?.imageUrl || listing.sparePart?.imageUrl || getItemImage(name)}
                               alt={name}
                               className="w-16 h-16 object-contain flex-shrink-0"
                               onError={(e) => { e.target.src = "/assets/car/High Speed.png"; }}
@@ -415,7 +413,7 @@ export default function MarketplacePage() {
             {/* Image */}
             <div className="bg-white/10 rounded-2xl p-4 mb-4">
               <img
-                src={getItemImage(getItemName(selectedListing))}
+                src={selectedListing.car?.imageUrl || selectedListing.sparePart?.imageUrl || getItemImage(getItemName(selectedListing))}
                 alt={getItemName(selectedListing)}
                 className="w-full h-40 object-contain"
                 onError={(e) => { e.target.src = "/assets/car/High Speed.png"; }}

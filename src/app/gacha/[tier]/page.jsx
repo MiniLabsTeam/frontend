@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import GachaRoulette from "@/components/GachaRoulette";
 import ProgressSteps from "@/components/shared/ProgressSteps";
 import WalletButton from "@/components/shared/WalletButton";
+import PageHeader from "@/components/shared/PageHeader";
 
 // ==================== On-Chain Constants ====================
 
@@ -452,16 +453,15 @@ export default function GachaTierPage() {
 
       <div className="relative z-10 flex flex-col h-screen max-w-md mx-auto">
         {/* Header */}
-        <header className="px-4 pt-3 pb-2">
-          <div className="flex items-center justify-between gap-2 mb-3">
+        <header className="pt-0 pb-2">
+          <PageHeader />
+          <div className="flex items-center gap-2 mb-3 px-4">
             <button
               onClick={() => router.push("/gacha")}
               className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
             >
               <span className="text-white text-xl">‹</span>
             </button>
-
-            <WalletButton />
           </div>
 
           <div className="text-center">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Gamepad2 } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import WalletButton from "@/components/shared/WalletButton";
+import PageHeader from "@/components/shared/PageHeader";
 import { useWallet } from "@/hooks/useWallet";
 import { getGachaTiers } from "@/lib/gachaApi";
 
@@ -60,15 +61,21 @@ const RARITY_COLOR = {
   legendary: "text-yellow-400",
 };
 
+const RARITY_NAMES = { "0": "Common", "1": "Rare", "2": "Epic", "3": "Legendary" };
+
 function buildRewards(probabilities, fallback) {
   if (!probabilities || typeof probabilities !== "object") return fallback;
-  const entries = Object.entries(probabilities).filter(([, v]) => v > 0);
+  const entries = Object.entries(probabilities).filter(([, v]) => Number(v) > 0);
   if (entries.length === 0) return fallback;
-  return entries.map(([rarity, chance]) => ({
-    rarity: rarity.charAt(0).toUpperCase() + rarity.slice(1),
-    chance: `${chance}%`,
-    color: RARITY_COLOR[rarity.toLowerCase()] ?? "text-gray-300",
-  }));
+  return entries.map(([key, val]) => {
+    const name = RARITY_NAMES[key] ?? (key.charAt(0).toUpperCase() + key.slice(1));
+    const pct = Math.round(Number(val) * 100 * 10) / 10;
+    return {
+      rarity: name,
+      chance: `${pct}%`,
+      color: RARITY_COLOR[name.toLowerCase()] ?? "text-gray-300",
+    };
+  });
 }
 
 export default function GachaPage() {
@@ -121,9 +128,7 @@ export default function GachaPage() {
       <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
         {/* Header */}
         <header className="px-4 pt-6 pb-4">
-          <div className="flex items-center justify-end gap-2 mb-4">
-            <WalletButton />
-          </div>
+          <PageHeader />
 
           {/* Page Title */}
           <div className="text-center mb-4">
@@ -141,7 +146,7 @@ export default function GachaPage() {
             className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 rounded-2xl py-3 px-4 font-black text-white shadow-lg transition-all active:scale-95"
           >
             <Gamepad2 size={20} strokeWidth={2.5} />
-            <span>🎮 PLAY ENDLESS RACE</span>
+            <span>PLAY ENDLESS RACE</span>
           </button>
         </header>
 

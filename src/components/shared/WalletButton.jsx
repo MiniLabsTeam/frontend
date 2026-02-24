@@ -103,7 +103,7 @@ export default function WalletButton({ className = "" }) {
   if (wallets.length === 1) {
     return (
       <button
-        onClick={() => connect({ wallet: wallets[0] })}
+        onClick={() => connect({ wallet: wallets[0], chain: "onechain:testnet" })}
         disabled={isConnecting}
         className={`flex items-center gap-2 bg-orange-500 hover:bg-orange-600 border-2 border-orange-400 rounded-full px-3 py-1.5 transition-all ${className}`}
       >
@@ -139,7 +139,7 @@ export default function WalletButton({ className = "" }) {
             <button
               key={wallet.name}
               onClick={() => {
-                connect({ wallet });
+                connect({ wallet, chain: "onechain:testnet" });
                 setShowWalletList(false);
               }}
               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-800 transition-colors"

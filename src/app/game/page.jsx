@@ -7,6 +7,27 @@ import BottomNavigation from "@/components/shared/BottomNavigation";
 import { Gamepad2, Car, ChevronLeft, Play, CheckCircle2, Zap, Wind, Gauge, RotateCw } from "lucide-react";
 import { toast } from "sonner";
 
+// ─── Car image fallback by name ───────────────────────────────────────────────
+
+function getCarImageByName(name = "") {
+  const n = name.toLowerCase();
+  if (n.includes("porsche 911 turbo")) return "/assets/car_no_background/01-Porche-911-Turbo-removebg-preview.png";
+  if (n.includes("bugatti")) return "/assets/car_no_background/02-Bugatti-Chiron-removebg-preview.png";
+  if (n.includes("jesko") || n.includes("koenigsegg")) return "/assets/car_no_background/03-Koenigsegg_Jesko-removebg-preview.png";
+  if (n.includes("bmw m3")) return "/assets/car_no_background/04-BMW-M3-GTR-removebg-preview.png";
+  if (n.includes("huracan") || n.includes("lamborghini")) return "/assets/car_no_background/05-Lamborghini-Huracan-removebg-preview.png";
+  if (n.includes("audi")) return "/assets/car_no_background/06-Audi-RS-Superwagon-removebg-preview.png";
+  if (n.includes("ferrari f8")) return "/assets/car_no_background/07-Ferrari-F8-Turbo-removebg-preview.png";
+  if (n.includes("pagani") || n.includes("huayra")) return "/assets/car_no_background/08-Pagain-Huayra-removebg-preview.png";
+  if (n.includes("mercedes amg gt")) return "/assets/car_no_background/11-Mercedes-AMG-GT-removebg-preview.png";
+  if (n.includes("mercedes")) return "/assets/car_no_background/09-Mercede-AMG-removebg-preview.png";
+  if (n.includes("civic") || n.includes("honda")) return "/assets/car_no_background/10-Honda-Civic-removebg-preview.png";
+  if (n.includes("corolla") || n.includes("toyota")) return "/assets/car_no_background/12-Toyota-Corrola-removebg-preview.png";
+  if (n.includes("porsche 911")) return "/assets/car_no_background/13-Proche-911-removebg-preview.png";
+  if (n.includes("720s") || n.includes("mclaren")) return "/assets/car_no_background/14-McLAREN-720s-removebg-preview.png";
+  return null;
+}
+
 // ─── Rarity helpers ───────────────────────────────────────────────────────────
 
 function getRarityLabel(rarity) {
@@ -336,25 +357,29 @@ export default function GamePage() {
 
                   {/* Car Image */}
                   <div className="flex items-center justify-center h-44 mb-4">
-                    {(selectedCar.imageUrl || selectedCar.image) ? (
-                      <img
-                        src={selectedCar.imageUrl || selectedCar.image}
-                        alt={selectedCar.name || "Car"}
-                        className="h-full w-full object-contain drop-shadow-2xl"
-                        style={{ filter: "drop-shadow(0 8px 32px rgba(0,0,0,0.6))" }}
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center gap-3 opacity-40">
-                        <Car size={80} className="text-white" />
-                      </div>
-                    )}
+                    {(() => {
+                      const imgSrc = selectedCar.imageUrl || selectedCar.image || getCarImageByName(selectedCar.name);
+                      return imgSrc ? (
+                        <img
+                          src={imgSrc}
+                          alt={selectedCar.name || "Car"}
+                          className="h-full w-full object-contain drop-shadow-2xl"
+                          style={{ filter: "drop-shadow(0 8px 32px rgba(0,0,0,0.6))" }}
+                          onError={(e) => { e.target.style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center gap-3 opacity-40">
+                          <Car size={80} className="text-white" />
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Car Name */}
                   <h2
                     className="text-2xl font-black text-center mb-5 tracking-wide"
                     style={{
-                      background: `linear-gradient(90deg, #fff 40%, ${getRarityTextColor(selectedCar.rarity)} 100%)`,
+                      backgroundImage: `linear-gradient(90deg, #fff 40%, ${getRarityTextColor(selectedCar.rarity)} 100%)`,
                       WebkitBackgroundClip: "text",
                       WebkitTextFillColor: "transparent",
                       backgroundClip: "text",
@@ -410,17 +435,21 @@ export default function GamePage() {
 
                       <div className="flex flex-col items-center gap-1 px-2 py-2 w-full">
                         {/* Car image or icon */}
-                        {(car.imageUrl || car.image) ? (
-                          <img
-                            src={car.imageUrl || car.image}
-                            alt={car.name || "Car"}
-                            className="w-12 h-10 object-contain"
-                          />
-                        ) : (
-                          <div className="w-12 h-10 flex items-center justify-center">
-                            <Car size={24} style={{ color: getRarityTextColor(car.rarity) }} />
-                          </div>
-                        )}
+                        {(() => {
+                          const imgSrc = car.imageUrl || car.image || getCarImageByName(car.name);
+                          return imgSrc ? (
+                            <img
+                              src={imgSrc}
+                              alt={car.name || "Car"}
+                              className="w-12 h-10 object-contain"
+                              onError={(e) => { e.target.style.display = "none"; }}
+                            />
+                          ) : (
+                            <div className="w-12 h-10 flex items-center justify-center">
+                              <Car size={24} style={{ color: getRarityTextColor(car.rarity) }} />
+                            </div>
+                          );
+                        })()}
 
                         <span className="text-white text-center font-bold leading-tight" style={{ fontSize: 9 }}>
                           {(car.name || `Car #${idx + 1}`).slice(0, 12)}

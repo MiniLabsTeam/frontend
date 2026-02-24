@@ -10,7 +10,7 @@ import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
 import { toast } from "sonner";
 import { PullToRefresh } from "@/components/shared";
-import WalletButton from "@/components/shared/WalletButton";
+import PageHeader from "@/components/shared/PageHeader";
 import { RARITY_CONFIG, INVENTORY_FILTERS } from "@/constants";
 
 // Map numeric rarity to string key used in RARITY_CONFIG
@@ -171,15 +171,13 @@ export default function InventoryPage() {
       <PullToRefresh onRefresh={handleRefresh}>
         <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
           {/* Header */}
-          <header className="px-4 pt-3 pb-4">
-            <div className="flex items-center justify-end mb-3">
-              <WalletButton />
-            </div>
+          <header className="pt-0 pb-4">
+            <PageHeader />
 
-            <h1 className="text-4xl font-black text-orange-200 mb-4">Inventory</h1>
+            <h1 className="text-4xl font-black text-orange-200 mb-4 px-4">Inventory</h1>
 
             {/* Tab Switcher */}
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-4 px-4">
               <button
                 onClick={() => setActiveTab("cars")}
                 className={`flex-1 py-3 rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 ${
@@ -206,7 +204,7 @@ export default function InventoryPage() {
 
             {/* Rarity filter (cars only) */}
             {activeTab === "cars" && (
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <div className="flex gap-2 overflow-x-auto pb-2 px-4 scrollbar-hide">
                 {INVENTORY_FILTERS.map((f) => (
                   <button
                     key={f}
@@ -264,7 +262,7 @@ export default function InventoryPage() {
                           {/* Car Image */}
                           <div className="aspect-square flex items-center justify-center mb-2 mt-5">
                             <img
-                              src={getCarImage(car.name)}
+                              src={car.imageUrl || getCarImage(car.name)}
                               alt={car.name}
                               className="w-full h-full object-contain drop-shadow-2xl"
                               onError={(e) => {

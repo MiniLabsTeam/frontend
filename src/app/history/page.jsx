@@ -5,6 +5,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { useRouter } from "next/navigation";
 import { Clock, TrendingUp, Package, ShoppingCart, DollarSign, Tag, Sparkles, Wrench, BadgeDollarSign, ChevronLeft } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
+import PageHeader from "@/components/shared/PageHeader";
 import { toast } from "sonner";
 
 export default function HistoryPage() {
@@ -111,6 +112,7 @@ export default function HistoryPage() {
       <div className="relative z-10 max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Header */}
         <header className="mb-4 sm:mb-6">
+          <PageHeader />
           <div className="flex items-center gap-3 mb-2">
             <button
               onClick={() => router.back()}

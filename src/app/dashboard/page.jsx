@@ -402,81 +402,86 @@ export default function Dashboard() {
             </div>
 
             {/* Gacha Tier Rates */}
-            <div className="bg-gray-900/80 rounded-2xl p-4 shadow-2xl">
-              <h3 className="text-white font-black text-sm mb-3 tracking-wide">
+            <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)', borderRadius: '1rem', padding: '1rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+              <h3 style={{ color: '#fff', fontWeight: 900, fontSize: '0.8rem', marginBottom: '0.75rem', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 🎰 GACHA TIER RATES
               </h3>
-              {supplyData.length > 0 ? (
-                <div className="space-y-3">
-                  {supplyData.map((tier) => {
-                    const tierCfg = {
-                      1: { bg: "bg-gray-800/80", border: "border-gray-600/40", text: "text-gray-300", icon: "📦", bars: ["bg-gray-400", "bg-blue-400", "bg-purple-400", "bg-yellow-400"] },
-                      2: { bg: "bg-blue-900/40", border: "border-blue-500/40", text: "text-blue-300", icon: "🎲", bars: ["bg-gray-400", "bg-blue-400", "bg-purple-400", "bg-yellow-400"] },
-                      3: { bg: "bg-amber-900/30", border: "border-yellow-500/40", text: "text-yellow-300", icon: "💎", bars: ["bg-gray-400", "bg-blue-400", "bg-purple-400", "bg-yellow-400"] },
-                    };
-                    const RARITY_NAMES = { "0": "Common", "1": "Rare", "2": "Epic", "3": "Legendary" };
-                    const cfg = tierCfg[tier.id] || tierCfg[1];
-                    const probs = tier.probabilities || {};
-                    const octPrice = tier.price
-                      ? (Number(tier.price) / 1_000_000_000).toLocaleString("en", { maximumFractionDigits: 2 })
-                      : "—";
-
-                    return (
-                      <div key={tier.id} className={`${cfg.bg} rounded-xl p-3 border ${cfg.border}`}>
-                        <div className="flex items-center justify-between mb-2.5">
-                          <div className="flex items-center gap-1.5">
-                            <span>{cfg.icon}</span>
-                            <span className={`text-xs font-black ${cfg.text} tracking-wider`}>
-                              {tier.name?.toUpperCase() || `TIER ${tier.id}`}
+              {(() => {
+                const RARITY_NAMES = { "0": "Common", "1": "Rare", "2": "Epic", "3": "Legendary" };
+                const RARITY_STYLE = {
+                  Common:   { color: '#94a3b8', bar: 'linear-gradient(90deg, #64748b, #94a3b8)' },
+                  Rare:     { color: '#60a5fa', bar: 'linear-gradient(90deg, #2563eb, #60a5fa)' },
+                  Epic:     { color: '#c084fc', bar: 'linear-gradient(90deg, #9333ea, #e879f9)' },
+                  Legendary:{ color: '#fbbf24', bar: 'linear-gradient(90deg, #d97706, #fde68a)' },
+                };
+                const TIER_STYLE = {
+                  1: { bg: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', border: '1.5px solid #334155', titleColor: '#e2e8f0', icon: '📦', priceBg: '#1e293b' },
+                  2: { bg: 'linear-gradient(135deg, #1e3a5f 0%, #0c1f3f 100%)', border: '1.5px solid #3b82f6', titleColor: '#93c5fd', icon: '🎲', priceBg: '#1e3a5f' },
+                  3: { bg: 'linear-gradient(135deg, #3d1f00 0%, #1c0f00 100%)', border: '1.5px solid #f59e0b', titleColor: '#fcd34d', icon: '💎', priceBg: '#3d1f00' },
+                };
+                return supplyData.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {supplyData.map((tier) => {
+                      const ts = TIER_STYLE[tier.id] || TIER_STYLE[1];
+                      const probs = tier.probabilities || {};
+                      const octPrice = tier.price
+                        ? (Number(tier.price) / 1_000_000_000).toLocaleString("en", { maximumFractionDigits: 2 })
+                        : "—";
+                      return (
+                        <div key={tier.id} style={{ background: ts.bg, border: ts.border, borderRadius: '0.75rem', padding: '0.75rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <span style={{ fontSize: '1rem' }}>{ts.icon}</span>
+                              <span style={{ color: ts.titleColor, fontSize: '0.7rem', fontWeight: 900, letterSpacing: '0.08em' }}>
+                                {tier.name?.toUpperCase() || `TIER ${tier.id}`}
+                              </span>
+                            </div>
+                            <span style={{ color: '#fb923c', fontSize: '0.65rem', fontWeight: 700, background: 'rgba(0,0,0,0.4)', padding: '0.15rem 0.5rem', borderRadius: '999px', border: '1px solid rgba(251,146,60,0.3)' }}>
+                              {octPrice} OCT
                             </span>
                           </div>
-                          <span className="text-orange-300 text-xs font-bold bg-black/30 px-2 py-0.5 rounded-full">
-                            {octPrice} OCT
-                          </span>
-                        </div>
-                        <div className="space-y-1.5">
-                          {Object.entries(probs)
-                            .filter(([, v]) => v > 0)
-                            .map(([key, val], idx) => {
-                              const label = RARITY_NAMES[key] || key;
-                              const pct = Math.round(Number(val) * 100 * 10) / 10;
-                              const barColor = cfg.bars[idx] || "bg-gray-400";
-                              return (
-                                <div key={key} className="flex items-center gap-2">
-                                  <span className="text-gray-400 text-[10px] w-14 truncate">{label}</span>
-                                  <div className="flex-1 h-1.5 bg-gray-800/60 rounded-full overflow-hidden">
-                                    <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {Object.entries(probs)
+                              .filter(([, v]) => v > 0)
+                              .map(([key, val]) => {
+                                const label = RARITY_NAMES[key] || key;
+                                const rs = RARITY_STYLE[label] || RARITY_STYLE.Common;
+                                const pct = Math.round(Number(val) * 100 * 10) / 10;
+                                return (
+                                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span style={{ color: rs.color, fontSize: '0.6rem', fontWeight: 700, width: '3.5rem', flexShrink: 0 }}>{label}</span>
+                                    <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '999px', overflow: 'hidden' }}>
+                                      <div style={{ height: '100%', width: `${pct}%`, background: rs.bar, borderRadius: '999px', transition: 'width 0.5s ease', boxShadow: `0 0 6px ${rs.color}88` }} />
+                                    </div>
+                                    <span style={{ color: rs.color, fontSize: '0.6rem', fontWeight: 900, width: '2rem', textAlign: 'right' }}>{pct}%</span>
                                   </div>
-                                  <span className="text-gray-300 text-[10px] w-8 text-right tabular-nums">{pct}%</span>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="bg-gray-800/50 rounded-xl p-3 animate-pulse">
-                      <div className="flex justify-between mb-2.5">
-                        <div className="h-3 w-24 bg-gray-700 rounded" />
-                        <div className="h-3 w-16 bg-gray-700 rounded" />
-                      </div>
-                      <div className="space-y-1.5">
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} style={{ background: 'rgba(30,41,59,0.5)', borderRadius: '0.75rem', padding: '0.75rem', opacity: 0.7 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                          <div style={{ height: '0.75rem', width: '6rem', background: '#334155', borderRadius: '4px' }} />
+                          <div style={{ height: '0.75rem', width: '4rem', background: '#334155', borderRadius: '4px' }} />
+                        </div>
                         {[1, 2, 3].map((j) => (
-                          <div key={j} className="flex items-center gap-2">
-                            <div className="h-2 w-14 bg-gray-700 rounded" />
-                            <div className="flex-1 h-1.5 bg-gray-700 rounded-full" />
-                            <div className="h-2 w-8 bg-gray-700 rounded" />
+                          <div key={j} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                            <div style={{ height: '0.5rem', width: '3.5rem', background: '#334155', borderRadius: '4px' }} />
+                            <div style={{ flex: 1, height: '6px', background: '#334155', borderRadius: '999px' }} />
+                            <div style={{ height: '0.5rem', width: '2rem', background: '#334155', borderRadius: '4px' }} />
                           </div>
                         ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Rare Pool Showcase */}

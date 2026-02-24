@@ -2,15 +2,15 @@
 
 import { createNetworkConfig, SuiClientProvider, WalletProvider } from "@onelabs/dapp-kit";
 import "@onelabs/dapp-kit/dist/index.css";
-import { getFullnodeUrl } from "@onelabs/sui/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalLoadingIndicator from "@/components/shared/GlobalLoadingIndicator";
+import NetworkGuard from "@/components/shared/NetworkGuard";
 
+// Force OneChain Testnet only — no mainnet option exposed
 const { networkConfig } = createNetworkConfig({
-  testnet: { url: getFullnodeUrl("testnet") },
-  mainnet: { url: getFullnodeUrl("mainnet") },
+  testnet: { url: "https://rpc-testnet.onelabs.cc" },
 });
 
 const queryClient = new QueryClient();
@@ -21,6 +21,7 @@ export default function Providers({ children }) {
       <QueryClientProvider client={queryClient}>
         <SuiClientProvider networks={networkConfig} defaultNetwork="testnet">
           <WalletProvider autoConnect>
+            <NetworkGuard />
             <GlobalLoadingIndicator />
             <Toaster
               position="top-center"
