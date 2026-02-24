@@ -149,7 +149,7 @@ export default function GamePage() {
     localStorage.setItem("game_car_uid", selectedCar.tokenId || selectedCar.uid || selectedCar.id || "");
     localStorage.setItem(
       "backend_url",
-      (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000") + "/api"
+      (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001") + "/api"
     );
     localStorage.setItem("game_mode", gameMode); // "multiplayer" or "vs_ai"
 
@@ -274,21 +274,19 @@ export default function GamePage() {
             <div className="flex gap-2 mb-4 justify-center">
               <button
                 onClick={() => setGameMode("multiplayer")}
-                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
-                  gameMode === "multiplayer"
+                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${gameMode === "multiplayer"
                     ? "bg-orange-500 text-black"
                     : "bg-gray-800 text-gray-400 border border-gray-700"
-                }`}
+                  }`}
               >
                 👥 Multiplayer
               </button>
               <button
                 onClick={() => setGameMode("vs_ai")}
-                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
-                  gameMode === "vs_ai"
+                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${gameMode === "vs_ai"
                     ? "bg-orange-500 text-black"
                     : "bg-gray-800 text-gray-400 border border-gray-700"
-                }`}
+                  }`}
               >
                 🤖 VS AI
               </button>
@@ -373,10 +371,10 @@ export default function GamePage() {
                       border: "1px solid rgba(255,255,255,0.06)",
                     }}
                   >
-                    <StatBar icon={Gauge}    label="Speed"    value={selectedCar.baseSpeed}        rarity={selectedCar.rarity} />
-                    <StatBar icon={Zap}      label="Accel"    value={selectedCar.baseAcceleration}  rarity={selectedCar.rarity} />
-                    <StatBar icon={Wind}     label="Handling" value={selectedCar.baseHandling}      rarity={selectedCar.rarity} />
-                    <StatBar icon={RotateCw} label="Drift"    value={selectedCar.baseDrift}         rarity={selectedCar.rarity} />
+                    <StatBar icon={Gauge} label="Speed" value={selectedCar.baseSpeed} rarity={selectedCar.rarity} />
+                    <StatBar icon={Zap} label="Accel" value={selectedCar.baseAcceleration} rarity={selectedCar.rarity} />
+                    <StatBar icon={Wind} label="Handling" value={selectedCar.baseHandling} rarity={selectedCar.rarity} />
+                    <StatBar icon={RotateCw} label="Drift" value={selectedCar.baseDrift} rarity={selectedCar.rarity} />
                   </div>
                 </div>
               </div>
