@@ -174,6 +174,13 @@ class GameAPI {
       amount,
     });
   }
+
+  /**
+   * Get user's deposited prediction balance
+   */
+  async getPredictionBalance() {
+    return await this._request('GET', '/prediction/balance');
+  }
 }
 
 // Create global API instance

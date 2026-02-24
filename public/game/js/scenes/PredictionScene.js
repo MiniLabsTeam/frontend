@@ -1,6 +1,7 @@
 /**
  * PredictionScene - In-game betting overlay
  * Runs as a parallel scene on top of GameScene
+ * Uses deposited prediction balance (deposit OCT via prediction page first)
  */
 
 const BET_AMOUNT = 2; // Fixed bet amount in OCT per click
@@ -14,6 +15,7 @@ class PredictionScene extends Phaser.Scene {
     this.isOpen = false;
     this.roomUid = null;
     this.betting = false;
+    this.balanceMist = 0n;
   }
 
   init(data) {
@@ -35,33 +37,49 @@ class PredictionScene extends Phaser.Scene {
     this.panelBg.lineBetween(panelX, 0, panelX, H);
 
     // Title
-    this.add.text(panelX + panelW / 2, 20, 'PREDICTION', {
+    this.add.text(panelX + panelW / 2, 16, 'PREDICTION', {
       fontSize: '16px',
       fontFamily: 'Orbitron, Arial',
       fontStyle: 'bold',
       color: '#ffd700',
     }).setOrigin(0.5);
 
-    this.add.text(panelX + panelW / 2, 40, 'Tap a player to bet ' + BET_AMOUNT + ' OCT', {
+    this.add.text(panelX + panelW / 2, 34, 'Tap a player to bet ' + BET_AMOUNT + ' OCT', {
       fontSize: '10px',
       fontFamily: 'Rajdhani, Arial',
       color: '#aaaaaa',
     }).setOrigin(0.5);
 
+    // Balance display
+    this.balanceText = this.add.text(panelX + panelW / 2, 50, 'Balance: ...', {
+      fontSize: '11px',
+      fontFamily: 'Rajdhani, Arial',
+      fontStyle: 'bold',
+      color: '#a78bfa',
+    }).setOrigin(0.5);
+
+    // Betting window countdown
+    this.bettingWindowText = this.add.text(panelX + panelW / 2, 64, '', {
+      fontSize: '11px',
+      fontFamily: 'Orbitron, Arial',
+      fontStyle: 'bold',
+      color: '#e056fd',
+    }).setOrigin(0.5);
+
     // Divider
     const divG = this.add.graphics();
     divG.fillStyle(0xffd700, 0.3);
-    divG.fillRect(panelX + 15, 55, panelW - 30, 1);
+    divG.fillRect(panelX + 15, 78, panelW - 30, 1);
 
     // Pool info
-    this.poolText = this.add.text(panelX + 15, 65, 'Pool: loading...', {
+    this.poolText = this.add.text(panelX + 15, 84, 'Pool: loading...', {
       fontSize: '12px',
       fontFamily: 'Rajdhani, Arial',
       fontStyle: 'bold',
       color: '#ffffff',
     });
 
-    this.statusText = this.add.text(panelX + panelW - 15, 65, '', {
+    this.statusText = this.add.text(panelX + panelW - 15, 84, '', {
       fontSize: '10px',
       fontFamily: 'Orbitron, Arial',
       fontStyle: 'bold',
@@ -69,11 +87,12 @@ class PredictionScene extends Phaser.Scene {
     }).setOrigin(1, 0);
 
     // Players container
-    this.playersContainer = this.add.container(0, 90);
+    this.playersContainer = this.add.container(0, 106);
+    this.bettingClosed = false;
 
     // Close button
     const closeX = panelX + panelW - 20;
-    const closeY = 20;
+    const closeY = 16;
     this.add.text(closeX, closeY, 'X', {
       fontSize: '16px',
       fontFamily: 'Orbitron, Arial',
@@ -88,20 +107,46 @@ class PredictionScene extends Phaser.Scene {
       fontFamily: 'Rajdhani, Arial',
       fontStyle: 'bold',
       color: '#00e676',
+      wordWrap: { width: panelW - 30 },
+      align: 'center',
     }).setOrigin(0.5);
 
-    // Fetch pool data
+    // Fetch pool data and balance
     this.fetchPool();
+    this.fetchBalance();
 
-    // Auto-refresh every 10s
+    // Auto-refresh every 5s (pool + balance + betting countdown)
     this.refreshTimer = this.time.addEvent({
-      delay: 10000,
+      delay: 5000,
       loop: true,
-      callback: () => this.fetchPool(),
+      callback: () => {
+        this.fetchPool();
+        this.fetchBalance();
+      },
     });
 
     this.panelX = panelX;
     this.panelW = panelW;
+  }
+
+  async fetchBalance() {
+    try {
+      const response = await window.gameAPI.getPredictionBalance();
+      if (response.success) {
+        this.balanceMist = BigInt(response.data?.balanceMist || '0');
+        const balanceOCT = (Number(this.balanceMist) / MIST_PER_OCT).toFixed(2);
+        this.balanceText.setText(`Balance: ${balanceOCT} OCT`);
+
+        if (this.balanceMist <= 0n) {
+          this.balanceText.setColor('#ff4444');
+        } else {
+          this.balanceText.setColor('#a78bfa');
+        }
+      }
+    } catch (err) {
+      this.balanceText.setText('Balance: N/A');
+      this.balanceText.setColor('#666666');
+    }
   }
 
   async fetchPool() {
@@ -128,9 +173,30 @@ class PredictionScene extends Phaser.Scene {
     const totalPoolOCT = (totalPoolMist / MIST_PER_OCT).toFixed(2);
     this.poolText.setText(`Pool: ${totalPoolOCT} OCT`);
 
-    const status = this.pool.isSettled ? 'SETTLED' : 'OPEN';
+    // Check betting window
+    const bettingEndsAt = this.pool.room?.bettingEndsAt;
+    if (bettingEndsAt) {
+      const endsAt = new Date(bettingEndsAt).getTime();
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
+
+      if (remaining > 0) {
+        this.bettingWindowText.setText(`Betting closes in ${remaining}s`);
+        this.bettingWindowText.setColor(remaining <= 10 ? '#d63031' : '#e056fd');
+        this.bettingClosed = false;
+      } else {
+        this.bettingWindowText.setText('Betting closed');
+        this.bettingWindowText.setColor('#d63031');
+        this.bettingClosed = true;
+      }
+    } else {
+      this.bettingWindowText.setText('');
+      this.bettingClosed = false;
+    }
+
+    const status = this.pool.isSettled ? 'SETTLED' : this.bettingClosed ? 'CLOSED' : 'OPEN';
     this.statusText.setText(status);
-    this.statusText.setColor(this.pool.isSettled ? '#666666' : '#00e676');
+    this.statusText.setColor(this.pool.isSettled ? '#666666' : this.bettingClosed ? '#d63031' : '#00e676');
 
     // Render player betting cards
     this.playersContainer.removeAll(true);
@@ -180,8 +246,8 @@ class PredictionScene extends Phaser.Scene {
         color: '#888888',
       });
 
-      // BET button (only if pool is not settled)
-      if (!this.pool.isSettled) {
+      // BET button (only if pool is not settled and betting is still open)
+      if (!this.pool.isSettled && !this.bettingClosed) {
         const btnY = y + 52;
         const btnBg = this.add.graphics();
         btnBg.fillStyle(0x6c3ce6, 1);
@@ -223,6 +289,17 @@ class PredictionScene extends Phaser.Scene {
     const panelX = this.panelX;
     const panelW = this.panelW;
 
+    // Check balance before betting
+    const betMist = BigInt(BET_AMOUNT) * BigInt(MIST_PER_OCT);
+    if (this.balanceMist < betMist) {
+      this.messageText.setText('Not enough balance! Deposit OCT on the Prediction page first.').setColor('#ff4444');
+      this.betting = false;
+      this.time.delayedCall(4000, () => {
+        if (this.messageText) this.messageText.setText('');
+      });
+      return;
+    }
+
     // Visual feedback — button turns gold
     btnBg.clear();
     btnBg.fillStyle(0xffd700, 1);
@@ -233,8 +310,9 @@ class PredictionScene extends Phaser.Scene {
     try {
       await window.gameAPI.placeBet(this.pool.id, playerAddress, BET_AMOUNT);
       this.messageText.setText(`+${BET_AMOUNT} OCT on ${playerName}!`).setColor('#00e676');
-      // Refresh pool data to show updated odds
+      // Refresh pool data and balance
       this.fetchPool();
+      this.fetchBalance();
     } catch (err) {
       const msg = err.message || 'Bet failed';
       this.messageText.setText(msg).setColor('#ff4444');

@@ -219,6 +219,25 @@ class WebSocketClient {
   }
 
   /**
+   * Cancel room (creator only, during WAITING or BETTING)
+   */
+  async cancelRoom(roomUid) {
+    return new Promise((resolve, reject) => {
+      console.log(`❌ Cancelling room ${roomUid}...`);
+      this.emit('ROOM_CANCEL', { roomUid }, (response) => {
+        if (response && response.success) {
+          console.log('✅ Room cancelled');
+          resolve(response.data);
+        } else {
+          const errorMsg = response?.message || 'Failed to cancel room';
+          console.error('❌ Cancel room error:', errorMsg);
+          reject(new Error(errorMsg));
+        }
+      });
+    });
+  }
+
+  /**
    * Leave room
    */
   async leaveRoom(roomUid) {

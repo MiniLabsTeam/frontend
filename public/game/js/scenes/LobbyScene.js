@@ -117,10 +117,43 @@ class LobbyScene extends Phaser.Scene {
     // Players container
     this.playersContainer = this.add.container(0, 252);
 
-    // ── Ready Button ───────────────────────────────────────────────────────
+    // ── Betting Countdown (PvP only, hidden initially) ─────────────────────
+    this.bettingContainer = this.add.container(cx, 380).setVisible(false);
+
+    const bettingBg = this.add.graphics();
+    bettingBg.fillStyle(0x1a0a2e, 0.9);
+    bettingBg.fillRoundedRect(-160, -40, 320, 80, 10);
+    bettingBg.lineStyle(2, 0x9b59b6, 0.7);
+    bettingBg.strokeRoundedRect(-160, -40, 320, 80, 10);
+
+    this.bettingTimerText = this.add.text(0, -18, 'BETTING PERIOD', {
+      fontSize: '12px',
+      fontFamily: 'Orbitron, Arial',
+      fontStyle: 'bold',
+      color: '#9b59b6',
+      letterSpacing: 2,
+    }).setOrigin(0.5);
+
+    this.bettingCountdownText = this.add.text(0, 10, '60s', {
+      fontSize: '28px',
+      fontFamily: 'Orbitron, Arial',
+      fontStyle: 'bold',
+      color: '#e056fd',
+    }).setOrigin(0.5);
+
+    this.bettingPoolText = this.add.text(0, 35, 'Pool: 4.00 OCT', {
+      fontSize: '11px',
+      fontFamily: 'Rajdhani, Arial',
+      color: '#ffffff',
+    }).setOrigin(0.5).setAlpha(0.6);
+
+    this.bettingContainer.add([bettingBg, this.bettingTimerText, this.bettingCountdownText, this.bettingPoolText]);
+
+    // ── Ready Button (AI only) / Cancel Button (PvP) ─────────────────────
     const btnY = 460;
     const btnW = 260, btnH = 52;
 
+    // Ready button (shown for AI, hidden for PvP)
     this.readyBtnBg = this.add.graphics();
     this._drawButton(this.readyBtnBg, cx, btnY, btnW, btnH, 0xff7800);
 
@@ -153,8 +186,51 @@ class LobbyScene extends Phaser.Scene {
     this.readyButton = readyHit;
     this.readyButtonBgRef = this.readyBtnBg;
 
+    // Cancel button (PvP only, shown for host)
+    const cancelBtnY = 530;
+    this.cancelBtnBg = this.add.graphics();
+    this._drawButton(this.cancelBtnBg, cx, cancelBtnY, 180, 40, 0x2d1a1a);
+    this.cancelBtnBg.lineStyle(1.5, 0xd63031, 0.7);
+    this.cancelBtnBg.strokeRoundedRect(cx - 90, cancelBtnY - 20, 180, 40, 8);
+
+    this.cancelButtonText = this.add.text(cx, cancelBtnY, 'CANCEL ROOM', {
+      fontSize: '13px',
+      fontFamily: 'Orbitron, Arial',
+      fontStyle: 'bold',
+      color: '#d63031',
+    }).setOrigin(0.5);
+
+    const cancelHit = this.add.rectangle(cx, cancelBtnY, 180, 40, 0x000000, 0)
+      .setInteractive({ useHandCursor: true });
+
+    cancelHit.on('pointerdown', () => this.cancelRoom());
+
+    this.cancelButton = cancelHit;
+    this.cancelBtnBg.setVisible(false);
+    this.cancelButtonText.setVisible(false);
+    this.cancelButton.setVisible(false);
+    this.cancelButton.disableInteractive();
+
+    // For PvP: hide READY button, show CANCEL for host
+    if (!this.vsAI) {
+      this.readyBtnBg.setVisible(false);
+      this.readyButtonText.setVisible(false);
+      this.readyButton.disableInteractive();
+      this.readyButton.setVisible(false);
+
+      if (this.isHost) {
+        this.cancelBtnBg.setVisible(true);
+        this.cancelButtonText.setVisible(true);
+        this.cancelButton.setVisible(true);
+        this.cancelButton.setInteractive({ useHandCursor: true });
+      }
+    }
+
     // ── Instructions ───────────────────────────────────────────────────────
-    this.instructionText = this.add.text(cx, 522, 'Game starts when all players are ready', {
+    const instructionMsg = this.vsAI
+      ? 'Game starts when all players are ready'
+      : 'Waiting for opponent… Auto-bet: 2 OCT on yourself';
+    this.instructionText = this.add.text(cx, this.vsAI ? 522 : 480, instructionMsg, {
       fontSize: '12px',
       fontFamily: 'Rajdhani, Arial',
       color: '#ffffff',
@@ -246,6 +322,53 @@ class LobbyScene extends Phaser.Scene {
       }, 100);
     });
 
+    // PvP: Betting period started
+    window.wsClient.on('BETTING_START', (data) => {
+      console.log('🎰 Betting period started:', data);
+      this.bettingContainer.setVisible(true);
+      this.instructionText.setText('Spectators can bet now! Game starts after countdown.').setAlpha(0.5);
+
+      // Update status
+      this.statusText.setText('BETTING').setColor('#9b59b6');
+      this._drawStatusBadge(0x9b59b6, 'BETTING');
+      this.pulseDot.setFillStyle(0x9b59b6);
+
+      // Show pool info
+      if (data.pool) {
+        const poolOCT = (Number(BigInt(data.pool.totalPool || '0')) / 1e9).toFixed(2);
+        this.bettingPoolText.setText(`Pool: ${poolOCT} OCT`);
+      }
+    });
+
+    // PvP: Betting countdown tick
+    window.wsClient.on('BETTING_COUNTDOWN', (data) => {
+      const s = data.secondsLeft;
+      this.bettingCountdownText.setText(`${s}s`);
+
+      // Color change: green > yellow > red
+      if (s <= 10) {
+        this.bettingCountdownText.setColor('#d63031');
+      } else if (s <= 30) {
+        this.bettingCountdownText.setColor('#fdcb6e');
+      } else {
+        this.bettingCountdownText.setColor('#e056fd');
+      }
+    });
+
+    // PvP: Room cancelled
+    window.wsClient.on('ROOM_CANCELLED', (data) => {
+      console.log('❌ Room cancelled:', data);
+      this.statusText.setText('CANCELLED').setColor('#d63031');
+      this._drawStatusBadge(0xd63031, 'CANCELLED');
+      this.instructionText.setText('Room cancelled. All bets refunded.').setColor('#d63031').setAlpha(0.8);
+      this.bettingContainer.setVisible(false);
+
+      // Return to menu after 2 seconds
+      this.time.delayedCall(2000, () => {
+        this.scene.start('MenuScene');
+      });
+    });
+
     window.wsClient.on('ERROR', (error) => {
       this.statusText.setText(`Error: ${error.message}`).setColor('#d63031');
     });
@@ -326,12 +449,29 @@ class LobbyScene extends Phaser.Scene {
     }
   }
 
+  async cancelRoom() {
+    try {
+      this.cancelButtonText.setText('CANCELLING…');
+      this.cancelButton.disableInteractive();
+
+      await window.wsClient.cancelRoom(this.roomUid);
+      // ROOM_CANCELLED event will handle the UI transition
+    } catch (error) {
+      this.cancelButtonText.setText('CANCEL ROOM');
+      this.cancelButton.setInteractive({ useHandCursor: true });
+      this.instructionText.setText(`Error: ${error.message}`).setColor('#d63031').setAlpha(1);
+    }
+  }
+
   shutdown() {
     if (window.wsClient) {
       window.wsClient.off('LOBBY_UPDATE');
       window.wsClient.off('PLAYER_JOINED');
       window.wsClient.off('PLAYER_LEFT');
       window.wsClient.off('GAME_START');
+      window.wsClient.off('BETTING_START');
+      window.wsClient.off('BETTING_COUNTDOWN');
+      window.wsClient.off('ROOM_CANCELLED');
       window.wsClient.off('ERROR');
     }
   }
