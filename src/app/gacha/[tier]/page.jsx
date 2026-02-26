@@ -440,10 +440,10 @@ export default function GachaTierPage() {
   if (!isConnected) return null;
 
   const tierConfigs = {
-    standard: { title: "STANDARD BOX", icon: "📦", gradient: "from-gray-600 to-gray-700" },
-    rare:     { title: "RARE BOX",     icon: "🎲", gradient: "from-blue-600 to-indigo-700" },
-    premium:  { title: "PREMIUM BOX",  icon: "🎁", gradient: "from-orange-600 to-red-700" },
-    legendary:{ title: "LEGENDARY BOX",icon: "💎", gradient: "from-yellow-500 to-amber-600" },
+    standard: { title: "STANDARD BOX", icon: "📦", gradient: "from-gray-600 to-gray-700", carImage: "/assets/car_no_background/10-Honda-Civic-removebg-preview.png" },
+    rare:     { title: "RARE BOX",     icon: "🎲", gradient: "from-blue-600 to-indigo-700", carImage: "/assets/car_no_background/04-BMW-M3-GTR-removebg-preview.png" },
+    premium:  { title: "PREMIUM BOX",  icon: "🎁", gradient: "from-orange-600 to-red-700",  carImage: "/assets/car_no_background/06-Audi-RS-Superwagon-removebg-preview.png" },
+    legendary:{ title: "LEGENDARY BOX",icon: "💎", gradient: "from-yellow-500 to-amber-600", carImage: "/assets/car_no_background/02-Bugatti-Chiron-removebg-preview.png" },
   };
   const config = tierConfigs[tierType] || tierConfigs.standard;
 
@@ -489,7 +489,7 @@ export default function GachaTierPage() {
               {/* Car Preview */}
               <div className="relative mb-4">
                 <img
-                  src="/assets/car/High Speed.png"
+                  src={config.carImage}
                   alt="Mystery Car"
                   className={`w-full h-48 object-contain drop-shadow-2xl transition-all duration-300 ${isSpinning ? "animate-spin" : ""}`}
                   style={{ filter: isSpinning ? "blur(8px)" : "none" }}
@@ -555,23 +555,27 @@ export default function GachaTierPage() {
                   {isSlideReady ? "BOOST READY" : "SLIDE TO OPEN"}
                 </p>
 
-                <div
-                  className={`relative h-14 bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 rounded-full overflow-hidden shadow-xl gacha-track ${isSlideReady ? "gacha-track-ready" : ""}`}
-                >
-                  <div className="gacha-track-fill" style={{ width: `${progressPercent}%` }} />
-                  <div className="absolute inset-0 flex items-center justify-end pr-4">
-                    <div className="flex gap-1">
-                      {[...Array(8)].map((_, i) => (
-                        <div key={i} className="text-black text-2xl font-black" style={{ opacity: 0.3 + i * 0.1 }}>
-                          ❯
-                        </div>
-                      ))}
+                <div className="relative h-14">
+                  {/* Track — overflow-hidden hanya untuk fill & arrows */}
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 rounded-full overflow-hidden shadow-xl gacha-track ${isSlideReady ? "gacha-track-ready" : ""}`}
+                  >
+                    <div className="gacha-track-fill" style={{ width: `${progressPercent}%` }} />
+                    <div className="absolute inset-0 flex items-center justify-end pr-4">
+                      <div className="flex gap-1">
+                        {[...Array(8)].map((_, i) => (
+                          <div key={i} className="text-black text-2xl font-black" style={{ opacity: 0.3 + i * 0.1 }}>
+                            ❯
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
+                  {/* Button — di luar overflow-hidden agar tidak terpotong */}
                   <div
                     ref={sliderRef}
-                    className={`absolute top-2 left-2 w-12 h-12 bg-yellow-400 rounded-full shadow-2xl flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none ${slideProgress === 0 && !isSpinning ? "gacha-slider-idle" : ""} ${isSlideReady ? "gacha-slider-ready" : ""}`}
+                    className={`absolute top-[4px] left-[4px] w-12 h-12 bg-yellow-400 rounded-full shadow-2xl flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none ${slideProgress === 0 && !isSpinning ? "gacha-slider-idle" : ""} ${isSlideReady ? "gacha-slider-ready" : ""}`}
                     style={{
                       transform: `translateX(${slideProgress * 250}px)`,
                       transition: isDraggingRef.current ? "none" : "transform 0.3s ease-out",

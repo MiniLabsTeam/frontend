@@ -19,6 +19,7 @@ const TIER_STATIC = {
     iconBg: "from-gray-500 to-gray-600",
     title: "STANDARD BOX",
     description: "Perfect for beginners! Get common to rare car fragments.",
+    carImage: "/assets/car_no_background/10-Honda-Civic-removebg-preview.png",
     fallbackRewards: [
       { rarity: "Common", chance: "70%", color: "text-gray-400" },
       { rarity: "Rare", chance: "25%", color: "text-blue-400" },
@@ -33,6 +34,7 @@ const TIER_STATIC = {
     iconBg: "from-blue-500 to-indigo-600",
     title: "RARE BOX",
     description: "Better chances for sport cars and rare fragments!",
+    carImage: "/assets/car_no_background/04-BMW-M3-GTR-removebg-preview.png",
     fallbackRewards: [
       { rarity: "Rare", chance: "58%", color: "text-blue-400" },
       { rarity: "Epic", chance: "37%", color: "text-purple-400" },
@@ -47,6 +49,7 @@ const TIER_STATIC = {
     iconBg: "from-yellow-400 to-amber-500",
     title: "LEGENDARY BOX",
     description: "Best odds for legendary fragments and cars!",
+    carImage: "/assets/car_no_background/02-Bugatti-Chiron-removebg-preview.png",
     fallbackRewards: [
       { rarity: "Epic", chance: "30%", color: "text-purple-400" },
       { rarity: "Legendary", chance: "70%", color: "text-yellow-400" },
@@ -127,7 +130,7 @@ export default function GachaPage() {
 
       <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto pb-24">
         {/* Header */}
-        <header className="px-4 pt-6 pb-4">
+        <header className="pt-0 pb-4">
           <PageHeader />
 
           {/* Page Title */}
@@ -186,6 +189,17 @@ export default function GachaPage() {
                       {config.description}
                     </p>
                   </div>
+                </div>
+
+                {/* Car Image */}
+                <div className="relative flex items-center justify-center h-28 mb-2 overflow-hidden">
+                  <div className="absolute inset-0 bg-black/10 rounded-2xl" />
+                  <img
+                    src={config.carImage}
+                    alt={config.title}
+                    className="relative h-28 w-auto object-contain drop-shadow-2xl"
+                    style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.5))" }}
+                  />
                 </div>
 
                 {/* Rewards */}

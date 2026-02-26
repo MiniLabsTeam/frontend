@@ -22,18 +22,22 @@ export default function NetworkGuard() {
       return;
     }
 
-    // account.chains is an array like ["onechain:testnet"]
-    // If chains is empty or undefined, fall back to allowing (wallet may not report chains)
-    const chains = account.chains ?? [];
-    if (chains.length === 0) {
-      setWrongNetwork(false);
-      return;
+    // account.chains is an array like ["onechain:testnet"] or ["sui:testnet"]
+    const chains = (account.chains ?? []).map((c) => c.toLowerCase());
+
+    // Only block if chains are NOT empty AND all chains are explicitly mainnet
+    // (no testnet/devnet marker). Unknown or empty chains are allowed through.
+    const hasTestnet = chains.some((c) => c.includes("testnet") || c.includes("devnet"));
+    const hasMainnetOnly =
+      chains.length > 0 &&
+      !hasTestnet &&
+      chains.some((c) => c.includes("mainnet"));
+
+    if (process.env.NODE_ENV === "development") {
+      console.log("[NetworkGuard] account.chains:", account.chains, "→ blocked:", hasMainnetOnly);
     }
 
-    const onCorrectChain = chains.some(
-      (c) => c === REQUIRED_CHAIN || c.toLowerCase().includes("onechain") && c.toLowerCase().includes("testnet")
-    );
-    setWrongNetwork(!onCorrectChain);
+    setWrongNetwork(hasMainnetOnly);
   }, [account]);
 
   if (!wrongNetwork) return null;
