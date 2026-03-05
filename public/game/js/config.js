@@ -4,7 +4,7 @@
 
 const CONFIG = {
   // Backend API
-  API_BASE_URL: 'http://localhost:3000/api',
+  API_BASE_URL: 'http://localhost:3001/api',
 
   // Canvas dimensions
   CANVAS_WIDTH: 800,

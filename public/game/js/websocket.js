@@ -91,11 +91,34 @@ class WebSocketClient {
   }
 
   /**
-   * Emit event to server
+   * Wait for WebSocket connection to be established
+   */
+  waitForConnection(timeoutMs = 10000) {
+    if (this.connected) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error('WebSocket connection timeout'));
+      }, timeoutMs);
+      this.socket.once('connect', () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Emit event to server (waits for connection if not connected)
    */
   emit(event, data, callback) {
     if (!this.connected) {
-      console.warn('⚠️ Not connected, event may be queued:', event);
+      console.warn('⚠️ Not connected, waiting for connection before emitting:', event);
+      this.waitForConnection().then(() => {
+        this.socket.emit(event, data, callback);
+      }).catch((err) => {
+        console.error('❌ Connection wait failed:', err.message);
+        if (callback) callback({ success: false, message: err.message });
+      });
+      return;
     }
 
     this.socket.emit(event, data, callback);
