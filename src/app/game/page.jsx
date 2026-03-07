@@ -172,9 +172,13 @@ export default function GamePage() {
       "backend_url",
       (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001") + "/api"
     );
-    localStorage.setItem("game_mode", gameMode); // "multiplayer" or "vs_ai"
+    localStorage.setItem("game_mode", gameMode); // "multiplayer", "vs_ai", or "endless_3d"
 
-    window.location.href = "/game/index.html";
+    if (gameMode === "endless_3d") {
+      window.location.href = "/race3d/index.html";
+    } else {
+      window.location.href = "/game/index.html";
+    }
   };
 
   if (!isConnected) return null;
@@ -292,7 +296,7 @@ export default function GamePage() {
         ) : (
           <>
             {/* Mode selector */}
-            <div className="flex gap-2 mb-4 justify-center">
+            <div className="flex gap-2 mb-4 justify-center flex-wrap">
               <button
                 onClick={() => setGameMode("multiplayer")}
                 className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${gameMode === "multiplayer"
@@ -300,7 +304,7 @@ export default function GamePage() {
                     : "bg-gray-800 text-gray-400 border border-gray-700"
                   }`}
               >
-                👥 Multiplayer
+                Multiplayer
               </button>
               <button
                 onClick={() => setGameMode("vs_ai")}
@@ -309,7 +313,16 @@ export default function GamePage() {
                     : "bg-gray-800 text-gray-400 border border-gray-700"
                   }`}
               >
-                🤖 VS AI
+                VS AI
+              </button>
+              <button
+                onClick={() => setGameMode("endless_3d")}
+                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${gameMode === "endless_3d"
+                    ? "bg-orange-500 text-black"
+                    : "bg-gray-800 text-gray-400 border border-gray-700"
+                  }`}
+              >
+                3D Endless
               </button>
             </div>
 
@@ -484,7 +497,7 @@ export default function GamePage() {
               }}
             >
               <Play size={22} fill="white" />
-              {launching ? "Starting Race..." : gameMode === "vs_ai" ? "🤖 RACE VS AI" : "🏁 START RACE"}
+              {launching ? "Starting Race..." : gameMode === "endless_3d" ? "3D ENDLESS RACE" : gameMode === "vs_ai" ? "RACE VS AI" : "START RACE"}
             </button>
           </>
         )}

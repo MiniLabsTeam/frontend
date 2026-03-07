@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>OneChain Racing 3D - Endless Race</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #000; font-family: 'Segoe UI', system-ui, sans-serif; }
+    #game-canvas { display: block; width: 100vw; height: 100vh; }
+
+    /* Loading Screen */
+    #loading-screen {
+      position: fixed; inset: 0; z-index: 100;
+      background: linear-gradient(135deg, #0a0a0f 0%, #1a1025 50%, #0a0a0f 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity 0.8s ease;
+    }
+    #loading-screen.hidden { opacity: 0; pointer-events: none; }
+    #loading-screen h1 {
+      font-size: 2.5rem; font-weight: 900; letter-spacing: 0.15em;
+      background: linear-gradient(90deg, #fff 30%, #fb923c 70%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 2rem;
+    }
+    .loading-bar-bg {
+      width: 280px; height: 6px; background: rgba(255,255,255,0.1);
+      border-radius: 3px; overflow: hidden;
+    }
+    .loading-bar-fill {
+      height: 100%; width: 0%; border-radius: 3px;
+      background: linear-gradient(90deg, #fb923c, #ef4444);
+      transition: width 0.3s ease;
+    }
+    #loading-text { color: rgba(255,255,255,0.4); font-size: 0.85rem; margin-top: 1rem; }
+
+    /* Start Screen */
+    #start-screen {
+      position: fixed; inset: 0; z-index: 90;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+    }
+    #start-screen.show { display: flex; }
+    #start-screen h2 {
+      font-size: 2rem; font-weight: 900; color: #fff; letter-spacing: 0.1em; margin-bottom: 0.5rem;
+    }
+    #start-screen p { color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-bottom: 2rem; }
+    #start-btn {
+      padding: 16px 48px; border: none; border-radius: 16px; cursor: pointer;
+      font-size: 1.2rem; font-weight: 900; color: #fff; letter-spacing: 0.08em;
+      background: linear-gradient(135deg, #f97316, #ef4444);
+      box-shadow: 0 0 32px rgba(249,115,22,0.5), 0 4px 24px rgba(239,68,68,0.3);
+      transition: transform 0.15s ease;
+    }
+    #start-btn:hover { transform: scale(1.05); }
+    #start-btn:active { transform: scale(0.97); }
+    .controls-hint {
+      margin-top: 2rem; color: rgba(255,255,255,0.35); font-size: 0.75rem; text-align: center; line-height: 1.8;
+    }
+
+    /* HUD */
+    #hud {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      padding: 16px 20px; display: none;
+      pointer-events: none;
+    }
+    #hud.show { display: flex; justify-content: space-between; align-items: flex-start; }
+    .hud-box {
+      background: rgba(0,0,0,0.55); backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+      padding: 10px 16px; min-width: 90px;
+    }
+    .hud-label { font-size: 0.65rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; }
+    .hud-value { font-size: 1.4rem; font-weight: 900; color: #fff; margin-top: 2px; }
+    .hud-value.speed { color: #fb923c; }
+    .hud-value.score { color: #60a5fa; }
+
+    /* Game Over */
+    #gameover-screen {
+      position: fixed; inset: 0; z-index: 80;
+      background: rgba(0,0,0,0.8); backdrop-filter: blur(12px);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+    }
+    #gameover-screen.show { display: flex; }
+    #gameover-screen h2 {
+      font-size: 2.5rem; font-weight: 900; color: #ef4444; letter-spacing: 0.1em; margin-bottom: 0.5rem;
+    }
+    #final-score { font-size: 3rem; font-weight: 900; color: #fff; margin: 1rem 0; }
+    #final-distance { color: rgba(255,255,255,0.5); font-size: 1rem; margin-bottom: 2rem; }
+    #restart-btn {
+      padding: 14px 40px; border: none; border-radius: 14px; cursor: pointer;
+      font-size: 1rem; font-weight: 800; color: #fff; letter-spacing: 0.06em;
+      background: linear-gradient(135deg, #f97316, #ef4444);
+      box-shadow: 0 0 24px rgba(249,115,22,0.4);
+      transition: transform 0.15s ease;
+    }
+    #restart-btn:hover { transform: scale(1.05); }
+
+    /* Mobile Controls */
+    #mobile-controls {
+      position: fixed; bottom: 20px; left: 0; right: 0; z-index: 60;
+      display: none; justify-content: center; gap: 16px;
+      pointer-events: none;
+    }
+    #mobile-controls.show { display: flex; }
+    .mobile-btn {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.8rem; color: rgba(255,255,255,0.7);
+      pointer-events: auto; touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .mobile-btn:active { background: rgba(249,115,22,0.3); border-color: #fb923c; }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <h1>ONECHAIN RACING</h1>
+    <div class="loading-bar-bg"><div class="loading-bar-fill" id="loading-bar"></div></div>
+    <div id="loading-text">Loading assets...</div>
+  </div>
+
+  <!-- Start Screen -->
+  <div id="start-screen">
+    <h2>ENDLESS RACE</h2>
+    <p>Dodge traffic, survive as long as you can!</p>
+    <button id="start-btn">START RACE</button>
+    <div class="controls-hint">
+      Desktop: A/D or Arrow Keys to steer<br>
+      Mobile: Tap left/right buttons
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-box">
+      <div class="hud-label">Score</div>
+      <div class="hud-value score" id="hud-score">0</div>
+    </div>
+    <div class="hud-box" style="text-align:center;">
+      <div class="hud-label">Speed</div>
+      <div class="hud-value speed" id="hud-speed">0</div>
+    </div>
+    <div class="hud-box" style="text-align:right;">
+      <div class="hud-label">Distance</div>
+      <div class="hud-value" id="hud-distance">0m</div>
+    </div>
+  </div>
+
+  <!-- Game Over -->
+  <div id="gameover-screen">
+    <h2>WASTED</h2>
+    <div id="final-score">0</div>
+    <div id="final-distance">0m driven</div>
+    <button id="restart-btn">RACE AGAIN</button>
+  </div>
+
+  <!-- Mobile Controls -->
+  <div id="mobile-controls">
+    <div class="mobile-btn" id="btn-left">&#9664;</div>
+    <div class="mobile-btn" id="btn-right">&#9654;</div>
+  </div>
+
+  <!-- Three.js + Loaders via CDN -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module" src="game.js"></script>
+</body>
+</html>
