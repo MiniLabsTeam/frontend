@@ -3,20 +3,45 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 
+// ─── Web3 Integration: Read localStorage ────────────────────────────────────
+const WEB3 = {
+  walletAddress: localStorage.getItem('wallet_address') || '',
+  backendUrl: localStorage.getItem('backend_url') || '',
+  authToken: localStorage.getItem('auth_token') || '',
+  carData: (() => {
+    try { return JSON.parse(localStorage.getItem('game_car_data') || '{}'); }
+    catch { return {}; }
+  })(),
+};
+
+// Map car stats (0-100) to gameplay modifiers
+function applyCarStats(carData) {
+  const speed = carData.baseSpeed || 50;
+  const accel = carData.baseAcceleration || 50;
+  const handling = carData.baseHandling || 50;
+  return {
+    startSpeed: 30 + (speed / 100) * 20,          // 30-50
+    maxSpeed: 80 + (speed / 100) * 40,             // 80-120
+    speedIncrement: 0.15 + (accel / 100) * 0.25,   // 0.15-0.40
+    laneChangeSpeed: 6 + (handling / 100) * 6,      // 6-12
+  };
+}
+const carMods = applyCarStats(WEB3.carData);
+
 // ─── Config ─────────────────────────────────────────────────────────────────
 const CONFIG = {
   lanes: [-4.5, -1.5, 1.5, 4.5],    // 4 lane positions (x)
   roadWidth: 18,                      // total road width (wider road)
   trackLength: 80,                    // length of one track piece (Z)
   trackCount: 8,                      // number of track pieces to recycle
-  startSpeed: 35,                     // starting speed (units/sec)
-  maxSpeed: 100,                      // max speed
-  speedIncrement: 0.25,              // speed increase per second
+  startSpeed: carMods.startSpeed,     // affected by car baseSpeed
+  maxSpeed: carMods.maxSpeed,         // affected by car baseSpeed
+  speedIncrement: carMods.speedIncrement, // affected by car baseAcceleration
   obstacleInterval: 1.5,             // seconds between obstacle spawns
   minObstacleInterval: 0.5,          // minimum spawn interval
   spawnDistance: 180,                 // how far ahead to spawn obstacles
   despawnDistance: 20,                // how far behind to remove obstacles
-  laneChangeSpeed: 8,                // smooth lane change speed
+  laneChangeSpeed: carMods.laneChangeSpeed, // affected by car baseHandling
 };
 
 // ─── State ──────────────────────────────────────────────────────────────────
@@ -31,6 +56,9 @@ const state = {
   playerX: CONFIG.lanes[1],
   obstacleTimer: 0,
   obstacleInterval: CONFIG.obstacleInterval,
+  obstaclesDodged: 0,
+  maxSpeedReached: 0,
+  gameTime: 0,
 };
 
 // ─── DOM refs ───────────────────────────────────────────────────────────────
@@ -46,7 +74,12 @@ const hudDistance = document.getElementById('hud-distance');
 const gameoverScreen = document.getElementById('gameover-screen');
 const finalScore = document.getElementById('final-score');
 const finalDistance = document.getElementById('final-distance');
+const scoreStatus = document.getElementById('score-status');
+const scoreRank = document.getElementById('score-rank');
 const restartBtn = document.getElementById('restart-btn');
+const backBtn = document.getElementById('back-btn');
+const startCarName = document.getElementById('start-car-name');
+const startWallet = document.getElementById('start-wallet');
 const mobileControls = document.getElementById('mobile-controls');
 const btnLeft = document.getElementById('btn-left');
 const btnRight = document.getElementById('btn-right');
@@ -101,7 +134,7 @@ const textureLoader = new THREE.TextureLoader();
 let carModel = null;
 let trackModel = null;
 let trackModelSize = new THREE.Vector3();
-let obstacleModels = { cone: null, cone2: null, barrier: null, truck: null, chevrolet: null };
+let obstacleModels = { cone: null, cone2: null, barrier: null, chevrolet: null };
 let carTextures = {};
 
 const assetPaths = {
@@ -110,7 +143,6 @@ const assetPaths = {
   cone: '/asset3d/Obstacle/cone.glb',
   cone2: '/asset3d/Obstacle/cone2.glb',
   barrier: '/asset3d/Obstacle/barrier.glb',
-  truck: '/asset3d/Obstacle/old_car.glb',
   chevrolet: '/asset3d/Obstacle/1956_-_chevrolet_bel_air_nomad.glb',
   skybox: '/asset3d/HDRI_SKY/EveningSkyHDRI044B_1K_HDR.exr',
   carTex1: '/asset3d/Textures/Color Variations/AFRC_Tex_Col1.png',
@@ -123,7 +155,7 @@ const assetPaths = {
 };
 
 let loadedCount = 0;
-const totalAssets = 13;
+const totalAssets = 12;
 
 function updateLoadingProgress(label) {
   loadedCount++;
@@ -211,7 +243,7 @@ async function loadAssets() {
   }
 
   // Load obstacle models
-  for (const name of ['cone', 'cone2', 'barrier', 'truck', 'chevrolet']) {
+  for (const name of ['cone', 'cone2', 'barrier', 'chevrolet']) {
     try {
       const gltf = await new Promise((resolve, reject) => {
         gltfLoader.load(assetPaths[name], resolve, undefined, reject);
@@ -456,7 +488,6 @@ const OBSTACLE_COLORS = {
   cone: 0xff6600,
   cone2: 0xff4400,
   barrier: 0xdd2222,
-  truck: 0x3366aa,
   chevrolet: 0x884422,
 };
 
@@ -465,7 +496,7 @@ function createObstacleFromModel(modelScene, targetHeight, type) {
   const clone = modelScene.clone();
 
   // Rotate car-type obstacles to face road direction
-  if (type === 'truck' || type === 'chevrolet') {
+  if (type === 'chevrolet') {
     clone.rotation.y = Math.PI;
   }
 
@@ -483,7 +514,7 @@ function createObstacleFromModel(modelScene, targetHeight, type) {
   // For truck/car type: scale based on HEIGHT (y) so it looks car-sized
   // For small obstacles: scale based on maxDim as before
   let s;
-  if (type === 'truck' || type === 'chevrolet') {
+  if (type === 'chevrolet') {
     // Scale car-type obstacles by height so proportions stay correct
     const modelHeight = Math.max(size.y, 0.001);
     s = targetHeight / modelHeight;
@@ -639,15 +670,14 @@ function spawnObstacle(excludeLane) {
   if (obstacleModels.cone) available.push({ model: obstacleModels.cone, type: 'cone', height: 1.5 });
   if (obstacleModels.cone2) available.push({ model: obstacleModels.cone2, type: 'cone2', height: 1.5 });
   if (obstacleModels.barrier) available.push({ model: obstacleModels.barrier, type: 'barrier', height: 2.0 });
-  // old_car GLB replaced with procedural car (truck type handled below)
-  available.push({ model: null, type: 'truck', height: 0 });
+  // Procedural car obstacle
+  available.push({ model: null, type: 'procedural_car', height: 0 });
   if (obstacleModels.chevrolet) available.push({ model: obstacleModels.chevrolet, type: 'chevrolet', height: 1.4 });
 
   let mesh;
   const pick = available[Math.floor(Math.random() * available.length)];
 
-  if (pick.type === 'truck') {
-    // Procedural car obstacle — reliable size & orientation
+  if (pick.type === 'procedural_car') {
     mesh = createProceduralCar();
   } else if (pick.model) {
     mesh = createObstacleFromModel(pick.model, pick.height, pick.type);
@@ -704,10 +734,11 @@ function updateObstacles(delta) {
     );
   }
 
-  // Remove obstacles that passed the player or are too close on spawn
+  // Remove obstacles that passed the player — count as dodged
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const obs = obstacles[i];
     if (obs.position.z > CONFIG.despawnDistance) {
+      if (obs.userData.active) state.obstaclesDodged++;
       scene.remove(obs);
       obstacles.splice(i, 1);
     }
@@ -797,6 +828,9 @@ function resetGame() {
   state.playerX = CONFIG.lanes[1];
   state.obstacleTimer = 0;
   state.obstacleInterval = CONFIG.obstacleInterval;
+  state.obstaclesDodged = 0;
+  state.maxSpeedReached = 0;
+  state.gameTime = 0;
 
   // Remove all obstacles
   for (const obs of obstacles) scene.remove(obs);
@@ -832,6 +866,53 @@ function gameOverHandler() {
   gameoverScreen.classList.add('show');
   finalScore.textContent = state.score.toLocaleString();
   finalDistance.textContent = Math.round(state.distance) + 'm driven';
+  scoreStatus.textContent = '';
+  scoreRank.textContent = '';
+
+  // Submit score to backend
+  submitScore();
+}
+
+async function submitScore() {
+  if (!WEB3.backendUrl || !WEB3.authToken) {
+    scoreStatus.textContent = 'Not connected to wallet';
+    return;
+  }
+
+  scoreStatus.textContent = 'Saving score...';
+
+  try {
+    const res = await fetch(`${WEB3.backendUrl}/game/endless/score`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${WEB3.authToken}`,
+      },
+      body: JSON.stringify({
+        carUid: WEB3.carData.uid || null,
+        carName: WEB3.carData.name || null,
+        score: state.score,
+        distance: Math.round(state.distance),
+        maxSpeed: Math.round(state.maxSpeedReached * 3.6),
+        gameTime: Math.round(state.gameTime * 10) / 10,
+        obstaclesDodged: state.obstaclesDodged,
+      }),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if (data.success) {
+      const { rank, isPersonalBest, personalBest } = data.data;
+      scoreStatus.textContent = isPersonalBest ? 'NEW PERSONAL BEST!' : `Personal best: ${personalBest.toLocaleString()}`;
+      scoreRank.textContent = `Global Rank: #${rank}`;
+      if (isPersonalBest) scoreStatus.style.color = '#fb923c';
+      else scoreStatus.style.color = 'rgba(255,255,255,0.5)';
+    }
+  } catch (e) {
+    console.warn('Score submission failed:', e);
+    scoreStatus.textContent = 'Score save failed (offline?)';
+  }
 }
 
 function isMobile() {
@@ -842,8 +923,12 @@ function isMobile() {
 function update(delta) {
   if (!state.running) return;
 
+  // Track time
+  state.gameTime += delta;
+
   // Increase speed
   state.speed = Math.min(CONFIG.maxSpeed, state.speed + CONFIG.speedIncrement * delta);
+  if (state.speed > state.maxSpeedReached) state.maxSpeedReached = state.speed;
   const moveAmount = state.speed * delta;
   state.distance += moveAmount;
   state.score = Math.round(state.distance * 2 + state.speed * 0.5);
@@ -914,9 +999,21 @@ window.addEventListener('resize', () => {
 // ─── Button Handlers ────────────────────────────────────────────────────────
 startBtn.addEventListener('click', startGame);
 restartBtn.addEventListener('click', startGame);
+backBtn.addEventListener('click', () => {
+  window.location.href = '/game';
+});
 
 // ─── Init ───────────────────────────────────────────────────────────────────
 async function init() {
+  // Show Web3 info on start screen
+  if (WEB3.carData.name) {
+    startCarName.textContent = WEB3.carData.name;
+  }
+  if (WEB3.walletAddress) {
+    const addr = WEB3.walletAddress;
+    startWallet.textContent = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  }
+
   await loadAssets();
 
   createPlayerCar();
@@ -925,6 +1022,15 @@ async function init() {
     playerCar.children[0].rotation.y = Math.PI;
   }
   initTrack();
+
+  // Log Web3 connection status
+  console.log('Web3 Integration:', {
+    wallet: WEB3.walletAddress ? 'connected' : 'not connected',
+    car: WEB3.carData.name || 'none',
+    backend: WEB3.backendUrl || 'none',
+    carStats: WEB3.carData,
+    gameConfig: { startSpeed: CONFIG.startSpeed.toFixed(1), maxSpeed: CONFIG.maxSpeed.toFixed(1), accel: CONFIG.speedIncrement.toFixed(3) },
+  });
 
   // Hide loading, show start
   loadingScreen.classList.add('hidden');

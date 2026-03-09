@@ -173,11 +173,23 @@ export default function GamePage() {
       (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001") + "/api"
     );
     localStorage.setItem("game_mode", gameMode); // "multiplayer", "vs_ai", or "endless_3d"
+    localStorage.setItem("auth_token", localStorage.getItem("auth_token") || "");
+    // Store full car data for 3D game integration
+    localStorage.setItem("game_car_data", JSON.stringify({
+      uid: selectedCar.tokenId || selectedCar.uid || selectedCar.id || "",
+      name: selectedCar.name || "Unknown Car",
+      rarity: selectedCar.rarity || 0,
+      baseSpeed: selectedCar.baseSpeed || 50,
+      baseAcceleration: selectedCar.baseAcceleration || 50,
+      baseHandling: selectedCar.baseHandling || 50,
+      baseDrift: selectedCar.baseDrift || 50,
+    }));
 
     if (gameMode === "endless_3d") {
       window.location.href = "/race3d/index.html";
     } else {
-      window.location.href = "/game/index.html";
+      // Multiplayer & VS AI → 3D multiplayer
+      window.location.href = "/race3d/multiplayer.html";
     }
   };
 
@@ -304,7 +316,7 @@ export default function GamePage() {
                     : "bg-gray-800 text-gray-400 border border-gray-700"
                   }`}
               >
-                Multiplayer
+                3D Multiplayer
               </button>
               <button
                 onClick={() => setGameMode("vs_ai")}
@@ -313,7 +325,7 @@ export default function GamePage() {
                     : "bg-gray-800 text-gray-400 border border-gray-700"
                   }`}
               >
-                VS AI
+                3D VS AI
               </button>
               <button
                 onClick={() => setGameMode("endless_3d")}
@@ -322,7 +334,7 @@ export default function GamePage() {
                     : "bg-gray-800 text-gray-400 border border-gray-700"
                   }`}
               >
-                3D Endless
+                3D Practice
               </button>
             </div>
 
@@ -497,7 +509,7 @@ export default function GamePage() {
               }}
             >
               <Play size={22} fill="white" />
-              {launching ? "Starting Race..." : gameMode === "endless_3d" ? "3D ENDLESS RACE" : gameMode === "vs_ai" ? "RACE VS AI" : "START RACE"}
+              {launching ? "Starting Race..." : gameMode === "endless_3d" ? "3D PRACTICE" : gameMode === "vs_ai" ? "3D VS AI" : "3D MULTIPLAYER"}
             </button>
           </>
         )}
