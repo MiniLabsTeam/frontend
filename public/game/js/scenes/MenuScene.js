@@ -25,8 +25,8 @@ class MenuScene extends Phaser.Scene {
     // Orange accent lines
     const accent = this.add.graphics();
     accent.lineStyle(2, 0xff7800, 0.6);
-    accent.lineBetween(0, 110, W, 110);
-    accent.lineBetween(0, 112, W, 112);
+    accent.lineBetween(0, 130, W, 130);
+    accent.lineBetween(0, 132, W, 132);
 
     // Corner decorations
     const corners = this.add.graphics();
@@ -38,8 +38,8 @@ class MenuScene extends Phaser.Scene {
     corners.fillRect(W - 28, 20, 8, 8);
 
     // ── Title ──────────────────────────────────────────────────────────────
-    this.add.text(cx, 55, 'ONECHAIN RACING', {
-      fontSize: '46px',
+    this.add.text(cx, 60, 'ONECHAIN RACING', {
+      fontSize: '58px',
       fontFamily: 'Orbitron, Arial',
       fontStyle: 'bold',
       color: '#ffffff',
@@ -49,10 +49,10 @@ class MenuScene extends Phaser.Scene {
 
     const underline = this.add.graphics();
     underline.fillStyle(0xff7800, 1);
-    underline.fillRect(cx - 160, 85, 320, 3);
+    underline.fillRect(cx - 200, 98, 400, 3);
 
-    this.add.text(cx, 100, '🏁  ENDLESS RACE MODE  🏁', {
-      fontSize: '14px',
+    this.add.text(cx, 114, '🏁  ENDLESS RACE MODE  🏁', {
+      fontSize: '16px',
       fontFamily: 'Rajdhani, Arial',
       fontStyle: 'bold',
       color: '#ff7800',
@@ -60,9 +60,9 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // ── Top buttons row ─────────────────────────────────────────────────────
-    const btnY = 155;
-    const btnW = 180, btnH = 42;
-    const gap = 10;
+    const btnY = 175;
+    const btnW = 220, btnH = 48;
+    const gap = 14;
 
     // CREATE ROOM
     const createBg = this.add.graphics();
@@ -85,7 +85,7 @@ class MenuScene extends Phaser.Scene {
       .on('pointerdown', () => this.createRoomVsAI());
 
     // ── Live Rooms Section ──────────────────────────────────────────────────
-    const listY = 195;
+    const listY = 220;
     const divG = this.add.graphics();
     divG.fillStyle(0xff7800, 0.15);
     divG.fillRect(20, listY, W - 40, 1);

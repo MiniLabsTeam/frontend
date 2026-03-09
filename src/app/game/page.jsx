@@ -159,37 +159,29 @@ export default function GamePage() {
     if (isConnected) fetchInventory();
   }, [isConnected, fetchInventory]);
 
-  const handleLaunch = () => {
+  const handleLaunch = async () => {
     if (!selectedCar) {
       toast.error("Pilih mobil terlebih dahulu!");
       return;
     }
     setLaunching(true);
 
+    const token = await getAuthToken();
     localStorage.setItem("wallet_address", walletAddress || "");
+    localStorage.setItem("auth_token", token || "");
     localStorage.setItem("game_car_uid", selectedCar.tokenId || selectedCar.uid || selectedCar.id || "");
     localStorage.setItem(
       "backend_url",
-      (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001") + "/api"
+      (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000") + "/api"
     );
     localStorage.setItem("game_mode", gameMode); // "multiplayer", "vs_ai", or "endless_3d"
-    localStorage.setItem("auth_token", localStorage.getItem("auth_token") || "");
-    // Store full car data for 3D game integration
-    localStorage.setItem("game_car_data", JSON.stringify({
-      uid: selectedCar.tokenId || selectedCar.uid || selectedCar.id || "",
-      name: selectedCar.name || "Unknown Car",
-      rarity: selectedCar.rarity || 0,
-      baseSpeed: selectedCar.baseSpeed || 50,
-      baseAcceleration: selectedCar.baseAcceleration || 50,
-      baseHandling: selectedCar.baseHandling || 50,
-      baseDrift: selectedCar.baseDrift || 50,
-    }));
 
     if (gameMode === "endless_3d") {
       window.location.href = "/race3d/index.html";
-    } else {
-      // Multiplayer & VS AI → 3D multiplayer
+    } else if (gameMode === "multiplayer_3d") {
       window.location.href = "/race3d/multiplayer.html";
+    } else {
+      window.location.href = "/game/index.html";
     }
   };
 
@@ -316,7 +308,7 @@ export default function GamePage() {
                     : "bg-gray-800 text-gray-400 border border-gray-700"
                   }`}
               >
-                3D Multiplayer
+                Multiplayer
               </button>
               <button
                 onClick={() => setGameMode("vs_ai")}
@@ -325,7 +317,7 @@ export default function GamePage() {
                     : "bg-gray-800 text-gray-400 border border-gray-700"
                   }`}
               >
-                3D VS AI
+                VS AI
               </button>
               <button
                 onClick={() => setGameMode("endless_3d")}
@@ -334,7 +326,16 @@ export default function GamePage() {
                     : "bg-gray-800 text-gray-400 border border-gray-700"
                   }`}
               >
-                3D Practice
+                3D Endless
+              </button>
+              <button
+                onClick={() => setGameMode("multiplayer_3d")}
+                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${gameMode === "multiplayer_3d"
+                    ? "bg-orange-500 text-black"
+                    : "bg-gray-800 text-gray-400 border border-gray-700"
+                  }`}
+              >
+                3D Multiplayer
               </button>
             </div>
 
@@ -509,7 +510,7 @@ export default function GamePage() {
               }}
             >
               <Play size={22} fill="white" />
-              {launching ? "Starting Race..." : gameMode === "endless_3d" ? "3D PRACTICE" : gameMode === "vs_ai" ? "3D VS AI" : "3D MULTIPLAYER"}
+              {launching ? "Starting Race..." : gameMode === "endless_3d" ? "3D ENDLESS RACE" : gameMode === "multiplayer_3d" ? "3D MULTIPLAYER" : gameMode === "vs_ai" ? "RACE VS AI" : "START RACE"}
             </button>
           </>
         )}

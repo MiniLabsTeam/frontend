@@ -235,10 +235,11 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
+renderer.setClearColor(0xc8a882, 1); // Matches fog/sky horizon color → no black strip
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x8899aa, 80, 300);
+scene.fog = new THREE.Fog(0xc8a882, 120, 400);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
 camera.position.set(0, CFG.cameraHeight, CFG.cameraBehind);
@@ -299,7 +300,7 @@ async function loadAssets() {
     scene.background = envMap;
     updateLoading('Skybox loaded');
   } catch {
-    scene.background = new THREE.Color(0x667799);
+    scene.background = new THREE.Color(0xc8a882);
     updateLoading('Fallback sky');
   }
 
@@ -405,14 +406,14 @@ function createTrackPiece(zPos) {
     }
   }
 
-  // Side ground
+  // Side ground — wide enough to fill screen edges to the horizon
   for (const side of [-1, 1]) {
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(30, actualTrackLength + 1),
+      new THREE.PlaneGeometry(500, actualTrackLength + 1),
       new THREE.MeshStandardMaterial({ color: 0x2a3a2a, roughness: 1 })
     );
     ground.rotation.x = -Math.PI / 2;
-    ground.position.set(side * (CFG.roadWidth / 2 + 15), -0.05, 0);
+    ground.position.set(side * (CFG.roadWidth / 2 + 250), -0.05, 0);
     ground.receiveShadow = true;
     piece.add(ground);
   }
@@ -511,6 +512,8 @@ function createCarMesh(colorHex, textureKey) {
     }
   }
 
+  // Rotate so car faces forward (-Z = direction of travel)
+  carMesh.rotation.y = Math.PI;
   container.add(carMesh);
   return container;
 }
@@ -543,19 +546,25 @@ function createObstacle3D(type, size) {
 
   // Map backend obstacle types to 3D models
   let model = null;
+  let isCarObstacle = false;
   if (type === 'BARRIER' && obstacleModels.barrier) model = obstacleModels.barrier;
+  else if (type === 'HAZARD' && obstacleModels.chevrolet) { model = obstacleModels.chevrolet; isCarObstacle = true; }
   else if (type === 'HAZARD' && obstacleModels.cone) model = obstacleModels.cone;
   else if (type === 'SLOW_ZONE' && obstacleModels.cone2) model = obstacleModels.cone2;
 
   if (model) {
     const clone = model.clone();
+    // Rotate car-type obstacles to face the road direction (-Z)
+    if (isCarObstacle) clone.rotation.y = Math.PI;
     clone.updateMatrixWorld(true);
     group.add(clone);
     group.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(group);
     const s = box.getSize(new THREE.Vector3());
-    const targetH = (size?.z || 2) * 0.5;
-    const scale = targetH / Math.max(s.y, 0.001);
+    // Car obstacles: scale by max dimension so car fits within a lane (~3 units wide)
+    const targetH = isCarObstacle ? 3.0 : (size?.z || 2) * 0.5;
+    const scaleDim = isCarObstacle ? Math.max(s.x, s.y, s.z) : Math.max(s.y, 0.001);
+    const scale = targetH / Math.max(scaleDim, 0.001);
     group.scale.setScalar(scale);
     group.updateMatrixWorld(true);
     const nb = new THREE.Box3().setFromObject(group);

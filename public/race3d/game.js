@@ -83,6 +83,16 @@ const startWallet = document.getElementById('start-wallet');
 const mobileControls = document.getElementById('mobile-controls');
 const btnLeft = document.getElementById('btn-left');
 const btnRight = document.getElementById('btn-right');
+const nearMissEl = document.getElementById('near-miss');
+
+let nearMissTimeout = null;
+function showNearMissFlash() {
+  if (nearMissEl) {
+    nearMissEl.classList.add('show');
+    clearTimeout(nearMissTimeout);
+    nearMissTimeout = setTimeout(() => nearMissEl.classList.remove('show'), 700);
+  }
+}
 
 // ─── Three.js Setup ─────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -92,6 +102,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.9;
+renderer.setClearColor(0xc8a882, 1);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
@@ -515,9 +526,9 @@ function createObstacleFromModel(modelScene, targetHeight, type) {
   // For small obstacles: scale based on maxDim as before
   let s;
   if (type === 'chevrolet') {
-    // Scale car-type obstacles by height so proportions stay correct
-    const modelHeight = Math.max(size.y, 0.001);
-    s = targetHeight / modelHeight;
+    // Scale so car fits within a lane — use max dimension as reference, target 3 units
+    const maxDim = Math.max(size.x, size.y, size.z);
+    s = 3.0 / Math.max(maxDim, 0.001);
   } else {
     const maxDim = Math.max(size.x, size.y, size.z);
     s = targetHeight / Math.max(maxDim, 0.001);
@@ -611,6 +622,7 @@ function createProceduralCar() {
     wheel.rotation.z = Math.PI / 2;
     wheel.position.set(wx, wy, wz);
     wheel.castShadow = true;
+    wheel.userData.isWheel = true;
     group.add(wheel);
   }
 
@@ -636,6 +648,8 @@ function createProceduralCar() {
   const tl2 = new THREE.Mesh(lightGeo, tailMat);
   tl2.position.set(0.6, 0.5, 1.92);
   group.add(tl2);
+  // Store for brake light effect
+  group.userData.tailLightMat = tailMat;
 
   // Bumpers
   const bumperGeo = new THREE.BoxGeometry(1.9, 0.15, 0.15);
@@ -672,13 +686,43 @@ function spawnObstacle(excludeLane) {
   if (obstacleModels.barrier) available.push({ model: obstacleModels.barrier, type: 'barrier', height: 2.0 });
   // Procedural car obstacle
   available.push({ model: null, type: 'procedural_car', height: 0 });
-  if (obstacleModels.chevrolet) available.push({ model: obstacleModels.chevrolet, type: 'chevrolet', height: 1.4 });
+  if (obstacleModels.chevrolet) available.push({ model: obstacleModels.chevrolet, type: 'chevrolet', height: 3.0 });
 
   let mesh;
   const pick = available[Math.floor(Math.random() * available.length)];
 
-  if (pick.type === 'procedural_car') {
-    mesh = createProceduralCar();
+  const container = new THREE.Group();
+
+  if (pick.type === 'procedural_car' || pick.type === 'chevrolet') {
+    if (pick.type === 'chevrolet') {
+      mesh = createObstacleFromModel(pick.model, pick.height, 'chevrolet');
+      // createObstacleFromModel already rotated clone.y = PI (faces -Z = same direction)
+    } else {
+      mesh = createProceduralCar();
+    }
+
+    // 28% chance oncoming, 72% same-direction slower traffic
+    const isOncoming = Math.random() < 0.28;
+    container.userData.isTraffic = true;
+    container.userData.isOncoming = isOncoming;
+
+    if (isOncoming) {
+      if (pick.type === 'chevrolet') {
+        // Undo the PI rotation so it faces +Z (toward player)
+        if (mesh.children[0]) mesh.children[0].rotation.y = 0;
+      } else {
+        mesh.rotation.y = Math.PI; // procedural: front at -Z, flip to face +Z
+      }
+      container.userData.speedRatio = -(0.5 + Math.random() * 0.5);
+    } else {
+      container.userData.speedRatio = 0.25 + Math.random() * 0.45;
+      container.userData.targetX = x;
+      container.userData.laneChangeTimer = 3 + Math.random() * 5;
+      container.userData.avoidTimer = 0;
+      container.userData.braking = false;
+    }
+
+    if (mesh.userData && mesh.userData.tailLightMat) container.userData.tailLightMat = mesh.userData.tailLightMat;
   } else if (pick.model) {
     mesh = createObstacleFromModel(pick.model, pick.height, pick.type);
   } else {
@@ -690,7 +734,6 @@ function spawnObstacle(excludeLane) {
     mesh.castShadow = true;
   }
 
-  const container = new THREE.Group();
   container.add(mesh);
   container.position.set(x, 0, z);
   container.userData.lane = lane;
@@ -712,6 +755,19 @@ function spawnObstacle(excludeLane) {
   scene.add(container);
   obstacles.push(container);
   return lane;
+}
+
+// Returns true if the given lane has no obstacles blocking it ahead of trafficObs
+function isLaneClearForTraffic(trafficObs, laneIdx, checkAhead) {
+  const laneX = CONFIG.lanes[laneIdx];
+  const tz = trafficObs.position.z;
+  for (const obs of obstacles) {
+    if (obs === trafficObs || !obs.userData.active) continue;
+    const dz = tz - obs.position.z; // positive = obs is ahead (lower Z)
+    if (dz < -2 || dz > checkAhead) continue;
+    if (Math.abs(obs.position.x - laneX) < 1.8) return false;
+  }
+  return true;
 }
 
 function updateObstacles(delta) {
@@ -831,6 +887,7 @@ function resetGame() {
   state.obstaclesDodged = 0;
   state.maxSpeedReached = 0;
   state.gameTime = 0;
+  state.nearMissCooldown = 0;
 
   // Remove all obstacles
   for (const obs of obstacles) scene.remove(obs);
@@ -938,9 +995,81 @@ function update(delta) {
     piece.position.z += moveAmount;
   }
 
-  // Move obstacles toward player
+  // Move obstacles toward player (traffic cars use their own speed ratio)
   for (const obs of obstacles) {
-    obs.position.z += moveAmount;
+    const ratio = (obs.userData.speedRatio !== undefined)
+      ? (1 - obs.userData.speedRatio)
+      : 1;
+    obs.position.z += moveAmount * ratio;
+
+    if (obs.userData.isTraffic) {
+      // Wheel rotation
+      obs.traverse(child => {
+        if (child.userData.isWheel) {
+          child.rotation.x += state.speed * delta * (obs.userData.isOncoming ? -0.5 : 0.4);
+        }
+      });
+
+      // Same-direction traffic: avoidance + lane change AI
+      if (!obs.userData.isOncoming && obs.userData.targetX !== undefined) {
+        // Check for obstacles ahead every 0.25s
+        obs.userData.avoidTimer -= delta;
+        if (obs.userData.avoidTimer <= 0) {
+          obs.userData.avoidTimer = 0.25;
+          const curLane = obs.userData.lane;
+          const laneBlocked = !isLaneClearForTraffic(obs, curLane, 14);
+          obs.userData.braking = laneBlocked;
+
+          if (laneBlocked) {
+            // Try adjacent lanes
+            const adj = [];
+            if (curLane > 0) adj.push(curLane - 1);
+            if (curLane < CONFIG.lanes.length - 1) adj.push(curLane + 1);
+            if (adj.length > 1 && Math.random() < 0.5) adj.reverse();
+            for (const nextLane of adj) {
+              if (isLaneClearForTraffic(obs, nextLane, 14)) {
+                obs.userData.lane = nextLane;
+                obs.userData.targetX = CONFIG.lanes[nextLane];
+                obs.userData.laneChangeTimer = 2 + Math.random() * 3;
+                obs.userData.braking = false;
+                break;
+              }
+            }
+          } else {
+            // Periodic random lane change when clear
+            obs.userData.laneChangeTimer -= 0.25;
+            if (obs.userData.laneChangeTimer <= 0) {
+              const adj = [];
+              if (curLane > 0) adj.push(curLane - 1);
+              if (curLane < CONFIG.lanes.length - 1) adj.push(curLane + 1);
+              if (adj.length) {
+                const nextLane = adj[Math.floor(Math.random() * adj.length)];
+                if (isLaneClearForTraffic(obs, nextLane, 14)) {
+                  obs.userData.lane = nextLane;
+                  obs.userData.targetX = CONFIG.lanes[nextLane];
+                }
+              }
+              obs.userData.laneChangeTimer = 3 + Math.random() * 5;
+            }
+          }
+        }
+
+        // Brake light intensity (smooth transition)
+        if (obs.userData.tailLightMat) {
+          const targetIntensity = obs.userData.braking ? 1.8 : 0.4;
+          obs.userData.tailLightMat.emissiveIntensity +=
+            (targetIntensity - obs.userData.tailLightMat.emissiveIntensity) * 8 * delta;
+        }
+
+        // Smooth lateral movement to target lane
+        const dx = obs.userData.targetX - obs.position.x;
+        obs.position.x += dx * Math.min(1, 1.5 * delta);
+        // Car body lean while changing lanes
+        if (obs.children[0]) {
+          obs.children[0].rotation.y += (-dx * 0.15 - obs.children[0].rotation.y) * 5 * delta;
+        }
+      }
+    }
   }
 
   // Recycle track pieces
@@ -973,6 +1102,22 @@ function update(delta) {
   if (checkCollisions()) {
     gameOverHandler();
     return;
+  }
+
+  // Near-miss scoring: +50 pts when player barely dodges a static obstacle
+  if (state.nearMissCooldown > 0) state.nearMissCooldown -= delta;
+  if (state.nearMissCooldown <= 0) {
+    for (const obs of obstacles) {
+      if (!obs.userData.active || obs.userData.isTraffic) continue;
+      const dx = Math.abs(obs.position.x - state.playerX);
+      const dz = obs.position.z; // positive = obstacle just passed player
+      if (dx < 1.8 && dz > 0.5 && dz < 5) {
+        state.score += 50;
+        state.nearMissCooldown = 0.8;
+        showNearMissFlash();
+        break;
+      }
+    }
   }
 
   // Update HUD

@@ -4,7 +4,7 @@
  */
 
 // Backend API URL - change this to your deployed backend URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
 /**
  * Make authenticated API request to backend

@@ -4,61 +4,62 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>OneChain Racing 3D - Multiplayer</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow: hidden; background: #000; font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif; color: #fff; }
+    body { overflow: hidden; background: #000; font-family: 'Segoe UI', system-ui, sans-serif; color: #fff; }
     canvas { display: block; position: fixed; inset: 0; z-index: 0; }
 
-    /* Shared overlay base */
+    /* ─── Shared overlay base ─── */
     .overlay {
       position: fixed; inset: 0; z-index: 50;
       display: none; flex-direction: column; align-items: center; justify-content: center;
-      background: rgba(8,10,16,0.92); backdrop-filter: blur(10px);
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
     }
     .overlay.show { display: flex; }
 
-    /* Accent helpers */
-    .accent { color: #fb923c; }
-    .text-dim { color: rgba(255,255,255,0.4); }
-    .text-sm { font-size: 0.8rem; }
-
-    /* Buttons */
+    /* ─── Buttons ─── */
     .btn {
-      padding: 14px 36px; border: none; border-radius: 14px; cursor: pointer;
-      font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 900; color: #fff;
-      letter-spacing: 0.06em; transition: transform 0.12s;
+      padding: 16px 40px; border: none; border-radius: 16px; cursor: pointer;
+      font-size: 1rem; font-weight: 900; color: #fff;
+      letter-spacing: 0.08em; transition: transform 0.15s ease;
     }
-    .btn:hover { transform: scale(1.04); }
+    .btn:hover { transform: scale(1.05); }
     .btn:active { transform: scale(0.97); }
-    .btn-primary { background: linear-gradient(135deg, #f97316, #ef4444); box-shadow: 0 0 24px rgba(249,115,22,0.4); }
-    .btn-secondary { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); font-size: 0.85rem; padding: 10px 28px; }
-    .btn-ghost { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); font-size: 0.8rem; padding: 10px 24px; }
-    .btn-danger { background: rgba(220,38,38,0.2); border: 1px solid rgba(220,38,38,0.5); color: #f87171; font-size: 0.8rem; padding: 10px 24px; }
-    .btn-bet { background: linear-gradient(135deg, #7c3aed, #6d28d9); font-size: 0.75rem; padding: 8px 16px; border-radius: 8px; }
+    .btn-primary {
+      background: linear-gradient(135deg, #f97316, #ef4444);
+      box-shadow: 0 0 32px rgba(249,115,22,0.5), 0 4px 24px rgba(239,68,68,0.3);
+    }
+    .btn-secondary { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); font-size: 0.9rem; padding: 12px 28px; }
+    .btn-ghost { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); font-size: 0.85rem; padding: 10px 24px; }
+    .btn-danger { background: rgba(220,38,38,0.2); border: 1px solid rgba(220,38,38,0.5); color: #f87171; font-size: 0.85rem; padding: 10px 24px; }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
-    /* Headings */
-    h1 { font-family: 'Orbitron', sans-serif; font-size: 2.2rem; font-weight: 900; letter-spacing: 0.12em; }
-    h2 { font-family: 'Orbitron', sans-serif; font-size: 1.6rem; font-weight: 900; letter-spacing: 0.08em; }
-    h3 { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 700; letter-spacing: 0.06em; }
+    /* ─── Headings ─── */
+    h1 { font-size: 2.5rem; font-weight: 900; letter-spacing: 0.15em;
+         background: linear-gradient(90deg, #fff 30%, #fb923c 70%);
+         -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    h2 { font-size: 2rem; font-weight: 900; color: #fff; letter-spacing: 0.1em; }
+    h3 { font-size: 0.9rem; font-weight: 700; letter-spacing: 0.06em; }
 
     /* ─── Loading Screen ─── */
-    #loading-screen { z-index: 100; background: linear-gradient(135deg, #0a0a0f 0%, #1a1025 50%, #0a0a0f 100%); }
-    .loading-bar-bg { width: 260px; height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-top: 1.5rem; }
-    .loading-bar-fill { height: 100%; width: 0%; border-radius: 3px; background: linear-gradient(90deg, #fb923c, #ef4444); transition: width 0.3s; }
-    #loading-text { color: rgba(255,255,255,0.35); font-size: 0.8rem; margin-top: 0.8rem; }
+    #loading-screen {
+      z-index: 100;
+      background: linear-gradient(135deg, #0a0a0f 0%, #1a1025 50%, #0a0a0f 100%);
+      transition: opacity 0.8s ease;
+    }
+    #loading-screen.hidden { opacity: 0; pointer-events: none; }
+    #loading-screen h1 { margin-bottom: 2rem; }
+    .loading-bar-bg { width: 280px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+    .loading-bar-fill { height: 100%; width: 0%; border-radius: 3px; background: linear-gradient(90deg, #fb923c, #ef4444); transition: width 0.3s ease; }
+    #loading-text { color: rgba(255,255,255,0.4); font-size: 0.85rem; margin-top: 1rem; }
 
     /* ─── Menu Screen ─── */
     #menu-screen { z-index: 90; }
-    .menu-title { margin-bottom: 0.3rem; }
-    .menu-subtitle { color: #fb923c; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.15em; margin-bottom: 2rem; }
+    .menu-subtitle { color: rgba(255,255,255,0.5); font-size: 0.9rem; margin: 0.5rem 0 2rem; }
     .menu-buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 2rem; }
     .rooms-section { width: 100%; max-width: 500px; margin-top: 1rem; }
     .rooms-header { display: flex; justify-content: space-between; align-items: center; padding: 0 4px; margin-bottom: 0.6rem; }
-    .rooms-header h3 { color: #fb923c; font-size: 0.7rem; }
+    .rooms-header h3 { color: #fb923c; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; }
     .rooms-list { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 0 4px; }
     .room-card {
       background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
@@ -67,61 +68,60 @@
     }
     .room-card:hover { background: rgba(255,255,255,0.07); }
     .room-info { flex: 1; }
-    .room-uid { font-family: 'Orbitron', sans-serif; font-size: 0.7rem; font-weight: 700; color: #fff; }
+    .room-uid { font-size: 0.75rem; font-weight: 700; color: #fff; }
     .room-meta { font-size: 0.7rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
-    .room-status {
-      font-family: 'Orbitron', sans-serif; font-size: 0.6rem; font-weight: 700;
-      padding: 3px 8px; border-radius: 6px; margin-right: 12px;
-    }
+    .room-status { font-size: 0.65rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; margin-right: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
     .status-waiting { color: #4ade80; background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.3); }
     .status-betting { color: #a78bfa; background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.3); }
     .status-racing { color: #f87171; background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3); }
-    #menu-status { color: #fb923c; font-size: 0.8rem; font-weight: 700; min-height: 1.2em; margin-top: 1rem; text-align: center; }
+    #menu-status { color: #fb923c; font-size: 0.85rem; font-weight: 700; min-height: 1.2em; margin-top: 1rem; text-align: center; }
 
     /* ─── Lobby Screen ─── */
     #lobby-screen { z-index: 85; }
-    .lobby-room-id { color: #fb923c; font-family: 'Orbitron', sans-serif; font-size: 0.7rem; margin: 0.5rem 0 0.3rem; word-break: break-all; max-width: 400px; text-align: center; }
-    .lobby-status { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; font-weight: 700; margin: 0.8rem 0; }
-    .lobby-mode { color: rgba(255,255,255,0.5); font-size: 0.8rem; margin-bottom: 1rem; }
+    .lobby-room-id { color: #fb923c; font-size: 0.75rem; margin: 0.5rem 0 0.3rem; word-break: break-all; max-width: 400px; text-align: center; }
+    .lobby-status { font-size: 0.9rem; font-weight: 900; margin: 0.8rem 0; letter-spacing: 0.08em; }
+    .lobby-mode { color: rgba(255,255,255,0.5); font-size: 0.85rem; margin-bottom: 1rem; }
     .players-list { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.5rem; }
     .player-card {
       background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 10px; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between;
+      border-radius: 12px; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between;
     }
-    .player-addr { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; }
-    .player-ready { font-family: 'Orbitron', sans-serif; font-size: 0.65rem; font-weight: 700; }
+    .player-addr { font-size: 0.8rem; }
+    .player-ready { font-size: 0.7rem; font-weight: 700; }
     .ready-yes { color: #4ade80; }
     .ready-no { color: #fbbf24; }
     .betting-box {
       background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3);
-      border-radius: 12px; padding: 16px 24px; text-align: center; margin-bottom: 1rem;
+      border-radius: 16px; padding: 16px 24px; text-align: center; margin-bottom: 1rem;
     }
-    .betting-timer { font-family: 'Orbitron', sans-serif; font-size: 2rem; font-weight: 900; color: #c084fc; }
-    .betting-label { font-family: 'Orbitron', sans-serif; font-size: 0.65rem; color: #a78bfa; letter-spacing: 0.1em; margin-bottom: 4px; }
-    .lobby-instruction { color: rgba(255,255,255,0.3); font-size: 0.75rem; text-align: center; }
+    .betting-timer { font-size: 2rem; font-weight: 900; color: #c084fc; }
+    .betting-label { font-size: 0.65rem; color: #a78bfa; letter-spacing: 0.1em; margin-bottom: 4px; text-transform: uppercase; }
+    .lobby-instruction { color: rgba(255,255,255,0.35); font-size: 0.75rem; text-align: center; }
     .lobby-buttons { display: flex; gap: 10px; margin-top: 0.5rem; }
 
     /* ─── HUD ─── */
     #hud {
       position: fixed; top: 0; left: 0; right: 0; z-index: 40;
-      padding: 12px 16px; display: none; pointer-events: none;
+      padding: 16px 20px; display: none; pointer-events: none;
     }
     #hud.show { display: flex; justify-content: space-between; align-items: flex-start; }
     .hud-box {
       background: rgba(0,0,0,0.55); backdrop-filter: blur(8px);
-      border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
-      padding: 8px 14px; min-width: 80px;
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+      padding: 10px 16px; min-width: 90px;
     }
-    .hud-label { font-size: 0.6rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; }
-    .hud-value { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; font-weight: 900; color: #fff; margin-top: 2px; }
+    .hud-label { font-size: 0.65rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; }
+    .hud-value { font-size: 1.4rem; font-weight: 900; color: #fff; margin-top: 2px; }
     .hud-value.speed { color: #fb923c; }
     .hud-value.rank { color: #60a5fa; }
     #hud-bet-btn {
-      pointer-events: auto; padding: 6px 16px; border: none; border-radius: 8px; cursor: pointer;
-      font-family: 'Orbitron', sans-serif; font-size: 0.7rem; font-weight: 700; color: #fff;
-      background: rgba(124,58,237,0.8); margin-top: 4px; transition: background 0.2s;
+      pointer-events: auto; padding: 8px 18px; border: none; border-radius: 10px; cursor: pointer;
+      font-size: 0.75rem; font-weight: 800; color: #fff; letter-spacing: 0.06em;
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      box-shadow: 0 0 16px rgba(124,58,237,0.4);
+      transition: transform 0.15s ease;
     }
-    #hud-bet-btn:hover { background: rgba(124,58,237,1); }
+    #hud-bet-btn:hover { transform: scale(1.05); }
 
     /* ─── Prediction Panel ─── */
     #prediction-panel {
@@ -131,21 +131,21 @@
       flex-direction: column; padding: 16px; overflow-y: auto;
     }
     #prediction-panel.show { display: flex; }
-    .pred-title { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; color: #ffd700; text-align: center; margin-bottom: 4px; }
+    .pred-title { font-size: 0.95rem; font-weight: 900; color: #ffd700; text-align: center; margin-bottom: 4px; letter-spacing: 0.08em; }
     .pred-subtitle { font-size: 0.7rem; color: rgba(255,255,255,0.4); text-align: center; margin-bottom: 8px; }
     .pred-balance { font-size: 0.75rem; color: #a78bfa; text-align: center; margin-bottom: 4px; }
-    .pred-window { font-family: 'Orbitron', sans-serif; font-size: 0.7rem; color: #c084fc; text-align: center; margin-bottom: 8px; }
+    .pred-window { font-size: 0.7rem; color: #c084fc; text-align: center; margin-bottom: 8px; }
     .pred-pool { font-size: 0.8rem; font-weight: 700; margin-bottom: 12px; }
     .pred-player-card {
       background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 10px; padding: 10px; margin-bottom: 8px;
+      border-radius: 12px; padding: 10px; margin-bottom: 8px;
     }
-    .pred-player-name { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; margin-bottom: 4px; }
+    .pred-player-name { font-size: 0.8rem; font-weight: 700; margin-bottom: 4px; }
     .pred-odds { font-size: 0.7rem; color: #ffd700; }
     .pred-bets { font-size: 0.65rem; color: rgba(255,255,255,0.4); }
     .pred-close {
       position: absolute; top: 12px; right: 12px; cursor: pointer;
-      font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: #f87171; font-weight: 700;
+      font-size: 0.85rem; color: #f87171; font-weight: 700;
     }
     .pred-message { font-size: 0.75rem; text-align: center; margin-top: 8px; min-height: 1.2em; }
 
@@ -156,10 +156,10 @@
     .rank-row {
       display: flex; align-items: center; gap: 12px; padding: 10px 16px;
       background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 10px; margin-bottom: 6px;
+      border-radius: 12px; margin-bottom: 6px;
     }
     .rank-row.winner { background: rgba(74,222,128,0.08); border-color: rgba(74,222,128,0.2); }
-    .rank-num { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 900; width: 32px; text-align: center; }
+    .rank-num { font-size: 1rem; font-weight: 900; width: 32px; text-align: center; }
     .rank-addr { font-size: 0.8rem; flex: 1; }
     .rank-dist { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
     .rank-time { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
@@ -169,9 +169,10 @@
     .signature-verified { font-size: 0.7rem; color: #4ade80; }
     .result-buttons { display: flex; gap: 10px; margin-top: 1rem; }
 
-    /* ─── Game Over (single-player style, reused for eliminated) ─── */
+    /* ─── Gameover Screen ─── */
     #gameover-screen { z-index: 75; }
-    #gameover-screen h2 { color: #ef4444; }
+    #gameover-screen h2 { color: #ef4444; margin-bottom: 0.5rem; }
+    .gameover-dist { color: rgba(255,255,255,0.5); font-size: 1rem; margin-bottom: 2rem; }
 
     /* ─── Mobile Controls ─── */
     #mobile-controls {
@@ -180,10 +181,10 @@
     }
     #mobile-controls.show { display: flex; }
     .mobile-btn {
-      width: 68px; height: 68px; border-radius: 50%;
-      background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.15);
+      width: 72px; height: 72px; border-radius: 50%;
+      background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2);
       display: flex; align-items: center; justify-content: center;
-      font-size: 1.6rem; color: rgba(255,255,255,0.6);
+      font-size: 1.8rem; color: rgba(255,255,255,0.7);
       pointer-events: auto; touch-action: none; user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
@@ -191,9 +192,9 @@
 
     /* ─── Spectator Badge ─── */
     #spectator-badge {
-      position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 41;
+      position: fixed; top: 68px; left: 50%; transform: translateX(-50%); z-index: 41;
       background: rgba(248,113,113,0.85); padding: 4px 16px; border-radius: 6px;
-      font-family: 'Orbitron', sans-serif; font-size: 0.65rem; font-weight: 700;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em;
       display: none;
     }
     #spectator-badge.show { display: block; }
@@ -210,13 +211,13 @@
   <div id="loading-screen" class="overlay show">
     <h1>ONECHAIN RACING</h1>
     <div class="loading-bar-bg"><div class="loading-bar-fill" id="loading-bar"></div></div>
-    <div id="loading-text">Initializing...</div>
+    <div id="loading-text">Loading assets...</div>
   </div>
 
   <!-- Menu Screen -->
   <div id="menu-screen" class="overlay">
-    <h1 class="menu-title">ONECHAIN RACING</h1>
-    <div class="menu-subtitle">3D MULTIPLAYER</div>
+    <h1>ONECHAIN RACING</h1>
+    <div class="menu-subtitle">Dodge obstacles · Race others · Win rewards</div>
     <div class="menu-buttons">
       <button class="btn btn-primary" id="btn-create-room">CREATE ROOM</button>
       <button class="btn btn-secondary" id="btn-vs-ai">VS AI</button>

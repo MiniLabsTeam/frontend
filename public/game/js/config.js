@@ -4,11 +4,11 @@
 
 const CONFIG = {
   // Backend API
-  API_BASE_URL: 'http://localhost:3001/api',
+  API_BASE_URL: 'http://localhost:3000/api',
 
   // Canvas dimensions
-  CANVAS_WIDTH: 800,
-  CANVAS_HEIGHT: 600,
+  CANVAS_WIDTH: 1280,
+  CANVAS_HEIGHT: 720,
 
   // Track layout (matches backend)
   TRACK_WIDTH: 15,       // Total track width in game units
@@ -16,7 +16,7 @@ const CONFIG = {
   LANE_WIDTH: 5,         // Width of each lane
 
   // Visual scale (pixels per game unit)
-  SCALE: 20,  // 1 game unit = 20 pixels
+  SCALE: 36,  // 1 game unit = 36 pixels (tuned for 1280x720)
 
   // Camera settings
   CAMERA_OFFSET_Y: 200,  // How far ahead of player to show

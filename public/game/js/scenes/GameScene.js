@@ -2,7 +2,7 @@
  * GameScene - Main racing game (vertical scrolling, lane-based)
  */
 
-const PLAYER_Y = 460;   // Fixed screen Y for local player car
+const PLAYER_Y = 560;   // Fixed screen Y for local player car
 const DASH_H   = 24;    // Lane divider dash height (px)
 const DASH_GAP = 20;    // Gap between dashes (px)
 const DASH_PERIOD = DASH_H + DASH_GAP;
@@ -89,13 +89,19 @@ class GameScene extends Phaser.Scene {
   _buildStaticTrack() {
     const W = CONFIG.CANVAS_WIDTH;
     const H = CONFIG.CANVAS_HEIGHT;
-    const TL = 250, TR = 550;
+    const trackW = CONFIG.TRACK_WIDTH * CONFIG.SCALE;
+    const TL = Math.floor((W - trackW) / 2);
+    const TR = TL + trackW;
+
+    // Store for lane divider use
+    this._TL = TL;
+    this._TR = TR;
 
     // Grass / off-track
-    this.add.rectangle(TL / 2,             H / 2, TL,       H, 0x0d1a0d);
-    this.add.rectangle((W + TR) / 2,       H / 2, W - TR,   H, 0x0d1a0d);
+    this.add.rectangle(TL / 2,           H / 2, TL,       H, 0x0d1a0d);
+    this.add.rectangle((W + TR) / 2,     H / 2, W - TR,   H, 0x0d1a0d);
     // Asphalt
-    this.add.rectangle((TL + TR) / 2,      H / 2, TR - TL,  H, 0x1c1c2e);
+    this.add.rectangle((TL + TR) / 2,    H / 2, TR - TL,  H, 0x1c1c2e);
     // Edge lines
     this.add.rectangle(TL + 1, H / 2, 2, H, 0xffffff);
     this.add.rectangle(TR - 1, H / 2, 2, H, 0xffffff);
@@ -113,18 +119,21 @@ class GameScene extends Phaser.Scene {
     this.add.rectangle(W / 2, 1.5, W, 3, 0xff7800).setScrollFactor(0).setDepth(10);
 
     const sf = 0, dp = 11;
+    const col2 = Math.floor(W * 0.35);
+    const col3 = Math.floor(W * 0.52);
+    const col4 = Math.floor(W * 0.68);
 
-    this._label(20,  8, 'DIST',  sf, dp);
-    this._label(220, 8, 'RANK',  sf, dp);
-    this._label(400, 8, 'SPEED', sf, dp);
+    this._label(30,    8, 'DIST',  sf, dp);
+    this._label(col2,  8, 'RANK',  sf, dp);
+    this._label(col3,  8, 'SPEED', sf, dp);
 
-    this.distText  = this._value(20,  22, '0m',  '#ffffff', sf, dp);
-    this.rankText  = this._value(220, 22, '-',   '#ff7800', sf, dp);
-    this.speedText = this._value(400, 22, '0',   '#00e5ff', sf, dp);
+    this.distText  = this._value(30,   22, '0m', '#ffffff', sf, dp);
+    this.rankText  = this._value(col2, 22, '-',  '#ff7800', sf, dp);
+    this.speedText = this._value(col3, 22, '0',  '#00e5ff', sf, dp);
 
-    this._statusDot  = this.add.circle(585, 20, 5, 0x00e676).setScrollFactor(sf).setDepth(dp);
-    this.statusText  = this._value(596, 14, 'Racing', '#00e676', sf, dp);
-    this.statusText.setFontSize('13px');
+    this._statusDot = this.add.circle(col4, 20, 6, 0x00e676).setScrollFactor(sf).setDepth(dp);
+    this.statusText = this._value(col4 + 14, 14, 'Racing', '#00e676', sf, dp);
+    this.statusText.setFontSize('14px');
   }
 
   _label(x, y, text, sf, dp) {
@@ -206,10 +215,13 @@ class GameScene extends Phaser.Scene {
 
     const H = CONFIG.CANVAS_HEIGHT;
     const startY = -(DASH_PERIOD - offset % DASH_PERIOD);
+    const laneW = (this._TR - this._TL) / CONFIG.LANE_COUNT;
+    const div1 = Math.floor(this._TL + laneW);
+    const div2 = Math.floor(this._TL + laneW * 2);
 
     for (let y = startY; y < H; y += DASH_PERIOD) {
-      g.fillRect(349, y, 2, DASH_H);
-      g.fillRect(449, y, 2, DASH_H);
+      g.fillRect(div1, y, 2, DASH_H);
+      g.fillRect(div2, y, 2, DASH_H);
     }
   }
 
@@ -268,9 +280,9 @@ class GameScene extends Phaser.Scene {
     const carKey = carKeys[idx % carKeys.length];
     const sprite = this.add.image(0, 0, carKey);
 
-    // Scale car image to fit player size (~40x70)
-    const scaleX = 40 / sprite.width;
-    const scaleY = 70 / sprite.height;
+    // Scale car image to fit player size (~60x100)
+    const scaleX = 60 / sprite.width;
+    const scaleY = 100 / sprite.height;
     const scale = Math.max(scaleX, scaleY);
     sprite.setScale(scale);
 
