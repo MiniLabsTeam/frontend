@@ -170,6 +170,14 @@ export default function GamePage() {
     localStorage.setItem("wallet_address", walletAddress || "");
     localStorage.setItem("auth_token", token || "");
     localStorage.setItem("game_car_uid", selectedCar.tokenId || selectedCar.uid || selectedCar.id || "");
+    localStorage.setItem("game_car_data", JSON.stringify({
+      baseSpeed: selectedCar.baseSpeed || 50,
+      baseAcceleration: selectedCar.baseAcceleration || 50,
+      baseHandling: selectedCar.baseHandling || 50,
+      baseDrift: selectedCar.baseDrift || 50,
+      name: selectedCar.name || "",
+      rarity: selectedCar.rarity || "",
+    }));
     localStorage.setItem(
       "backend_url",
       (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000") + "/api"

@@ -1,71 +1,38 @@
 /**
- * OneChain Racing 3D — Multiplayer
+ * multiplayer.js — Multiplayer Racing Mode
  *
- * Three.js renderer that consumes the SAME WebSocket events as the 2D Phaser game.
- * Backend, room system, game engine, and blockchain verification are untouched.
- *
- * Flow: Menu → Lobby → Racing (3D) → Results
+ * Imports shared 3D engine from engine3d.js.
+ * Handles: WebSocket, lobby, server-driven game state, prediction, input.
  */
 
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
+import {
+  WEB3, CONFIG, scene, camera, renderer, dirLight,
+  obstacleModels, loadAssets, createCarMesh,
+  createObstacleFromModel, createProceduralCar,
+  trackPieces, initTrack, recycleTrack,
+  updateTraffic, clearTraffic, trafficState,
+  isMobile,
+} from './engine3d.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  CONFIGURATION
+//  MULTIPLAYER CONFIG (extends shared CONFIG)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const CFG = {
-  // Backend — read from localStorage (set by Next.js page.jsx)
-  apiBaseUrl: localStorage.getItem('backend_url') || 'http://localhost:3001/api',
+  apiBaseUrl: localStorage.getItem('backend_url') || 'http://localhost:3000/api',
   token: localStorage.getItem('auth_token') || '',
   playerAddress: localStorage.getItem('wallet_address') || '',
   carUid: localStorage.getItem('game_car_uid') || '',
 
-  // Track layout (matches backend EndlessRaceEngine)
-  trackWidth: 15,
-  laneCount: 3,
-  laneWidth: 5,
-  lanes: [-5, 0, 5], // x positions for lanes 0, 1, 2
-
-  // 3D Track
-  roadWidth: 16,
-  trackLength: 80,
-  trackCount: 8,
-
-  // 3D rendering
-  cameraHeight: 7,
-  cameraBehind: 12,
-  cameraLookAhead: 18,
-
-  // Assets
-  assetPaths: {
-    car: '/asset3d/Meshes/ARCADE - FREE Racing Car.fbx',
-    track: '/asset3d/Track/street_road.glb',
-    cone: '/asset3d/Obstacle/cone.glb',
-    cone2: '/asset3d/Obstacle/cone2.glb',
-    barrier: '/asset3d/Obstacle/barrier.glb',
-    chevrolet: '/asset3d/Obstacle/1956_-_chevrolet_bel_air_nomad.glb',
-    skybox: '/asset3d/HDRI_SKY/EveningSkyHDRI044B_1K_HDR.exr',
-    carTex1: '/asset3d/Textures/Color Variations/AFRC_Tex_Col1.png',
-    carTex2: '/asset3d/Textures/Color Variations/AFRC_Tex_Col2.png',
-    carTex3: '/asset3d/Textures/Color Variations/AFRC_Tex_Col3.png',
-    carTex4: '/asset3d/Textures/Color Variations/AFRC_Tex_Col4.png',
-    carTex5: '/asset3d/Textures/Color Variations/AFRC_Tex_Col5.png',
-  },
-
-  // Car colors per player index
   playerColors: [0x00e676, 0x2979ff, 0xffea00, 0xff6d00],
 
-  // Obstacle type → color fallback
   obstacleColors: {
     BARRIER: 0xd63031,
     HAZARD: 0xe17055,
     SLOW_ZONE: 0xfdcb6e,
   },
 
-  // Power-up type → color
   powerUpColors: {
     BOOST: 0x00e676,
     SHIELD: 0x74b9ff,
@@ -112,10 +79,6 @@ function showScreen(name) {
       break;
     case 'result': resultScreen.classList.add('show'); break;
   }
-}
-
-function isMobile() {
-  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -225,300 +188,11 @@ function initWebSocket() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  THREE.JS SETUP
+//  3D HELPERS (multiplayer-specific)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
-renderer.setClearColor(0xc8a882, 1); // Matches fog/sky horizon color → no black strip
-document.body.appendChild(renderer.domElement);
+let lastTrafficTime = 0;
 
-const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xc8a882, 120, 400);
-
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
-camera.position.set(0, CFG.cameraHeight, CFG.cameraBehind);
-camera.lookAt(0, 1, -CFG.cameraLookAhead);
-
-// Lighting
-scene.add(new THREE.AmbientLight(0x9999bb, 1.0));
-const dirLight = new THREE.DirectionalLight(0xffeedd, 2.0);
-dirLight.position.set(5, 15, 5);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.set(2048, 2048);
-dirLight.shadow.camera.left = -20;
-dirLight.shadow.camera.right = 20;
-dirLight.shadow.camera.top = 40;
-dirLight.shadow.camera.bottom = -40;
-scene.add(dirLight);
-scene.add(dirLight.target);
-scene.add(new THREE.HemisphereLight(0xaaccff, 0x554433, 0.8));
-
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  ASSET LOADING
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const fbxLoader = new FBXLoader();
-const gltfLoader = new GLTFLoader();
-const exrLoader = new EXRLoader();
-const textureLoader = new THREE.TextureLoader();
-
-let carModelTemplate = null;
-let trackModel = null;
-let trackModelSize = new THREE.Vector3();
-let obstacleModels = { cone: null, cone2: null, barrier: null, chevrolet: null };
-let carTextures = {};
-
-let loadedCount = 0;
-const totalAssets = 12;
-
-function updateLoading(label) {
-  loadedCount++;
-  const pct = Math.min(100, Math.round((loadedCount / totalAssets) * 100));
-  loadingBar.style.width = pct + '%';
-  loadingText.textContent = label;
-}
-
-async function loadAssets() {
-  // Skybox
-  try {
-    const envMap = await new Promise((res, rej) => {
-      exrLoader.load(CFG.assetPaths.skybox, (tex) => { tex.mapping = THREE.EquirectangularReflectionMapping; res(tex); }, undefined, rej);
-    });
-    scene.environment = envMap;
-    scene.background = envMap;
-    updateLoading('Skybox loaded');
-  } catch {
-    scene.background = new THREE.Color(0xc8a882);
-    updateLoading('Fallback sky');
-  }
-
-  // Car textures
-  for (let i = 1; i <= 5; i++) {
-    try {
-      const key = `carTex${i}`;
-      carTextures[key] = await new Promise((res, rej) => { textureLoader.load(CFG.assetPaths[key], res, undefined, rej); });
-      carTextures[key].colorSpace = THREE.SRGBColorSpace;
-    } catch {}
-    updateLoading('Texture loaded');
-  }
-
-  // Car model
-  try {
-    carModelTemplate = await new Promise((res, rej) => { fbxLoader.load(CFG.assetPaths.car, res, undefined, rej); });
-    updateLoading('Car model loaded');
-  } catch {
-    updateLoading('Car placeholder');
-  }
-
-  // Track model
-  try {
-    const gltf = await new Promise((res, rej) => { gltfLoader.load(CFG.assetPaths.track, res, undefined, rej); });
-    trackModel = gltf.scene;
-    new THREE.Box3().setFromObject(trackModel).getSize(trackModelSize);
-    updateLoading('Track loaded');
-  } catch {
-    updateLoading('Track placeholder');
-  }
-
-  // Obstacle models
-  for (const name of ['cone', 'cone2', 'barrier', 'chevrolet']) {
-    try {
-      const gltf = await new Promise((res, rej) => { gltfLoader.load(CFG.assetPaths[name], res, undefined, rej); });
-      obstacleModels[name] = gltf.scene;
-    } catch {}
-    updateLoading('Obstacle loaded');
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  3D WORLD — TRACK
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const trackPieces = [];
-let actualTrackLength = CFG.trackLength;
-
-function createTrackPiece(zPos) {
-  let piece;
-
-  if (trackModel) {
-    piece = new THREE.Group();
-    const clone = trackModel.clone();
-    const box = new THREE.Box3().setFromObject(clone);
-    const size = box.getSize(new THREE.Vector3());
-    const isZLong = size.z >= size.x;
-    const modelLength = isZLong ? size.z : size.x;
-    const modelWidth = isZLong ? size.x : size.z;
-    const scaleZ = CFG.trackLength / Math.max(modelLength, 0.001);
-    const scaleX = CFG.roadWidth / Math.max(modelWidth, 0.001);
-    const scaleY = Math.min(scaleX, scaleZ);
-    if (isZLong) clone.scale.set(scaleX, scaleY, scaleZ);
-    else { clone.rotation.y = Math.PI / 2; clone.scale.set(scaleZ, scaleY, scaleX); }
-    const newBox = new THREE.Box3().setFromObject(clone);
-    const newCenter = newBox.getCenter(new THREE.Vector3());
-    clone.position.x -= newCenter.x;
-    clone.position.z -= newCenter.z;
-    clone.position.y -= newBox.min.y;
-    const finalSize = new THREE.Box3().setFromObject(clone).getSize(new THREE.Vector3());
-    actualTrackLength = finalSize.z;
-    clone.traverse((c) => { if (c.isMesh) { c.receiveShadow = true; } });
-    piece.add(clone);
-  } else {
-    piece = new THREE.Group();
-    actualTrackLength = CFG.trackLength;
-    const road = new THREE.Mesh(
-      new THREE.PlaneGeometry(CFG.roadWidth, CFG.trackLength + 0.5),
-      new THREE.MeshStandardMaterial({ color: 0x444450, roughness: 0.85 })
-    );
-    road.rotation.x = -Math.PI / 2;
-    road.receiveShadow = true;
-    piece.add(road);
-    // Lane dashes
-    const dashMat = new THREE.MeshBasicMaterial({ color: 0x888888 });
-    for (let i = 0; i < CFG.lanes.length - 1; i++) {
-      const lx = (CFG.lanes[i] + CFG.lanes[i + 1]) / 2;
-      for (let j = -CFG.trackLength / 2; j < CFG.trackLength / 2; j += 5) {
-        const d = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 2.5), dashMat);
-        d.rotation.x = -Math.PI / 2;
-        d.position.set(lx, 0.01, j);
-        piece.add(d);
-      }
-    }
-    // Curbs
-    for (const side of [-CFG.roadWidth / 2, CFG.roadWidth / 2]) {
-      const curb = new THREE.Mesh(
-        new THREE.BoxGeometry(0.4, 0.25, CFG.trackLength + 0.5),
-        new THREE.MeshStandardMaterial({ color: 0xcc3333 })
-      );
-      curb.position.set(side, 0.12, 0);
-      piece.add(curb);
-    }
-  }
-
-  // Side ground — wide enough to fill screen edges to the horizon
-  for (const side of [-1, 1]) {
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(500, actualTrackLength + 1),
-      new THREE.MeshStandardMaterial({ color: 0x2a3a2a, roughness: 1 })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.set(side * (CFG.roadWidth / 2 + 250), -0.05, 0);
-    ground.receiveShadow = true;
-    piece.add(ground);
-  }
-
-  piece.position.z = zPos;
-  scene.add(piece);
-  trackPieces.push(piece);
-}
-
-function initTrack() {
-  createTrackPiece(actualTrackLength / 2);
-  const step = actualTrackLength - 0.5;
-  for (let i = 1; i < CFG.trackCount; i++) {
-    createTrackPiece(actualTrackLength / 2 - i * step);
-  }
-}
-
-function recycleTrack(cameraZ) {
-  const step = actualTrackLength - 0.5;
-  for (const p of trackPieces) {
-    if (p.position.z > cameraZ + actualTrackLength) {
-      const minZ = Math.min(...trackPieces.map(t => t.position.z));
-      p.position.z = minZ - step;
-    }
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  3D WORLD — CAR CREATION
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function createCarMesh(colorHex, textureKey) {
-  const container = new THREE.Group();
-  let carMesh;
-
-  if (carModelTemplate) {
-    carMesh = carModelTemplate.clone();
-    const box = new THREE.Box3().setFromObject(carMesh);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    const s = 3.5 / Math.max(size.x, size.y, size.z);
-    carMesh.scale.setScalar(s);
-    carMesh.position.sub(center.multiplyScalar(s));
-    const tex = carTextures[textureKey] || carTextures.carTex1 || null;
-    carMesh.traverse((child) => {
-      if (child.isMesh) {
-        child.material = new THREE.MeshStandardMaterial({
-          map: tex,
-          color: tex ? 0xcccccc : colorHex,
-          metalness: 0.6,
-          roughness: 0.35,
-          envMap: scene.environment,
-          envMapIntensity: 0.3,
-        });
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
-  } else {
-    // Procedural car
-    carMesh = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({ color: colorHex, metalness: 0.6, roughness: 0.35 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 3.8), bodyMat);
-    body.position.y = 0.45;
-    body.castShadow = true;
-    carMesh.add(body);
-    const glassMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, opacity: 0.6, transparent: true });
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 1.8), glassMat);
-    cabin.position.set(0, 1.0, -0.2);
-    carMesh.add(cabin);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.08, 1.85), bodyMat);
-    roof.position.set(0, 1.34, -0.2);
-    carMesh.add(roof);
-    // Wheels
-    const wGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 12);
-    const wMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-    for (const [wx, wy, wz] of [[-0.9,0.3,1.1],[0.9,0.3,1.1],[-0.9,0.3,-1.1],[0.9,0.3,-1.1]]) {
-      const w = new THREE.Mesh(wGeo, wMat);
-      w.rotation.z = Math.PI / 2;
-      w.position.set(wx, wy, wz);
-      carMesh.add(w);
-    }
-    // Lights
-    const hlMat = new THREE.MeshStandardMaterial({ color: 0xffffaa, emissive: 0xffffaa, emissiveIntensity: 0.5 });
-    const hlGeo = new THREE.BoxGeometry(0.3, 0.2, 0.05);
-    for (const xo of [-0.6, 0.6]) {
-      const hl = new THREE.Mesh(hlGeo, hlMat);
-      hl.position.set(xo, 0.5, -1.92);
-      carMesh.add(hl);
-    }
-    const tlMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.4 });
-    for (const xo of [-0.6, 0.6]) {
-      const tl = new THREE.Mesh(hlGeo, tlMat);
-      tl.position.set(xo, 0.5, 1.92);
-      carMesh.add(tl);
-    }
-  }
-
-  // Rotate so car faces forward (-Z = direction of travel)
-  carMesh.rotation.y = Math.PI;
-  container.add(carMesh);
-  return container;
-}
-
-// Name tag above car
 function createNameTag(text, isMe) {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
@@ -536,68 +210,31 @@ function createNameTag(text, isMe) {
   return sprite;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-//  3D WORLD — OBSTACLE CREATION
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function createObstacle3D(type, size) {
+function createObstacle3D(type) {
   const group = new THREE.Group();
-  const color = CFG.obstacleColors[type] || 0xe17055;
-
-  // Map backend obstacle types to 3D models
   let model = null;
-  let isCarObstacle = false;
-  if (type === 'BARRIER' && obstacleModels.barrier) model = obstacleModels.barrier;
-  else if (type === 'HAZARD' && obstacleModels.chevrolet) { model = obstacleModels.chevrolet; isCarObstacle = true; }
-  else if (type === 'HAZARD' && obstacleModels.cone) model = obstacleModels.cone;
-  else if (type === 'SLOW_ZONE' && obstacleModels.cone2) model = obstacleModels.cone2;
+  let obstType = null;
+
+  if (type === 'BARRIER' && obstacleModels.barrier) { model = obstacleModels.barrier; obstType = 'barrier'; }
+  else if (type === 'HAZARD' && obstacleModels.chevrolet) { model = obstacleModels.chevrolet; obstType = 'chevrolet'; }
+  else if (type === 'HAZARD' && obstacleModels.cone) { model = obstacleModels.cone; obstType = 'cone'; }
+  else if (type === 'SLOW_ZONE' && obstacleModels.cone2) { model = obstacleModels.cone2; obstType = 'cone2'; }
 
   if (model) {
-    const clone = model.clone();
-    // Rotate car-type obstacles to face the road direction (-Z)
-    if (isCarObstacle) clone.rotation.y = Math.PI;
-    clone.updateMatrixWorld(true);
-    group.add(clone);
-    group.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(group);
-    const s = box.getSize(new THREE.Vector3());
-    // Car obstacles: scale by max dimension so car fits within a lane (~3 units wide)
-    const targetH = isCarObstacle ? 3.0 : (size?.z || 2) * 0.5;
-    const scaleDim = isCarObstacle ? Math.max(s.x, s.y, s.z) : Math.max(s.y, 0.001);
-    const scale = targetH / Math.max(scaleDim, 0.001);
-    group.scale.setScalar(scale);
-    group.updateMatrixWorld(true);
-    const nb = new THREE.Box3().setFromObject(group);
-    const nc = nb.getCenter(new THREE.Vector3());
-    group.position.x -= nc.x;
-    group.position.z -= nc.z;
-    group.position.y -= nb.min.y;
-    // Clamp
-    const fs = new THREE.Box3().setFromObject(group).getSize(new THREE.Vector3());
-    const maxA = 5.0;
-    const fm = Math.max(fs.x, fs.y, fs.z);
-    if (fm > maxA) group.scale.multiplyScalar(maxA / fm);
-    clone.traverse((c) => { if (c.isMesh) c.castShadow = true; });
+    const targetH = obstType === 'chevrolet' ? 3.0 : 1.5;
+    const mesh = createObstacleFromModel(model, targetH, obstType);
+    group.add(mesh);
   } else {
-    // Fallback box
-    const geo = new THREE.BoxGeometry(
-      (size?.x || 2) * 0.5,
-      (size?.z || 2) * 0.5,
-      (size?.z || 2) * 0.5
-    );
-    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
+    const geo = new THREE.ConeGeometry(0.4, 1.2, 8);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xff6600, roughness: 0.7 });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.y = (size?.z || 2) * 0.25;
+    mesh.position.y = 0.6;
     mesh.castShadow = true;
     group.add(mesh);
   }
 
   return group;
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  3D WORLD — POWER-UP CREATION
-// ═══════════════════════════════════════════════════════════════════════════════
 
 function createPowerUp3D(type) {
   const color = CFG.powerUpColors[type] || 0x00e676;
@@ -625,18 +262,13 @@ const gameState = {
   isHost: false,
   isSpectator: false,
   vsAI: false,
-
-  // From GAME_STATE WebSocket events
   serverState: null,
-
-  // 3D objects map
-  playerCars: {},       // { playerId: THREE.Group }
-  obstacle3DMap: {},    // { obstacleId: THREE.Group }
-  powerUp3DMap: {},     // { powerUpId: THREE.Group }
-
-  // Tracking camera focus
+  playerCars: {},
+  obstacle3DMap: {},
+  powerUp3DMap: {},
   myPlayerZ: 0,
   myPlayerX: 0,
+  cameraInitialized: false,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -706,8 +338,6 @@ async function createRoom() {
   try {
     setMenuStatus('Creating room...');
     if (!CFG.token) { setMenuStatus('No auth token!', '#ef4444'); return; }
-
-    // Check balance for PvP
     try {
       const balRes = await api.getPredictionBalance();
       if ((balRes?.data?.balanceOCT || 0) < 2) {
@@ -745,7 +375,6 @@ async function createRoomVsAI() {
 async function joinRoom(roomUid) {
   try {
     if (!CFG.token || !CFG.carUid) { setMenuStatus('Missing token or car!', '#ef4444'); return; }
-    // Balance check
     try {
       const balRes = await api.getPredictionBalance();
       if ((balRes?.data?.balanceOCT || 0) < 2) {
@@ -772,7 +401,6 @@ async function watchRoom(roomUid) {
   } catch (e) { setMenuStatus(e.message, '#ef4444'); }
 }
 
-// Expose to onclick handlers
 window._joinRoom = joinRoom;
 window._watchRoom = watchRoom;
 
@@ -796,20 +424,17 @@ function showLobby(roomUid, isHost, vsAI) {
   $('betting-box').style.display = 'none';
   $('lobby-instruction').textContent = vsAI ? 'Starting AI match...' : 'Waiting for opponent... Auto-bet: 2 OCT on yourself';
 
-  // Buttons
   $('btn-ready').style.display = vsAI ? 'inline-block' : 'none';
   $('btn-cancel-room').style.display = (!vsAI && isHost) ? 'inline-block' : 'none';
 
   setupLobbyWS();
 
-  // Fetch initial state
   ws.getRoomState(roomUid).then((room) => {
     $('lobby-mode').textContent = `${room.gameMode} | ${room.currentPlayers}/${room.maxPlayers} Players`;
     $('lobby-status').textContent = room.status;
     renderLobbyPlayers(room.players || []);
   }).catch(() => {});
 
-  // AI auto-ready
   if (vsAI) {
     setTimeout(() => {
       ws.markReady(roomUid).then(() => {
@@ -839,7 +464,6 @@ function renderLobbyPlayers(players) {
 }
 
 function setupLobbyWS() {
-  // Clean up old listeners
   ws.off('LOBBY_UPDATE');
   ws.off('GAME_START');
   ws.off('BETTING_START');
@@ -893,17 +517,50 @@ function setupLobbyWS() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 let racingActive = false;
+let clientEliminated = false;
 
 function startRacing(roomUid) {
   gameState.currentScreen = 'game';
   gameState.roomUid = roomUid;
+  gameState.cameraInitialized = false;
+  lastTrafficTime = 0;
+  clientEliminated = false;
+  const wastedOverlay = $('wasted-overlay');
+  if (wastedOverlay) wastedOverlay.style.display = 'none';
   showScreen('game');
-
-  // Clear previous 3D objects
   clearGameObjects();
-
   racingActive = true;
   setupRacingWS();
+}
+
+// Client-side collision: traffic cars only (server handles obstacle collisions)
+function checkClientCollisions() {
+  if (clientEliminated || gameState.isSpectator) return;
+  const myCar = gameState.playerCars[CFG.playerAddress];
+  if (!myCar) return;
+
+  // Check if server already marked us as finished
+  const myServerPlayer = gameState.serverState?.players?.find(p => p.playerId === CFG.playerAddress);
+  if (myServerPlayer?.isFinished) return;
+
+  const playerBox = new THREE.Box3().setFromObject(myCar);
+  const shrink = 0.35;
+  playerBox.min.x += shrink;
+  playerBox.max.x -= shrink;
+  playerBox.min.z += shrink;
+  playerBox.max.z -= shrink;
+
+  for (const trafficCar of trafficState.cars) {
+    const obsBox = new THREE.Box3().setFromObject(trafficCar);
+    const size = obsBox.getSize(new THREE.Vector3());
+    if (size.x > 10 || size.z > 10) continue; // skip oversized meshes
+    if (playerBox.intersectsBox(obsBox)) {
+      clientEliminated = true;
+      const wastedOverlay = $('wasted-overlay');
+      if (wastedOverlay) wastedOverlay.style.display = 'flex';
+      return;
+    }
+  }
 }
 
 function clearGameObjects() {
@@ -919,6 +576,7 @@ function clearGameObjects() {
     scene.remove(gameState.powerUp3DMap[id]);
   }
   gameState.powerUp3DMap = {};
+  clearTraffic();
 }
 
 function setupRacingWS() {
@@ -975,13 +633,27 @@ function renderGameState(state) {
     }
 
     const car3D = gameState.playerCars[id];
-    // Convert backend coords to 3D world coords
-    // Backend: x is lane position, z is distance forward
-    // 3D: x = same, z = negative of backend z (forward is -z in Three.js if camera looks -z)
-    // We'll use z = -backend.z so that farther distance = more negative z
-    car3D.position.x = player.position.x;
+    const targetX = player.position.x;
+    const targetZ = -player.position.z;
+
+    // Smooth lane change interpolation
+    if (car3D.userData.prevX === undefined) car3D.userData.prevX = targetX;
+    const prevX = car3D.userData.prevX;
+    const smoothX = prevX + (targetX - prevX) * Math.min(1, CONFIG.laneChangeSpeed * 0.016);
+    car3D.userData.prevX = smoothX;
+
+    car3D.position.x = smoothX;
     car3D.position.y = 0.01;
-    car3D.position.z = -player.position.z;
+    car3D.position.z = targetZ;
+
+    // Car steering rotation
+    const lateralSpeed = smoothX - prevX;
+    const steerAngle = -lateralSpeed * 0.8;
+    const currentSteer = car3D.userData.steer || 0;
+    car3D.userData.steer = currentSteer + (steerAngle - currentSteer) * 0.3;
+    if (car3D.children[0]) {
+      car3D.children[0].rotation.y = Math.PI + car3D.userData.steer;
+    }
 
     // Opacity for finished players
     car3D.traverse((c) => {
@@ -1006,7 +678,7 @@ function renderGameState(state) {
     state.obstacles.forEach((obs) => {
       activeObs.add(obs.id);
       if (!gameState.obstacle3DMap[obs.id]) {
-        const mesh = createObstacle3D(obs.type, obs.size);
+        const mesh = createObstacle3D(obs.type);
         scene.add(mesh);
         gameState.obstacle3DMap[obs.id] = mesh;
       }
@@ -1038,7 +710,6 @@ function renderGameState(state) {
       m.position.x = pu.position.x;
       m.position.y = 0;
       m.position.z = -pu.position.z;
-      // Spin animation
       if (m.userData.spinMesh) {
         m.userData.spinMesh.rotation.y += 0.03;
         m.userData.spinMesh.position.y = 1.0 + Math.sin(Date.now() / 300) * 0.2;
@@ -1054,22 +725,14 @@ function renderGameState(state) {
 
   // ── Camera follow ──
   if (focusPlayer) {
-    const targetCamX = focusPlayer.position.x * 0.5;
-    const targetCamZ = -focusPlayer.position.z + CFG.cameraBehind;
-    camera.position.x += (targetCamX - camera.position.x) * 0.08;
-    camera.position.y = CFG.cameraHeight;
-    camera.position.z += (targetCamZ - camera.position.z) * 0.08;
+    const carWorldZ = -focusPlayer.position.z;
+    camera.position.x = 0;
+    camera.position.y = 6;
+    camera.position.z = carWorldZ + 10;
+    camera.lookAt(new THREE.Vector3(0, 1, carWorldZ - 20));
 
-    const lookTarget = new THREE.Vector3(
-      focusPlayer.position.x * 0.3,
-      1,
-      -focusPlayer.position.z - CFG.cameraLookAhead
-    );
-    camera.lookAt(lookTarget);
-
-    // Move directional light with player
-    dirLight.position.set(focusPlayer.position.x + 5, 15, -focusPlayer.position.z + 5);
-    dirLight.target.position.set(focusPlayer.position.x, 0, -focusPlayer.position.z);
+    dirLight.position.set(5, 15, carWorldZ + 5);
+    dirLight.target.position.set(0, 0, carWorldZ - 15);
   }
 
   // ── Track recycling ──
@@ -1097,8 +760,12 @@ function rankSuffix(r) {
 
 async function endRacing() {
   racingActive = false;
+  clientEliminated = false;
+  const wastedOverlay = $('wasted-overlay');
+  if (wastedOverlay) wastedOverlay.style.display = 'none';
   gameState.currentScreen = 'result';
   showScreen('result');
+  clearTraffic();
 
   ws.off('GAME_STATE');
   ws.off('GAME_END');
@@ -1107,7 +774,6 @@ async function endRacing() {
     spectatorBadge.classList.remove('show');
   }
 
-  // Fetch result
   try {
     const res = await api.getResult(gameState.roomUid);
     if (res.success && res.data) {
@@ -1193,7 +859,6 @@ function renderPrediction(pool) {
   const totalOCT = (Number(pool.totalPool || 0) / 1e9).toFixed(2);
   $('pred-pool').textContent = `Pool: ${totalOCT} OCT`;
 
-  // Betting window
   const endsAt = pool.room?.bettingEndsAt ? new Date(pool.room.bettingEndsAt).getTime() : 0;
   const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
   let bettingClosed = false;
@@ -1271,11 +936,9 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'ArrowRight' || e.code === 'KeyD') sendRight();
 });
 
-// Mobile controls
 $('btn-left').addEventListener('pointerdown', (e) => { e.preventDefault(); sendLeft(); });
 $('btn-right').addEventListener('pointerdown', (e) => { e.preventDefault(); sendRight(); });
 
-// Touch swipe
 let touchStartX = 0;
 window.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
 window.addEventListener('touchend', (e) => {
@@ -1320,9 +983,7 @@ $('btn-cancel-room').addEventListener('click', async () => {
 });
 
 $('btn-leave-lobby').addEventListener('click', async () => {
-  try {
-    await ws.leaveRoom(gameState.roomUid);
-  } catch {}
+  try { await ws.leaveRoom(gameState.roomUid); } catch {}
   showMenu();
 });
 
@@ -1348,6 +1009,18 @@ $('btn-back-app').addEventListener('click', () => {
 
 function animate() {
   requestAnimationFrame(animate);
+
+  if (racingActive && gameState.serverState) {
+    const now = performance.now() / 1000;
+    const delta = lastTrafficTime ? Math.min(now - lastTrafficTime, 0.1) : 0.016;
+    lastTrafficTime = now;
+    const serverObstacles = Object.values(gameState.obstacle3DMap);
+    const myPlayer = gameState.serverState.players?.find(p => p.playerId === CFG.playerAddress);
+    const mySpeed = (myPlayer?.speed ?? gameState.serverState.players?.[0]?.speed ?? 50) * 0.3; // scale to m/s range
+    updateTraffic(delta, mySpeed, camera.position.z, null, serverObstacles);
+    checkClientCollisions();
+  }
+
   renderer.render(scene, camera);
 }
 
@@ -1358,30 +1031,20 @@ function animate() {
 async function init() {
   showScreen('loading');
 
-  // Load 3D assets
-  await loadAssets();
-
-  // Build track
+  await loadAssets(loadingBar, loadingText);
   initTrack();
-
-  // Initialize WebSocket
   initWebSocket();
 
-  // Wait a moment for WS to connect
   await new Promise((r) => setTimeout(r, 500));
 
-  // Start render loop
   animate();
 
-  // Check if launched from game page with a specific mode
   const mode = localStorage.getItem('game_mode');
   if (mode === 'vs_ai') {
-    // Auto-create AI room
     showScreen('menu');
     gameState.currentScreen = 'menu';
     await createRoomVsAI();
   } else {
-    // Show menu (for multiplayer / general)
     showMenu();
   }
 }

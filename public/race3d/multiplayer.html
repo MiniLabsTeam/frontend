@@ -285,6 +285,18 @@
     <div class="pred-message" id="pred-message"></div>
   </div>
 
+  <!-- Wasted Overlay (client-side: traffic car hit) -->
+  <div id="wasted-overlay" style="
+    display:none; position:fixed; inset:0; z-index:75;
+    background:rgba(0,0,0,0.6); backdrop-filter:blur(6px);
+    flex-direction:column; align-items:center; justify-content:center;
+    pointer-events:none;
+  ">
+    <div style="font-size:3rem;font-weight:900;color:#ef4444;letter-spacing:0.15em;
+      text-shadow:0 0 40px rgba(239,68,68,0.8);">WASTED</div>
+    <div style="color:rgba(255,255,255,0.5);font-size:0.9rem;margin-top:0.8rem;">Waiting for results...</div>
+  </div>
+
   <!-- Result Screen -->
   <div id="result-screen" class="overlay">
     <h2>RACE FINISHED!</h2>
