@@ -1039,6 +1039,24 @@ async function init() {
 
   animate();
 
+  // ── Spectate mode: ?spectate=roomUid ──
+  const spectateRoomUid = new URLSearchParams(window.location.search).get('spectate');
+  if (spectateRoomUid) {
+    gameState.isSpectator = true;
+    gameState.roomUid = spectateRoomUid;
+    ws.emit('SPECTATE_JOIN', { roomUid: spectateRoomUid }, (res) => {
+      if (res?.success) {
+        showScreen('game');
+        racingActive = true;
+        setupRacingWS();
+        if (spectatorBadge) spectatorBadge.classList.add('show');
+      } else {
+        loadingText.textContent = 'Failed to join spectator session.';
+      }
+    });
+    return;
+  }
+
   const mode = localStorage.getItem('game_mode');
   if (mode === 'vs_ai') {
     showScreen('menu');

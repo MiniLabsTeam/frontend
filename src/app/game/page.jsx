@@ -520,6 +520,25 @@ export default function GamePage() {
               <Play size={22} fill="white" />
               {launching ? "Starting Race..." : gameMode === "endless_3d" ? "3D ENDLESS RACE" : gameMode === "multiplayer_3d" ? "3D MULTIPLAYER" : gameMode === "vs_ai" ? "RACE VS AI" : "START RACE"}
             </button>
+
+            {/* Watch Live 3D — only for endless_3d mode */}
+            {gameMode === "endless_3d" && (
+              <a
+                href="/race3d/watch.html"
+                target="_blank"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                  width: "100%", padding: "14px 0", borderRadius: "16px", marginTop: "10px",
+                  border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.12)",
+                  color: "#f87171", fontWeight: 800, fontSize: "0.9rem", letterSpacing: "0.06em",
+                  textDecoration: "none", transition: "background 0.15s",
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = "rgba(239,68,68,0.22)"}
+                onMouseLeave={e => e.currentTarget.style.background = "rgba(239,68,68,0.12)"}
+              >
+                👁 WATCH LIVE 3D
+              </a>
+            )}
           </>
         )}
       </div>

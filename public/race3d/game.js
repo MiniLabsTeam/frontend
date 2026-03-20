@@ -65,6 +65,26 @@ function showNearMissFlash() {
   }
 }
 
+// ─── Live Spectator Socket ───────────────────────────────────────────────────
+let gameSocket = null;
+let stateEmitTimer = 0;
+let obstacleIdCounter = 0;
+
+function initLiveSocket() {
+  if (!WEB3.backendUrl || !WEB3.authToken) return;
+  const baseUrl = WEB3.backendUrl.replace('/api', '');
+  try {
+    gameSocket = window.io(baseUrl, {
+      auth: { token: WEB3.authToken },
+      transports: ['websocket', 'polling'],
+    });
+    gameSocket.on('connect', () => console.log('[Live] Socket connected, ready to broadcast'));
+    gameSocket.on('connect_error', (e) => console.warn('[Live] Socket error:', e.message));
+  } catch (e) {
+    console.warn('[Live] Socket init failed:', e);
+  }
+}
+
 // ─── Obstacles (local) ──────────────────────────────────────────────────────
 const obstacles = [];
 let playerCar = null;
@@ -148,6 +168,7 @@ function spawnObstacle(excludeLane) {
   container.position.set(x, 0, z);
   container.userData.lane = lane;
   container.userData.active = true;
+  container.userData.id = obstacleIdCounter++;
 
   if (Math.abs(z) < 30) return lane;
   const tooClose = obstacles.some(o =>
@@ -267,6 +288,7 @@ function resetGame() {
   state.gameTime = 0;
   state.nearMissCooldown = 0;
 
+  obstacleIdCounter = 0;
   for (const obs of obstacles) scene.remove(obs);
   obstacles.length = 0;
 
@@ -290,6 +312,12 @@ function startGame() {
   hud.classList.add('show');
   if (isMobile()) mobileControls.classList.add('show');
   clock.getDelta();
+
+  if (gameSocket?.connected) {
+    gameSocket.emit('ENDLESS_START', {}, (res) => {
+      if (res?.success) console.log('[Live] Session started:', res.sessionId);
+    });
+  }
 }
 
 function gameOverHandler() {
@@ -303,6 +331,10 @@ function gameOverHandler() {
   scoreStatus.textContent = '';
   scoreRank.textContent = '';
   submitScore();
+
+  if (gameSocket?.connected) {
+    gameSocket.emit('ENDLESS_END');
+  }
 }
 
 async function submitScore() {
@@ -480,6 +512,28 @@ function update(delta) {
   hudScore.textContent = state.score.toLocaleString();
   hudSpeed.textContent = Math.round(state.speed * 3.6);
   hudDistance.textContent = Math.round(state.distance) + 'm';
+
+  // Broadcast state to spectators every 100ms
+  stateEmitTimer += delta;
+  if (stateEmitTimer >= 0.1 && gameSocket?.connected) {
+    stateEmitTimer = 0;
+    gameSocket.emit('ENDLESS_STATE', {
+      playerX: state.playerX,
+      speed: state.speed,
+      score: state.score,
+      distance: state.distance,
+      obstacles: obstacles
+        .filter(o => o.userData.active && o.position.z > -250 && o.position.z < 30)
+        .map(o => ({
+          id: o.userData.id,
+          x: o.position.x,
+          z: o.position.z,
+          isTraffic: !!o.userData.isTraffic,
+          isOncoming: !!o.userData.isOncoming,
+        })),
+      trackZ: trackPieces.map(p => p.position.z),
+    });
+  }
 }
 
 // ─── Render Loop ────────────────────────────────────────────────────────────
@@ -527,6 +581,7 @@ async function init() {
   }, 800);
 
   animate();
+  initLiveSocket();
 }
 
 init();
