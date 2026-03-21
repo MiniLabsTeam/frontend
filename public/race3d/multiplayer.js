@@ -10,7 +10,7 @@ import {
   WEB3, CONFIG, scene, camera, renderer, dirLight,
   obstacleModels, loadAssets, createCarMesh,
   createObstacleFromModel, createProceduralCar,
-  trackPieces, initTrack, recycleTrack,
+  trackPieces, actualTrackLength, initTrack, recycleTrack,
   updateTraffic, clearTraffic, trafficState,
   isMobile,
 } from './engine3d.js';
@@ -529,6 +529,17 @@ function startRacing(roomUid) {
   if (wastedOverlay) wastedOverlay.style.display = 'none';
   showScreen('game');
   clearGameObjects();
+
+  // Reset camera to start position
+  camera.position.set(0, 6, 10);
+  camera.lookAt(new THREE.Vector3(0, 1, -20));
+
+  // Reset track pieces to initial positions
+  const step = actualTrackLength - 0.5;
+  for (let i = 0; i < trackPieces.length; i++) {
+    trackPieces[i].position.z = actualTrackLength / 2 - i * step;
+  }
+
   racingActive = true;
   setupRacingWS();
 }
@@ -624,7 +635,8 @@ function renderGameState(state) {
     if (!gameState.playerCars[id]) {
       const texKey = `carTex${(idx % 5) + 1}`;
       const color = CFG.playerColors[idx % CFG.playerColors.length];
-      const car = createCarMesh(color, texKey);
+      const brand = player.carBrand ?? 0;
+      const car = createCarMesh(color, texKey, brand);
       const isMe = !gameState.isSpectator && id === CFG.playerAddress;
       const shortAddr = id.substring(0, 6) + '...' + id.slice(-4);
       car.add(createNameTag(shortAddr, isMe));

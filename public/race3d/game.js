@@ -559,8 +559,10 @@ async function init() {
 
   await loadAssets(loadingBar, loadingText);
 
-  // Create player car
-  playerCar = createCarMesh(0xff6600, 'carTex1');
+  // Create player car with brand from saved car data
+  const _carData = JSON.parse(localStorage.getItem('game_car_data') || '{}');
+  const _playerBrand = _carData.brand ?? 0;
+  playerCar = createCarMesh(0xff6600, 'carTex1', _playerBrand);
   playerCar.position.set(CONFIG.lanes[1], 0.01, 0);
   scene.add(playerCar);
 

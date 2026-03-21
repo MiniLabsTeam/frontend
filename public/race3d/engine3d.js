@@ -122,10 +122,18 @@ export let trackModel = null;
 export let trackModelSize = new THREE.Vector3();
 export const obstacleModels = { cone: null, cone2: null, barrier: null, chevrolet: null };
 export const carTextures = {};
+export const brandCarModels = { 0: null, 1: null, 2: null, 3: null }; // Lamborghini, Ferrari, Ford, Chevrolet
+
+const BRAND_MODEL_PATHS = {
+  0: '/asset3d/assets3dcarglb/Lamborghini-Huracan.glb',
+  1: '/asset3d/assets3dcarglb/Ferrari-F8-Turbo.glb',
+  2: '/asset3d/assets3dcarglb/ford.glb',
+  3: '/asset3d/assets3dcarglb/CHEVROLET.glb',
+};
 
 // ─── Loading Progress ────────────────────────────────────────────────────────
 let loadedCount = 0;
-const totalAssets = 12;
+const totalAssets = 16;
 
 export function updateLoadingProgress(label, loadingBarEl, loadingTextEl) {
   loadedCount++;
@@ -224,6 +232,19 @@ export async function loadAssets(loadingBarEl, loadingTextEl) {
       console.warn(`Obstacle ${name} failed`, e);
     }
     progress('Obstacle loaded');
+  }
+
+  // Brand car models (Lamborghini, Ferrari, Ford, Chevrolet)
+  for (const brandId of [0, 1, 2, 3]) {
+    try {
+      const gltf = await new Promise((resolve, reject) => {
+        gltfLoader.load(BRAND_MODEL_PATHS[brandId], resolve, undefined, reject);
+      });
+      brandCarModels[brandId] = gltf.scene;
+      console.log(`Brand car ${brandId} loaded`);
+    } catch (e) {
+      console.warn(`Brand car ${brandId} failed, will use FBX fallback`, e);
+    }
   }
 
   console.log('All assets loaded!');
@@ -364,11 +385,52 @@ const OBSTACLE_COLORS = {
   chevrolet: 0x884422,
 };
 
-export function createCarMesh(colorHex, textureKey) {
+export function createCarMesh(colorHex, textureKey, brand = 0) {
   const container = new THREE.Group();
   let carMesh;
 
-  if (carModelTemplate) {
+  // Try brand-specific GLB first, then FBX template, then procedural
+  const brandModel = brandCarModels[brand] ?? brandCarModels[0];
+
+  if (brandModel) {
+    carMesh = brandModel.clone();
+    const box = new THREE.Box3().setFromObject(carMesh);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const desiredLength = 3.5;
+    const scale = desiredLength / Math.max(maxDim, 0.001);
+    carMesh.scale.setScalar(scale);
+    // Center the model at origin then lift to ground level
+    const centerScaled = center.clone().multiplyScalar(scale);
+    carMesh.position.sub(centerScaled);
+    // Ensure bottom sits at y=0
+    const boxAfter = new THREE.Box3().setFromObject(carMesh);
+    carMesh.position.y -= boxAfter.min.y;
+
+    carMesh.traverse((child) => {
+      if (child.isMesh) {
+        if (Array.isArray(child.material)) {
+          child.material = child.material.map((m) => {
+            const nm = m.clone();
+            nm.metalness = Math.max(nm.metalness ?? 0, 0.4);
+            nm.roughness = Math.min(nm.roughness ?? 0.5, 0.5);
+            nm.envMap = scene.environment;
+            nm.envMapIntensity = 0.5;
+            return nm;
+          });
+        } else if (child.material) {
+          child.material = child.material.clone();
+          child.material.metalness = Math.max(child.material.metalness ?? 0, 0.4);
+          child.material.roughness = Math.min(child.material.roughness ?? 0.5, 0.5);
+          child.material.envMap = scene.environment;
+          child.material.envMapIntensity = 0.5;
+        }
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+  } else if (carModelTemplate) {
     carMesh = carModelTemplate.clone();
     const box = new THREE.Box3().setFromObject(carMesh);
     const size = box.getSize(new THREE.Vector3());

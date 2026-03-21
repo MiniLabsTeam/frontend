@@ -177,6 +177,7 @@ export default function GamePage() {
       baseDrift: selectedCar.baseDrift || 50,
       name: selectedCar.name || "",
       rarity: selectedCar.rarity || "",
+      brand: selectedCar.brand ?? 0,
     }));
     localStorage.setItem(
       "backend_url",
