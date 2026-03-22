@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Garage Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+    canvas { display: block; width: 100%; height: 100%; }
+
+    #loader {
+      position: fixed; inset: 0; z-index: 10;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(5, 6, 10, 0.85);
+      transition: opacity 0.5s ease;
+    }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(251,146,60,0.15);
+      border-top-color: #fb923c;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #load-text {
+      margin-top: 12px;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.35);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      letter-spacing: 0.08em;
+    }
+
+    #unavailable-overlay {
+      position: fixed; inset: 0; z-index: 10;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(4px);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    #unavailable-overlay.show { display: flex; }
+    #unavailable-overlay .icon { font-size: 2.5rem; margin-bottom: 10px; }
+    #unavailable-overlay p {
+      color: rgba(255,255,255,0.5);
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+    }
+  </style>
+</head>
+<body>
+  <div id="loader">
+    <div class="spinner"></div>
+    <p id="load-text">Loading model...</p>
+  </div>
+
+  <div id="unavailable-overlay">
+    <div class="icon">🚫</div>
+    <p>3D Preview Unavailable</p>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // ── DOM ──
+    const loaderEl        = document.getElementById('loader');
+    const loadTextEl      = document.getElementById('load-text');
+    const unavailableEl   = document.getElementById('unavailable-overlay');
+
+    // ── Car model map (brand 0-3) ──
+    const CAR_MODELS = {
+      0: '/asset3d/assets3dcarglb/Lamborghini-Huracan.glb',
+      1: '/asset3d/assets3dcarglb/Ferrari-F8-Turbo.glb',
+      2: '/asset3d/assets3dcarglb/ford.glb',
+      3: '/asset3d/assets3dcarglb/CHEVROLET.glb',
+    };
+
+    // ── Rarity rim-light colors ──
+    const RARITY_COLORS = {
+      0: 0x556677,  // Common — gray
+      1: 0x1155ff,  // Rare   — blue
+      2: 0x9933ff,  // Epic   — violet
+      3: 0xffaa00,  // Legendary — gold
+    };
+
+    // ── Renderer ──
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 2.2;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.setClearColor(0x0d1117, 1); // dark blue-gray bg (visible)
+    document.body.appendChild(renderer.domElement);
+
+    // ── Scene ──
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0d1117);
+    scene.fog = new THREE.FogExp2(0x0d1117, 0.025);
+
+    // ── Camera ──
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, 2.5, 7);
+    camera.lookAt(0, 0.8, 0);
+
+    // ── OrbitControls ──
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.enableZoom = false;
+    controls.enablePan = false;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 1.2;
+    controls.minPolarAngle = Math.PI / 6;
+    controls.maxPolarAngle = Math.PI / 2.1;
+    controls.target.set(0, 0.8, 0);
+
+    // ── Lighting ──
+    // Strong ambient so dark-colored cars are always visible
+    const ambient = new THREE.AmbientLight(0xffffff, 3.5);
+    scene.add(ambient);
+
+    // Main key light from front-above
+    const keyLight = new THREE.SpotLight(0xffffff, 30.0);
+    keyLight.position.set(2, 8, 8);
+    keyLight.target.position.set(0, 0.5, 0);
+    keyLight.angle = Math.PI / 5;
+    keyLight.penumbra = 0.5;
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.near = 1;
+    keyLight.shadow.camera.far = 30;
+    scene.add(keyLight);
+    scene.add(keyLight.target);
+
+    // Fill from left
+    const fillLight = new THREE.DirectionalLight(0xccddff, 5.0);
+    fillLight.position.set(-6, 5, 3);
+    scene.add(fillLight);
+
+    // Fill from right
+    const fillRight = new THREE.DirectionalLight(0xffeedd, 4.0);
+    fillRight.position.set(6, 4, 2);
+    scene.add(fillRight);
+
+    const rimLight = new THREE.DirectionalLight(0x4466ff, 5.0);
+    rimLight.position.set(-4, 3, -6);
+    scene.add(rimLight);
+
+    const bounceLight = new THREE.DirectionalLight(0xff8833, 2.0);
+    bounceLight.position.set(0, -2, 5);
+    scene.add(bounceLight);
+
+    // ── Floor ──
+    const floorGeo = new THREE.PlaneGeometry(40, 40);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x141824,
+      roughness: 0.15,
+      metalness: 0.6,
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const grid = new THREE.GridHelper(32, 32, 0x2a3560, 0x1a2040);
+    grid.position.y = 0.002;
+    scene.add(grid);
+
+    const diskGeo = new THREE.CylinderGeometry(2.8, 2.8, 0.04, 64);
+    const diskMat = new THREE.MeshStandardMaterial({
+      color: 0x1a2035,
+      roughness: 0.05,
+      metalness: 0.85,
+      emissive: new THREE.Color(0x4466ff),
+      emissiveIntensity: 0.12,
+    });
+    const disk = new THREE.Mesh(diskGeo, diskMat);
+    disk.receiveShadow = true;
+    scene.add(disk);
+
+    // Glow ring
+    const ringGeo = new THREE.TorusGeometry(2.8, 0.06, 8, 64);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x4466ff, transparent: true, opacity: 0.9 });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.025;
+    scene.add(ring);
+
+    // ── GLB Loader ──
+    const gltfLoader = new GLTFLoader();
+    let currentCarMesh = null;
+    let loadGeneration = 0;
+
+    function showLoader(text = 'Loading model...') {
+      loadTextEl.textContent = text;
+      loaderEl.classList.remove('hidden');
+      unavailableEl.classList.remove('show');
+    }
+
+    function hideLoader() {
+      loaderEl.classList.add('hidden');
+    }
+
+    function showUnavailable() {
+      loaderEl.classList.add('hidden');
+      unavailableEl.classList.add('show');
+    }
+
+    async function loadCar(brand) {
+      const gen = ++loadGeneration;
+
+      // Remove old car
+      if (currentCarMesh) {
+        scene.remove(currentCarMesh);
+        currentCarMesh = null;
+      }
+
+      // Validate brand
+      const modelPath = CAR_MODELS[brand];
+      if (!modelPath) {
+        showUnavailable();
+        return;
+      }
+
+      showLoader('Loading model...');
+
+      try {
+        const gltf = await gltfLoader.loadAsync(modelPath);
+
+        // Race condition guard
+        if (gen !== loadGeneration) return;
+
+        const model = gltf.scene;
+
+        // Auto-center and scale to fit ~3.2 units
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 3.2 / Math.max(maxDim, 0.001);
+
+        model.scale.setScalar(scale);
+        model.position.sub(center.multiplyScalar(scale));
+
+        // Sit on floor
+        const boxAfter = new THREE.Box3().setFromObject(model);
+        model.position.y -= boxAfter.min.y;
+
+        // Face camera
+        model.rotation.y = Math.PI;
+
+        // Enhance materials + shadows
+        model.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            if (Array.isArray(child.material)) {
+              child.material = child.material.map((m) => {
+                const nm = m.clone();
+                nm.metalness = Math.max(nm.metalness ?? 0, 0.5);
+                nm.roughness = Math.min(nm.roughness ?? 0.4, 0.4);
+                nm.envMapIntensity = 1.0;
+                return nm;
+              });
+            } else if (child.material) {
+              child.material = child.material.clone();
+              child.material.metalness = Math.max(child.material.metalness ?? 0, 0.5);
+              child.material.roughness = Math.min(child.material.roughness ?? 0.4, 0.4);
+              child.material.envMapIntensity = 1.0;
+            }
+          }
+        });
+
+        scene.add(model);
+        currentCarMesh = model;
+        hideLoader();
+
+      } catch (err) {
+        if (gen !== loadGeneration) return;
+        console.warn('Car model load failed:', err);
+        showUnavailable();
+      }
+    }
+
+    function setRarityLighting(rarity) {
+      const color = RARITY_COLORS[rarity] ?? RARITY_COLORS[0];
+      rimLight.color.setHex(color);
+      diskMat.emissive.setHex(color);
+      diskMat.emissiveIntensity = 0.04;
+      ringMat.color.setHex(color);
+    }
+
+    // ── postMessage ──
+    window.addEventListener('message', (e) => {
+      if (!e.data || typeof e.data !== 'object') return;
+      if (e.data.type === 'SET_CAR') {
+        const brand = typeof e.data.brand === 'number' ? Math.max(0, Math.min(3, e.data.brand)) : 0;
+        loadCar(brand);
+      }
+      if (e.data.type === 'SET_RARITY') {
+        const rarity = typeof e.data.rarity === 'number' ? e.data.rarity : 0;
+        setRarityLighting(rarity);
+      }
+    });
+
+    // ── Resize ──
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ── Animate ──
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Load default model on startup
+    loadCar(0);
+  </script>
+</body>
+</html>

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
-import BottomNavigation from "@/components/shared/BottomNavigation";
-import { Gamepad2, Car, ChevronLeft, Play, CheckCircle2, Zap, Wind, Gauge, RotateCw } from "lucide-react";
+import {
+  Gamepad2, Car, ChevronLeft, Play,
+  Zap, Wind, Gauge, RotateCw, Infinity, Globe,
+} from "lucide-react";
 import { toast } from "sonner";
 
 // ─── Car image fallback by name ───────────────────────────────────────────────
@@ -78,60 +80,40 @@ function getRarityTextColor(rarity) {
   return "#9ca3af";
 }
 
-// ─── Stat Bar ─────────────────────────────────────────────────────────────────
-
-function StatBar({ icon: Icon, label, value, rarity }) {
-  const pct = Math.min(100, Math.max(0, Number(value) || 0));
-  return (
-    <div className="flex items-center gap-2">
-      <Icon size={13} style={{ color: getRarityTextColor(rarity), flexShrink: 0 }} />
-      <span className="text-gray-400 text-xs w-16 flex-shrink-0">{label}</span>
-      <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full bg-gradient-to-r ${getRarityColor(rarity)} transition-all duration-700`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="text-xs font-bold w-7 text-right" style={{ color: getRarityTextColor(rarity) }}>
-        {pct}
-      </span>
-    </div>
-  );
-}
-
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
-function SkeletonCard() {
+function SkeletonPicker() {
   return (
     <div
-      className="rounded-2xl overflow-hidden animate-pulse"
-      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
-    >
-      <div className="h-1.5 w-full" style={{ background: "rgba(255,255,255,0.08)" }} />
-      <div className="p-3 flex flex-col items-center gap-2">
-        <div className="w-16 h-12 rounded-lg" style={{ background: "rgba(255,255,255,0.07)" }} />
-        <div className="w-20 h-2.5 rounded-full" style={{ background: "rgba(255,255,255,0.07)" }} />
-        <div className="w-12 h-2 rounded-full" style={{ background: "rgba(255,255,255,0.05)" }} />
-      </div>
-    </div>
+      className="flex-shrink-0 rounded-xl overflow-hidden animate-pulse"
+      style={{ width: 60, height: 72, background: "rgba(255,255,255,0.04)", border: "2px solid rgba(255,255,255,0.06)" }}
+    />
   );
 }
+
+// ─── Game Modes ───────────────────────────────────────────────────────────────
+
+const MODES = [
+  { id: "endless_3d",     label: "3D Endless", icon: Infinity },
+  { id: "multiplayer_3d", label: "3D Multi",   icon: Globe    },
+];
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function GamePage() {
   const { isConnected, walletAddress, getAuthToken } = useWallet();
   const router = useRouter();
+  const iframeRef = useRef(null);
+
   const [cars, setCars] = useState([]);
   const [selectedCar, setSelectedCar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [launching, setLaunching] = useState(false);
-  const [gameMode, setGameMode] = useState("multiplayer");
+  const [gameMode, setGameMode] = useState("endless_3d");
+  const [viewerReady, setViewerReady] = useState(false);
 
   useEffect(() => {
-    if (!isConnected) {
-      router.push("/");
-    }
+    if (!isConnected) router.push("/");
   }, [isConnected, router]);
 
   const fetchInventory = useCallback(async () => {
@@ -159,13 +141,28 @@ export default function GamePage() {
     if (isConnected) fetchInventory();
   }, [isConnected, fetchInventory]);
 
+  // Sync 3D viewer when iframe loads
+  const handleViewerLoad = () => {
+    setViewerReady(true);
+    if (selectedCar && iframeRef.current) {
+      iframeRef.current.contentWindow.postMessage({ type: "SET_CAR", brand: selectedCar.brand ?? 0 }, "*");
+      iframeRef.current.contentWindow.postMessage({ type: "SET_RARITY", rarity: selectedCar.rarity ?? 0 }, "*");
+    }
+  };
+
+  // Sync 3D viewer when selected car changes
+  useEffect(() => {
+    if (!viewerReady || !selectedCar || !iframeRef.current) return;
+    iframeRef.current.contentWindow.postMessage({ type: "SET_CAR", brand: selectedCar.brand ?? 0 }, "*");
+    iframeRef.current.contentWindow.postMessage({ type: "SET_RARITY", rarity: selectedCar.rarity ?? 0 }, "*");
+  }, [selectedCar, viewerReady]);
+
   const handleLaunch = async () => {
     if (!selectedCar) {
       toast.error("Pilih mobil terlebih dahulu!");
       return;
     }
     setLaunching(true);
-
     const token = await getAuthToken();
     localStorage.setItem("wallet_address", walletAddress || "");
     localStorage.setItem("auth_token", token || "");
@@ -179,11 +176,8 @@ export default function GamePage() {
       rarity: selectedCar.rarity || "",
       brand: selectedCar.brand ?? 0,
     }));
-    localStorage.setItem(
-      "backend_url",
-      (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000") + "/api"
-    );
-    localStorage.setItem("game_mode", gameMode); // "multiplayer", "vs_ai", or "endless_3d"
+    localStorage.setItem("backend_url", (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000") + "/api");
+    localStorage.setItem("game_mode", gameMode);
 
     if (gameMode === "endless_3d") {
       window.location.href = "/race3d/index.html";
@@ -196,22 +190,32 @@ export default function GamePage() {
 
   if (!isConnected) return null;
 
-  // Speed-line diagonal background pattern
   const speedLineBg = {
     background: "#080a0f",
     backgroundImage:
       "repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(255,255,255,0.018) 40px, rgba(255,255,255,0.018) 41px)",
   };
 
+  const launchLabel = launching
+    ? "Starting..."
+    : gameMode === "endless_3d" ? "3D ENDLESS"
+    : gameMode === "multiplayer_3d" ? "3D MULTIPLAYER"
+    : gameMode === "vs_ai" ? "RACE VS AI"
+    : "START RACE";
+
   return (
-    <main className="relative min-h-screen text-white" style={speedLineBg}>
+    <main
+      className="relative text-white flex flex-col"
+      style={{ ...speedLineBg, height: "100dvh", overflow: "hidden" }}
+    >
+
       {/* ── Header ── */}
       <header
-        className="sticky top-0 z-20 px-4 py-3"
+        className="flex-shrink-0 z-20 px-4 py-3"
         style={{
           background: "rgba(8,10,15,0.92)",
           backdropFilter: "blur(16px)",
-          borderBottom: "1px solid rgba(251,146,60,0.18)",
+          borderBottom: "1px solid rgba(251,146,60,0.15)",
         }}
       >
         <div className="flex items-center gap-3 max-w-md mx-auto">
@@ -219,332 +223,241 @@ export default function GamePage() {
             onClick={() => router.push("/dashboard")}
             className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
             style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
-            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
-            onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
           >
             <ChevronLeft size={18} className="text-gray-300" />
           </button>
           <div className="flex items-center gap-2 flex-1">
-            <Gamepad2 size={20} className="text-orange-400" />
-            <span className="text-base font-black text-white tracking-wide">OneChain Racing</span>
+            <Gamepad2 size={18} className="text-orange-400" />
+            <span className="text-sm font-black text-white tracking-widest uppercase">Garage</span>
           </div>
         </div>
       </header>
 
-      <div className="max-w-md mx-auto px-4 pt-8 pb-32">
-
-        {/* ── Page Title ── */}
-        <div className="text-center mb-8">
-          <h1
-            className="text-3xl font-black tracking-widest uppercase mb-2"
-            style={{
-              letterSpacing: "0.18em",
-              background: "linear-gradient(90deg, #fff 30%, #fb923c 70%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            Select Your Racer
-          </h1>
-          <p className="text-gray-500 text-sm tracking-wide">Choose your machine and hit the track</p>
-          {/* decorative line */}
-          <div className="flex items-center justify-center gap-3 mt-3">
-            <div className="h-px flex-1 max-w-16" style={{ background: "linear-gradient(90deg, transparent, rgba(251,146,60,0.4))" }} />
-            <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-            <div className="h-px flex-1 max-w-16" style={{ background: "linear-gradient(90deg, rgba(251,146,60,0.4), transparent)" }} />
-          </div>
-        </div>
-
-        {loading ? (
-          /* ── Loading State ── */
-          <div className="space-y-6">
-            {/* Featured skeleton */}
-            <div
-              className="rounded-3xl overflow-hidden animate-pulse"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", height: 320 }}
-            />
-            {/* Picker skeleton */}
-            <div className="grid grid-cols-4 gap-2">
-              {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
-            </div>
-          </div>
-
-        ) : cars.length === 0 ? (
-          /* ── Empty State ── */
-          <div
-            className="flex flex-col items-center justify-center py-20 rounded-3xl"
-            style={{
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.07)",
-            }}
-          >
-            <div
-              className="w-24 h-24 rounded-full flex items-center justify-center mb-6"
-              style={{
-                background: "radial-gradient(circle, rgba(251,146,60,0.12) 0%, rgba(251,146,60,0.02) 70%)",
-                border: "1px solid rgba(251,146,60,0.2)",
-              }}
-            >
-              <Car size={44} style={{ color: "rgba(251,146,60,0.5)" }} />
-            </div>
-            <h3 className="text-white font-black text-xl mb-2">No Cars Yet</h3>
-            <p className="text-gray-500 text-sm mb-6 text-center max-w-48">
-              Your garage is empty. Pull from gacha to get your first racer!
-            </p>
-            <button
-              onClick={() => router.push("/gacha")}
-              className="flex items-center gap-2 font-bold py-3 px-8 rounded-full text-sm transition-all active:scale-95"
-              style={{
-                background: "linear-gradient(135deg, #fb923c, #ef4444)",
-                boxShadow: "0 0 24px rgba(251,146,60,0.35)",
-                color: "#fff",
-              }}
-            >
-              <Zap size={16} />
-              Open Gacha
-            </button>
-          </div>
-
-        ) : (
-          <>
-            {/* Mode selector */}
-            <div className="flex gap-2 mb-4 justify-center flex-wrap">
+      {/* ── Mode Bar ── */}
+      <div className="flex-shrink-0 max-w-md mx-auto w-full">
+        <div className="flex gap-2 px-4 pt-2 pb-1" style={{ scrollbarWidth: "none" }}>
+          {MODES.map(({ id, label, icon: Icon }) => {
+            const active = gameMode === id;
+            return (
               <button
-                onClick={() => setGameMode("multiplayer")}
-                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${gameMode === "multiplayer"
-                    ? "bg-orange-500 text-black"
-                    : "bg-gray-800 text-gray-400 border border-gray-700"
-                  }`}
-              >
-                Multiplayer
-              </button>
-              <button
-                onClick={() => setGameMode("vs_ai")}
-                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${gameMode === "vs_ai"
-                    ? "bg-orange-500 text-black"
-                    : "bg-gray-800 text-gray-400 border border-gray-700"
-                  }`}
-              >
-                VS AI
-              </button>
-              <button
-                onClick={() => setGameMode("endless_3d")}
-                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${gameMode === "endless_3d"
-                    ? "bg-orange-500 text-black"
-                    : "bg-gray-800 text-gray-400 border border-gray-700"
-                  }`}
-              >
-                3D Endless
-              </button>
-              <button
-                onClick={() => setGameMode("multiplayer_3d")}
-                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${gameMode === "multiplayer_3d"
-                    ? "bg-orange-500 text-black"
-                    : "bg-gray-800 text-gray-400 border border-gray-700"
-                  }`}
-              >
-                3D Multiplayer
-              </button>
-            </div>
-
-            {/* ── Featured Selected Car ── */}
-            {selectedCar && (
-              <div
-                className="relative rounded-3xl overflow-hidden mb-6"
+                key={id}
+                onClick={() => setGameMode(id)}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold transition-all active:scale-95"
                 style={{
-                  background: `linear-gradient(145deg, rgba(20,22,30,0.95) 0%, rgba(12,14,20,0.98) 100%)`,
-                  border: `1px solid ${getRarityBadgeBorder(selectedCar.rarity)}`,
-                  boxShadow: getRarityGlow(selectedCar.rarity),
+                  fontSize: 11,
+                  letterSpacing: "0.04em",
+                  background: active ? "linear-gradient(135deg, #f97316, #ef4444)" : "rgba(255,255,255,0.05)",
+                  border: active ? "1px solid transparent" : "1px solid rgba(255,255,255,0.10)",
+                  color: active ? "#fff" : "#9ca3af",
+                  boxShadow: active ? "0 0 16px rgba(249,115,22,0.4)" : "none",
                 }}
               >
-                {/* Top gradient accent strip */}
-                <div
-                  className={`h-1 w-full bg-gradient-to-r ${getRarityColor(selectedCar.rarity)}`}
-                />
+                <Icon size={11} />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-                {/* Background radial glow behind car */}
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{
-                    background: `radial-gradient(ellipse at 50% 40%, ${getRarityBadgeBg(selectedCar.rarity)} 0%, transparent 70%)`,
-                  }}
-                />
+      {loading ? (
+        /* ── Loading ── */
+        <div className="flex-1 flex flex-col max-w-md mx-auto w-full px-4 gap-3 pt-3">
+          <div className="flex-1 rounded-2xl animate-pulse" style={{ background: "rgba(255,255,255,0.04)" }} />
+          <div style={{ height: 72, background: "rgba(255,255,255,0.04)", borderRadius: 16 }} className="animate-pulse flex-shrink-0" />
+          <div className="flex gap-2 flex-shrink-0">
+            {[...Array(3)].map((_, i) => <SkeletonPicker key={i} />)}
+          </div>
+          <div style={{ height: 48, background: "rgba(255,255,255,0.04)", borderRadius: 16 }} className="animate-pulse flex-shrink-0 mb-3" />
+        </div>
 
-                <div className="relative px-6 pt-6 pb-5">
-                  {/* Rarity badge */}
-                  <div className="flex justify-between items-start mb-4">
-                    <span
-                      className="text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full"
-                      style={{
-                        background: getRarityBadgeBg(selectedCar.rarity),
-                        border: `1px solid ${getRarityBadgeBorder(selectedCar.rarity)}`,
-                        color: getRarityTextColor(selectedCar.rarity),
-                        letterSpacing: "0.15em",
-                      }}
-                    >
-                      {getRarityLabel(selectedCar.rarity)}
-                    </span>
-                    {selectedCar.series && (
-                      <span className="text-xs text-gray-600 font-medium">{selectedCar.series}</span>
-                    )}
-                  </div>
+      ) : cars.length === 0 ? (
+        /* ── Empty State ── */
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8">
+          <div
+            className="w-20 h-20 rounded-full flex items-center justify-center"
+            style={{
+              background: "radial-gradient(circle, rgba(251,146,60,0.10) 0%, transparent 70%)",
+              border: "1px solid rgba(251,146,60,0.15)",
+            }}
+          >
+            <Car size={38} style={{ color: "rgba(251,146,60,0.4)" }} />
+          </div>
+          <h3 className="text-white font-black text-lg">No Cars Yet</h3>
+          <p className="text-gray-500 text-sm text-center">Pull from gacha to get your first racer!</p>
+          <button
+            onClick={() => router.push("/gacha")}
+            className="flex items-center gap-2 font-bold py-3 px-8 rounded-full text-sm transition-all active:scale-95"
+            style={{
+              background: "linear-gradient(135deg, #f97316, #ef4444)",
+              boxShadow: "0 0 24px rgba(251,146,60,0.35)",
+              color: "#fff",
+            }}
+          >
+            <Zap size={16} />
+            Open Gacha
+          </button>
+        </div>
 
-                  {/* Car Image */}
-                  <div className="flex items-center justify-center h-44 mb-4">
-                    {(() => {
-                      const imgSrc = selectedCar.imageUrl || selectedCar.image || getCarImageByName(selectedCar.name);
-                      return imgSrc ? (
-                        <img
-                          src={imgSrc}
-                          alt={selectedCar.name || "Car"}
-                          className="h-full w-full object-contain drop-shadow-2xl"
-                          style={{ filter: "drop-shadow(0 8px 32px rgba(0,0,0,0.6))" }}
-                          onError={(e) => { e.target.style.display = "none"; }}
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center gap-3 opacity-40">
-                          <Car size={80} className="text-white" />
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Car Name */}
-                  <h2
-                    className="text-2xl font-black text-center mb-5 tracking-wide"
-                    style={{
-                      backgroundImage: `linear-gradient(90deg, #fff 40%, ${getRarityTextColor(selectedCar.rarity)} 100%)`,
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      backgroundClip: "text",
-                    }}
-                  >
-                    {selectedCar.name || `Car #${selectedCar.tokenId || selectedCar.id}`}
-                  </h2>
-
-                  {/* Stat Bars */}
-                  <div
-                    className="space-y-3 rounded-2xl p-4"
-                    style={{
-                      background: "rgba(0,0,0,0.35)",
-                      border: "1px solid rgba(255,255,255,0.06)",
-                    }}
-                  >
-                    <StatBar icon={Gauge} label="Speed" value={selectedCar.baseSpeed} rarity={selectedCar.rarity} />
-                    <StatBar icon={Zap} label="Accel" value={selectedCar.baseAcceleration} rarity={selectedCar.rarity} />
-                    <StatBar icon={Wind} label="Handling" value={selectedCar.baseHandling} rarity={selectedCar.rarity} />
-                    <StatBar icon={RotateCw} label="Drift" value={selectedCar.baseDrift} rarity={selectedCar.rarity} />
-                  </div>
-                </div>
+      ) : (
+        <>
+          {/* ── 3D Viewer — flex-1 fills remaining space ── */}
+          <div className="relative overflow-hidden flex-1">
+            {!viewerReady && (
+              <div
+                className="absolute inset-0 animate-pulse flex items-center justify-center"
+                style={{ background: "#0a0c14", zIndex: 1 }}
+              >
+                <div className="w-8 h-8 rounded-full border-2 border-orange-500/30 border-t-orange-500 animate-spin" />
               </div>
             )}
 
-            {/* ── Horizontal Scroll Car Picker ── */}
-            <div className="mb-2">
-              <p className="text-gray-600 text-xs uppercase tracking-widest font-bold mb-3">Your Garage</p>
-              <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
-                {cars.map((car, idx) => {
-                  const isSelected = selectedCar === car;
-                  return (
-                    <button
-                      key={car.tokenId || car.uid || car.id || idx}
-                      onClick={() => setSelectedCar(car)}
-                      className="flex-shrink-0 flex flex-col items-center rounded-2xl overflow-hidden transition-all active:scale-95"
-                      style={{
-                        width: 80,
-                        background: isSelected
-                          ? "rgba(251,146,60,0.10)"
-                          : "rgba(255,255,255,0.04)",
-                        border: isSelected
-                          ? "2px solid #fb923c"
-                          : "2px solid rgba(255,255,255,0.08)",
-                        boxShadow: isSelected
-                          ? "0 0 18px rgba(251,146,60,0.30)"
-                          : "none",
-                        padding: 0,
-                      }}
-                    >
-                      {/* Rarity strip */}
-                      <div className={`h-1 w-full bg-gradient-to-r ${getRarityColor(car.rarity)}`} />
+            <iframe
+              ref={iframeRef}
+              src="/garage-viewer.html"
+              onLoad={handleViewerLoad}
+              allowTransparency="true"
+              style={{ border: "none", width: "100%", height: "100%", display: "block", background: "transparent" }}
+            />
 
-                      <div className="flex flex-col items-center gap-1 px-2 py-2 w-full">
-                        {/* Car image or icon */}
-                        {(() => {
-                          const imgSrc = car.imageUrl || car.image || getCarImageByName(car.name);
-                          return imgSrc ? (
-                            <img
-                              src={imgSrc}
-                              alt={car.name || "Car"}
-                              className="w-12 h-10 object-contain"
-                              onError={(e) => { e.target.style.display = "none"; }}
-                            />
-                          ) : (
-                            <div className="w-12 h-10 flex items-center justify-center">
-                              <Car size={24} style={{ color: getRarityTextColor(car.rarity) }} />
-                            </div>
-                          );
-                        })()}
+            {/* Bottom fade */}
+            <div
+              className="absolute bottom-0 left-0 right-0 pointer-events-none"
+              style={{ height: 60, background: "linear-gradient(to bottom, transparent 0%, #080a0f 100%)" }}
+            />
 
-                        <span className="text-white text-center font-bold leading-tight" style={{ fontSize: 9 }}>
-                          {(car.name || `Car #${idx + 1}`).slice(0, 12)}
-                          {(car.name || `Car #${idx + 1}`).length > 12 ? "…" : ""}
-                        </span>
-
-                        {/* Selected checkmark */}
-                        {isSelected && (
-                          <CheckCircle2 size={14} className="text-orange-400 mt-0.5" />
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+            {/* Rarity badge top-left */}
+            {selectedCar && (
+              <div className="absolute top-3 left-3 z-10 pointer-events-none">
+                <span
+                  className="text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-full"
+                  style={{
+                    background: getRarityBadgeBg(selectedCar.rarity),
+                    border: `1px solid ${getRarityBadgeBorder(selectedCar.rarity)}`,
+                    color: getRarityTextColor(selectedCar.rarity),
+                    backdropFilter: "blur(8px)",
+                    fontSize: 10,
+                    letterSpacing: "0.12em",
+                  }}
+                >
+                  {getRarityLabel(selectedCar.rarity)}
+                </span>
               </div>
+            )}
+
+            {/* Stats overlay — right side of viewer */}
+            {selectedCar && (
+              <div
+                className="absolute right-3 z-10 flex flex-col gap-1.5"
+                style={{ top: "50%", transform: "translateY(-50%)" }}
+              >
+                {[
+                  { icon: Gauge,    label: "SPD", value: selectedCar.baseSpeed },
+                  { icon: Zap,      label: "ACC", value: selectedCar.baseAcceleration },
+                  { icon: Wind,     label: "HND", value: selectedCar.baseHandling },
+                  { icon: RotateCw, label: "DFT", value: selectedCar.baseDrift },
+                ].map(({ icon: Icon, label, value }) => (
+                  <div
+                    key={label}
+                    className="flex flex-col items-center rounded-xl px-2 py-1.5"
+                    style={{
+                      background: "rgba(8,10,15,0.72)",
+                      border: `1px solid ${getRarityBadgeBorder(selectedCar.rarity)}`,
+                      backdropFilter: "blur(10px)",
+                      minWidth: 44,
+                    }}
+                  >
+                    <Icon size={11} style={{ color: getRarityTextColor(selectedCar.rarity) }} />
+                    <span className="font-black mt-0.5" style={{ fontSize: 13, color: "#fff", lineHeight: 1 }}>
+                      {Math.round(Number(value) || 0)}
+                    </span>
+                    <span className="uppercase tracking-widest" style={{ fontSize: 7, color: "rgba(255,255,255,0.4)", marginTop: 1 }}>
+                      {label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Bottom panel — fixed height, no scroll ── */}
+          <div className="flex-shrink-0 max-w-md mx-auto w-full px-4 pb-3">
+
+            {/* Car name */}
+            {selectedCar && (
+              <h2
+                className="font-black tracking-wide leading-tight mb-2"
+                style={{
+                  fontSize: 16,
+                  backgroundImage: `linear-gradient(90deg, #fff 40%, ${getRarityTextColor(selectedCar.rarity)} 100%)`,
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}
+              >
+                {selectedCar.name || `Car #${selectedCar.tokenId || selectedCar.id}`}
+              </h2>
+            )}
+
+            {/* Car Picker */}
+            <div className="flex gap-3 overflow-x-auto mb-2" style={{ scrollbarWidth: "none" }}>
+              {cars.map((car, idx) => {
+                const isSelected = selectedCar === car;
+                return (
+                  <button
+                    key={car.tokenId || car.uid || car.id || idx}
+                    onClick={() => setSelectedCar(car)}
+                    className="flex-shrink-0 flex flex-col items-center rounded-xl overflow-hidden transition-all active:scale-95"
+                    style={{
+                      width: 100,
+                      background: isSelected ? getRarityBadgeBg(car.rarity) : "rgba(255,255,255,0.04)",
+                      border: `2px solid ${isSelected ? getRarityBadgeBorder(car.rarity) : "rgba(255,255,255,0.08)"}`,
+                      boxShadow: isSelected ? getRarityGlow(car.rarity) : "none",
+                      padding: 0,
+                    }}
+                  >
+                    <div className={`w-full bg-gradient-to-r ${getRarityColor(car.rarity)}`} style={{ height: 2 }} />
+                    <div className="flex flex-col items-center gap-0.5 px-1 py-1.5 w-full">
+                      {(() => {
+                        const imgSrc = car.imageUrl || car.image || getCarImageByName(car.name);
+                        return imgSrc ? (
+                          <img src={imgSrc} alt={car.name || "Car"} className="object-contain" style={{ width: 80, height: 72 }} onError={(e) => { e.target.style.display = "none"; }} />
+                        ) : (
+                          <div className="flex items-center justify-center" style={{ width: 80, height: 72 }}>
+                            <Car size={18} style={{ color: getRarityTextColor(car.rarity) }} />
+                          </div>
+                        );
+                      })()}
+                      <span className="text-white text-center font-bold leading-tight w-full" style={{ fontSize: 8 }}>
+                        {(car.name || `Car #${idx + 1}`).slice(0, 10)}{(car.name || `Car #${idx + 1}`).length > 10 ? "…" : ""}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* ── Launch Button ── */}
+            {/* Launch Button */}
             <button
               onClick={handleLaunch}
               disabled={!selectedCar || launching}
-              className="mt-6 w-full flex items-center justify-center gap-3 font-black text-lg py-4 rounded-2xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 font-black rounded-xl transition-all active:scale-95 disabled:opacity-50"
               style={{
-                background: launching
-                  ? "linear-gradient(135deg, #6b7280, #4b5563)"
-                  : "linear-gradient(135deg, #f97316 0%, #ef4444 100%)",
-                boxShadow: launching
-                  ? "none"
-                  : "0 0 32px rgba(249,115,22,0.45), 0 4px 24px rgba(239,68,68,0.30), inset 0 1px 0 rgba(255,255,255,0.15)",
+                height: 50,
+                fontSize: 15,
+                letterSpacing: "0.10em",
+                background: launching ? "linear-gradient(135deg, #6b7280, #4b5563)" : "linear-gradient(135deg, #f97316 0%, #ef4444 100%)",
+                boxShadow: launching ? "none" : "0 0 30px rgba(249,115,22,0.45), inset 0 1px 0 rgba(255,255,255,0.15)",
                 color: "#fff",
-                letterSpacing: "0.06em",
               }}
             >
-              <Play size={22} fill="white" />
-              {launching ? "Starting Race..." : gameMode === "endless_3d" ? "3D ENDLESS RACE" : gameMode === "multiplayer_3d" ? "3D MULTIPLAYER" : gameMode === "vs_ai" ? "RACE VS AI" : "START RACE"}
+              <Play size={16} fill="white" />
+              {launchLabel}
             </button>
+          </div>
+        </>
+      )}
 
-            {/* Watch Live 3D — only for endless_3d mode */}
-            {gameMode === "endless_3d" && (
-              <a
-                href="/race3d/watch.html"
-                target="_blank"
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-                  width: "100%", padding: "14px 0", borderRadius: "16px", marginTop: "10px",
-                  border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.12)",
-                  color: "#f87171", fontWeight: 800, fontSize: "0.9rem", letterSpacing: "0.06em",
-                  textDecoration: "none", transition: "background 0.15s",
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = "rgba(239,68,68,0.22)"}
-                onMouseLeave={e => e.currentTarget.style.background = "rgba(239,68,68,0.12)"}
-              >
-                👁 WATCH LIVE 3D
-              </a>
-            )}
-          </>
-        )}
-      </div>
-
-      <BottomNavigation />
     </main>
   );
 }
