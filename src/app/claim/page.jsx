@@ -22,13 +22,21 @@ const STATUS_CONFIG = {
   DELIVERED: { label: "Delivered", icon: <CheckCircle size={14} />, color: "text-green-400 bg-green-400/10" },
 };
 
-function EligibleCarCard({ item, onClaim, claiming }) {
+const BRAND_NAMES = { 0: "Lamborghini", 1: "Ferrari", 2: "Ford", 3: "Chevrolet" };
+const PARTS_LIST = [
+  { key: "wheels", icon: "🔄", label: "Wheels" },
+  { key: "engine", icon: "⚙️", label: "Engine" },
+  { key: "body",   icon: "🚗", label: "Body" },
+  { key: "shocks", icon: "🔧", label: "Shocks" },
+];
+
+function CarClaimCard({ item, onClaim, claiming }) {
   const [showAddress, setShowAddress] = useState(false);
   const [address, setAddress] = useState({ name: "", phone: "", street: "", city: "", postal: "", country: "" });
   const car = item.car;
   const rarity = RARITY_COLORS[car?.rarity] || RARITY_COLORS[0];
-
-  if (!item.isEligible) return null;
+  const partStatus = item.partStatus || {};
+  const missingParts = item.missingParts || [];
 
   const handleSubmitClaim = async () => {
     if (!address.name || !address.street || !address.city) {
@@ -39,87 +47,99 @@ function EligibleCarCard({ item, onClaim, claiming }) {
   };
 
   return (
-    <div className={`bg-gradient-to-br ${rarity.bg} rounded-2xl p-4 border ${rarity.border} shadow-xl`}>
+    <div className={`bg-gradient-to-br ${rarity.bg} rounded-2xl p-4 border ${item.isEligible ? rarity.border : "border-gray-700"} shadow-xl`}>
+      {/* Header */}
       <div className="flex items-start gap-3 mb-3">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span className={`text-xs font-black ${rarity.color} uppercase tracking-wider`}>{rarity.label}</span>
+            {item.isEligible ? (
+              <span className="text-[10px] font-black text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">✓ ELIGIBLE</span>
+            ) : (
+              <span className="text-[10px] font-black text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full">✗ INCOMPLETE</span>
+            )}
           </div>
           <h3 className="text-white font-black text-base">{car?.name || "Unknown Car"}</h3>
-          <p className="text-gray-400 text-xs">Brand #{car?.brand} · UID: {car?.uid?.slice(0, 8)}...</p>
+          <p className="text-gray-400 text-xs">{BRAND_NAMES[car?.brand] ?? `Brand #${car?.brand}`} · UID: {car?.uid?.slice(0, 8)}...</p>
         </div>
         <div className="bg-black/30 rounded-xl p-2">
           <Package size={24} className={rarity.color} />
         </div>
       </div>
 
-      {/* Parts Available */}
-      {item.availableParts && (
-        <div className="bg-black/20 rounded-xl p-3 mb-3">
-          <p className="text-gray-300 text-xs font-bold mb-2 uppercase tracking-wide">Included Parts</p>
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { key: "wheels", icon: "🔄", label: "Wheels" },
-              { key: "engine", icon: "⚙️", label: "Engine" },
-              { key: "body", icon: "🚗", label: "Body" },
-              { key: "shocks", icon: "🔧", label: "Shocks" },
-            ].map(({ key, icon, label }) => (
-              <div
-                key={key}
-                className={`text-center rounded-lg p-1.5 ${item.availableParts[key] ? "bg-white/10" : "bg-black/20 opacity-40"}`}
-              >
+      {/* Parts checklist — always shown */}
+      <div className="bg-black/20 rounded-xl p-3 mb-3">
+        <p className="text-gray-300 text-xs font-bold mb-2 uppercase tracking-wide">Required Parts</p>
+        <div className="grid grid-cols-4 gap-2">
+          {PARTS_LIST.map(({ key, icon, label }) => {
+            const has = !!partStatus[key];
+            return (
+              <div key={key} className={`text-center rounded-lg p-1.5 ${has ? "bg-white/10" : "bg-red-500/10 border border-red-500/30"}`}>
                 <span className="text-base">{icon}</span>
                 <p className="text-[9px] text-gray-300 mt-0.5">{label}</p>
-                {item.availableParts[key] ? (
-                  <p className="text-[9px] text-green-400">✓</p>
+                {has ? (
+                  <p className="text-[9px] text-green-400 font-bold">✓</p>
                 ) : (
-                  <p className="text-[9px] text-gray-600">—</p>
+                  <p className="text-[9px] text-red-400 font-bold">✗</p>
                 )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      )}
+        {missingParts.length > 0 && (
+          <p className="text-red-400 text-[10px] mt-2 font-bold">
+            Missing: {missingParts.join(", ")} — gacha to get them!
+          </p>
+        )}
+      </div>
 
-      {/* Shipping Address Form */}
-      <button
-        onClick={() => setShowAddress(!showAddress)}
-        className="w-full flex items-center justify-between bg-orange-500/20 border border-orange-500/40 rounded-xl px-4 py-2.5 text-orange-300 text-sm font-bold hover:bg-orange-500/30 transition-all mb-2"
-      >
-        <div className="flex items-center gap-2">
-          <MapPin size={14} />
-          <span>Claim Physical NFT</span>
-        </div>
-        {showAddress ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-      </button>
-
-      {showAddress && (
-        <div className="space-y-2 bg-black/20 rounded-xl p-3">
-          <p className="text-gray-300 text-xs font-bold uppercase tracking-wide mb-2">Shipping Details</p>
-          {[
-            { field: "name", placeholder: "Full Name", required: true },
-            { field: "phone", placeholder: "Phone Number" },
-            { field: "street", placeholder: "Street Address", required: true },
-            { field: "city", placeholder: "City", required: true },
-            { field: "postal", placeholder: "Postal Code" },
-            { field: "country", placeholder: "Country" },
-          ].map(({ field, placeholder, required }) => (
-            <input
-              key={field}
-              type="text"
-              placeholder={`${placeholder}${required ? " *" : ""}`}
-              value={address[field]}
-              onChange={(e) => setAddress((a) => ({ ...a, [field]: e.target.value }))}
-              className="w-full bg-gray-800 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-500 border border-gray-700 focus:border-orange-500 outline-none"
-            />
-          ))}
+      {/* Claim button — only if eligible */}
+      {item.isEligible ? (
+        <>
           <button
-            onClick={handleSubmitClaim}
-            disabled={claiming === car?.uid}
-            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black py-3 rounded-xl mt-2 disabled:opacity-50 transition-all"
+            onClick={() => setShowAddress(!showAddress)}
+            className="w-full flex items-center justify-between bg-orange-500/20 border border-orange-500/40 rounded-xl px-4 py-2.5 text-orange-300 text-sm font-bold hover:bg-orange-500/30 transition-all mb-2"
           >
-            {claiming === car?.uid ? "Submitting..." : "Submit Claim"}
+            <div className="flex items-center gap-2">
+              <MapPin size={14} />
+              <span>Claim Physical NFT</span>
+            </div>
+            {showAddress ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
+
+          {showAddress && (
+            <div className="space-y-2 bg-black/20 rounded-xl p-3">
+              <p className="text-gray-300 text-xs font-bold uppercase tracking-wide mb-2">Shipping Details</p>
+              {[
+                { field: "name",    placeholder: "Full Name",       required: true },
+                { field: "phone",   placeholder: "Phone Number" },
+                { field: "street",  placeholder: "Street Address",  required: true },
+                { field: "city",    placeholder: "City",            required: true },
+                { field: "postal",  placeholder: "Postal Code" },
+                { field: "country", placeholder: "Country" },
+              ].map(({ field, placeholder, required }) => (
+                <input
+                  key={field}
+                  type="text"
+                  placeholder={`${placeholder}${required ? " *" : ""}`}
+                  value={address[field]}
+                  onChange={(e) => setAddress((a) => ({ ...a, [field]: e.target.value }))}
+                  className="w-full bg-gray-800 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-500 border border-gray-700 focus:border-orange-500 outline-none"
+                />
+              ))}
+              <button
+                onClick={handleSubmitClaim}
+                disabled={claiming === car?.uid}
+                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black py-3 rounded-xl mt-2 disabled:opacity-50 transition-all"
+              >
+                {claiming === car?.uid ? "Submitting..." : "Submit Claim"}
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-2.5 text-gray-500 text-sm font-bold text-center cursor-not-allowed">
+          🔒 Complete all parts to claim
         </div>
       )}
     </div>
@@ -127,8 +147,11 @@ function EligibleCarCard({ item, onClaim, claiming }) {
 }
 
 function ClaimStatusCard({ claim }) {
+  const [showAddress, setShowAddress] = useState(false);
   const status = STATUS_CONFIG[claim.status] || STATUS_CONFIG.PENDING;
-  const rarity = RARITY_COLORS[claim.car?.rarity] || RARITY_COLORS[0];
+
+  let parsedAddress = null;
+  try { parsedAddress = claim.shippingAddress ? JSON.parse(claim.shippingAddress) : null; } catch {}
 
   return (
     <div className="bg-gray-900 rounded-2xl p-4 border border-gray-700">
@@ -149,7 +172,30 @@ function ClaimStatusCard({ claim }) {
         </div>
       )}
 
-      <div className="flex gap-3 text-xs text-gray-500">
+      {/* Shipping address toggle */}
+      {parsedAddress && (
+        <button
+          onClick={() => setShowAddress(!showAddress)}
+          className="w-full flex items-center justify-between text-gray-400 text-xs py-2 hover:text-gray-300 transition-colors"
+        >
+          <div className="flex items-center gap-1.5">
+            <MapPin size={12} />
+            <span>Shipping Address</span>
+          </div>
+          {showAddress ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+      )}
+      {showAddress && parsedAddress && (
+        <div className="bg-gray-800/50 rounded-xl px-3 py-2.5 mb-2 space-y-0.5">
+          <p className="text-white text-xs font-bold">{parsedAddress.name}</p>
+          {parsedAddress.phone && <p className="text-gray-400 text-xs">{parsedAddress.phone}</p>}
+          <p className="text-gray-400 text-xs">{parsedAddress.street}</p>
+          <p className="text-gray-400 text-xs">{parsedAddress.city}{parsedAddress.postal ? `, ${parsedAddress.postal}` : ""}</p>
+          {parsedAddress.country && <p className="text-gray-400 text-xs">{parsedAddress.country}</p>}
+        </div>
+      )}
+
+      <div className="flex gap-3 text-xs text-gray-500 mt-1">
         {claim.claimedAt && <span>Claimed: {new Date(claim.claimedAt).toLocaleDateString()}</span>}
         {claim.shippedAt && <span>Shipped: {new Date(claim.shippedAt).toLocaleDateString()}</span>}
         {claim.deliveredAt && <span className="text-green-400">Delivered: {new Date(claim.deliveredAt).toLocaleDateString()}</span>}
@@ -231,6 +277,7 @@ export default function ClaimPage() {
   };
 
   const eligibleCars = eligible.filter((e) => e.isEligible);
+  const allCars = eligible; // show all cars, eligible + ineligible
 
   if (!isConnected) return null;
 
@@ -297,10 +344,10 @@ export default function ClaimPage() {
               <div key={i} className="bg-gray-900 rounded-2xl p-4 border border-gray-700 animate-pulse h-40" />
             ))
           ) : activeTab === 0 ? (
-            // Eligible Cars
-            eligibleCars.length > 0 ? (
-              eligibleCars.map((item) => (
-                <EligibleCarCard
+            // All cars with parts checklist
+            allCars.length > 0 ? (
+              allCars.map((item) => (
+                <CarClaimCard
                   key={item.car?.uid}
                   item={item}
                   onClaim={handleClaim}
@@ -312,8 +359,8 @@ export default function ClaimPage() {
                 <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-4">
                   <Package size={28} className="text-gray-600" />
                 </div>
-                <p className="text-gray-400 font-bold">No eligible cars</p>
-                <p className="text-gray-600 text-sm mt-1">Win races or open gacha to get Legendary cars</p>
+                <p className="text-gray-400 font-bold">No cars found</p>
+                <p className="text-gray-600 text-sm mt-1">Open gacha to get your first car</p>
               </div>
             )
           ) : (

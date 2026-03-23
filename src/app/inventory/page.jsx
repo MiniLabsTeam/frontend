@@ -6,6 +6,7 @@ import {
   Car, Box, Wrench, Package, Settings,
   CircleDot, Paintbrush, Armchair, ChevronRight
 } from "lucide-react";
+// Box used as fallback icon for unknown part types
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
 import { toast } from "sonner";
@@ -16,13 +17,20 @@ import { RARITY_CONFIG, INVENTORY_FILTERS } from "@/constants";
 // Map numeric rarity to string key used in RARITY_CONFIG
 const RARITY_MAP = { 0: "common", 1: "rare", 2: "epic", 3: "legendary" };
 
-// Part type icons
+// Part type icons (0=Wheels, 1=Engine, 2=Body, 3=Shocks — matches backend PartType enum)
 const PART_TYPE_ICONS = {
-  0: { Icon: CircleDot, label: "Chassis" },
-  1: { Icon: Settings, label: "Wheels" },
-  2: { Icon: Wrench, label: "Engine" },
-  3: { Icon: Paintbrush, label: "Body" },
-  4: { Icon: Armchair, label: "Interior" },
+  0: { Icon: CircleDot, label: "Wheels" },
+  1: { Icon: Settings, label: "Engine" },
+  2: { Icon: Paintbrush, label: "Body" },
+  3: { Icon: Armchair, label: "Shocks" },
+};
+
+// Brand config
+const BRAND_CONFIG = {
+  0: { label: "Lamborghini", emoji: "🐂", color: "text-yellow-300" },
+  1: { label: "Ferrari",     emoji: "🐎", color: "text-red-400" },
+  2: { label: "Ford",        emoji: "🔵", color: "text-blue-300" },
+  3: { label: "Chevrolet",   emoji: "🏁", color: "text-orange-300" },
 };
 
 // Map car name → image path
@@ -145,11 +153,14 @@ export default function InventoryPage() {
           return rarityStr === selectedFilter;
         });
 
-  // Group spare parts by partType
-  const partsByType = spareParts.reduce((acc, part) => {
+
+  // Group spare parts by brand → partType
+  const partsByBrand = spareParts.reduce((acc, part) => {
+    const brand = part.compatibleBrand ?? 0;
     const typeId = part.partType ?? 0;
-    if (!acc[typeId]) acc[typeId] = [];
-    acc[typeId].push(part);
+    if (!acc[brand]) acc[brand] = {};
+    if (!acc[brand][typeId]) acc[brand][typeId] = [];
+    acc[brand][typeId].push(part);
     return acc;
   }, {});
 
@@ -248,46 +259,32 @@ export default function InventoryPage() {
                           key={car.uid}
                           className={`relative bg-gradient-to-br ${rc.gradient} rounded-2xl p-4 shadow-xl flex flex-col`}
                         >
-                          {/* Rarity Badge */}
                           <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1 z-10">
                             <span className="text-white text-[10px] font-black uppercase">{rc.label}</span>
                           </div>
-
                           {isListed && (
                             <div className="absolute top-3 right-3 bg-blue-500 rounded-full px-2 py-1 z-10">
                               <span className="text-white text-[10px] font-bold">LISTED</span>
                             </div>
                           )}
-
-                          {/* Car Image */}
                           <div className="aspect-square flex items-center justify-center mb-2 mt-5">
                             <img
                               src={car.imageUrl || getCarImage(car.name)}
                               alt={car.name}
                               className="w-full h-full object-contain drop-shadow-2xl"
-                              onError={(e) => {
-                                e.target.src = "/assets/car/High Speed.png";
-                              }}
+                              onError={(e) => { e.target.src = "/assets/car/High Speed.png"; }}
                             />
                           </div>
-
-                          {/* Info */}
                           <div className="text-center mb-3 flex-1">
                             <p className="text-white text-sm font-black uppercase truncate">{car.name}</p>
                             <p className="text-white/60 text-xs">UID: {car.uid?.slice(0, 8)}...</p>
                           </div>
-
-                          {/* Equipped Parts Count */}
-                          {car.equippedParts && car.equippedParts.length > 0 && (
+                          {car.equippedParts?.length > 0 && (
                             <div className="bg-black/20 rounded-lg px-2 py-1 mb-2 flex items-center justify-center gap-1">
                               <Wrench size={10} className="text-white/70" />
-                              <span className="text-white/70 text-[10px]">
-                                {car.equippedParts.length} parts equipped
-                              </span>
+                              <span className="text-white/70 text-[10px]">{car.equippedParts.length} parts equipped</span>
                             </div>
                           )}
-
-                          {/* Actions */}
                           <div className="space-y-1.5">
                             <button
                               onClick={() => router.push("/marketplace")}
@@ -350,41 +347,52 @@ export default function InventoryPage() {
                     </div>
                   </div>
                 ) : spareParts.length > 0 ? (
-                  <div className="space-y-4">
-                    {Object.entries(partsByType).map(([typeId, parts]) => {
-                      const typeInfo = PART_TYPE_ICONS[Number(typeId)] || { Icon: Box, label: `Type ${typeId}` };
-                      const { Icon, label } = typeInfo;
+                  <div className="space-y-5">
+                    {Object.entries(partsByBrand).sort(([a], [b]) => Number(a) - Number(b)).map(([brandId, typeMap]) => {
+                      const brand = BRAND_CONFIG[Number(brandId)] || { label: `Brand ${brandId}`, emoji: "🔧", color: "text-white" };
+                      const totalCount = Object.values(typeMap).reduce((s, arr) => s + arr.length, 0);
 
                       return (
-                        <div key={typeId} className="bg-black/20 rounded-2xl p-4">
+                        <div key={brandId} className="bg-black/20 rounded-2xl p-3">
+                          {/* Brand header */}
                           <div className="flex items-center gap-2 mb-3">
-                            <Icon size={18} className="text-white" strokeWidth={2.5} />
-                            <h3 className="text-white font-black">{label}</h3>
-                            <span className="ml-auto bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                              {parts.length}
-                            </span>
+                            <span className="text-lg">{brand.emoji}</span>
+                            <h3 className={`font-black text-sm uppercase tracking-wide ${brand.color}`}>{brand.label}</h3>
+                            <span className="ml-auto bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">{totalCount}</span>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2">
-                            {parts.map((part) => {
-                              const rarityKey =
-                                typeof part.rarity === "number"
-                                  ? RARITY_MAP[part.rarity]
-                                  : part.rarity?.toLowerCase() || "common";
-                              const rc = RARITY_CONFIG[rarityKey] || RARITY_CONFIG.common;
+                          {/* Part types within brand */}
+                          <div className="space-y-3">
+                            {Object.entries(typeMap).sort(([a], [b]) => Number(a) - Number(b)).map(([typeId, parts]) => {
+                              const typeInfo = PART_TYPE_ICONS[Number(typeId)] || { Icon: Box, label: `Type ${typeId}` };
+                              const { Icon, label } = typeInfo;
 
                               return (
-                                <div
-                                  key={part.uid}
-                                  className={`bg-gradient-to-br ${rc.gradient} rounded-xl p-3`}
-                                >
-                                  <p className="text-white text-xs font-black truncate">{part.name}</p>
-                                  <p className={`text-[10px] font-bold mt-0.5 ${rc.textColor}`}>
-                                    {rc.label}
-                                  </p>
-                                  {part.isEquipped && (
-                                    <p className="text-yellow-300 text-[9px] font-bold mt-0.5">Equipped</p>
-                                  )}
+                                <div key={typeId}>
+                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                    <Icon size={13} className="text-white/70" strokeWidth={2.5} />
+                                    <span className="text-white/70 text-xs font-bold">{label}</span>
+                                    <span className="text-white/40 text-[10px] ml-auto">{parts.length}</span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {parts.map((part) => {
+                                      const rarityKey =
+                                        typeof part.rarity === "number"
+                                          ? RARITY_MAP[part.rarity]
+                                          : part.rarity?.toLowerCase() || "common";
+                                      const rc = RARITY_CONFIG[rarityKey] || RARITY_CONFIG.common;
+
+                                      return (
+                                        <div key={part.uid} className={`bg-gradient-to-br ${rc.gradient} rounded-xl p-2.5`}>
+                                          <p className="text-white text-[11px] font-black truncate">{part.name}</p>
+                                          <p className={`text-[10px] font-bold mt-0.5 ${rc.textColor}`}>{rc.label}</p>
+                                          {part.isEquipped && (
+                                            <p className="text-yellow-300 text-[9px] font-bold mt-0.5">⚡ Equipped</p>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
                               );
                             })}
