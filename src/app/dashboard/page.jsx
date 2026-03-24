@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Car, Flame, Activity, BadgeCheck, Coins } from "lucide-react";
+import { Car, Flame, Activity, BadgeCheck, Coins, Play, ShoppingBag } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import WalletButton from "@/components/shared/WalletButton";
 import OnboardingTutorial from "@/components/OnboardingTutorial";
@@ -399,6 +399,43 @@ export default function Dashboard() {
                   <p className="text-white text-2xl font-black">{userStats.totalCars}</p>
                 )}
               </div>
+            </div>
+
+            {/* Quick Action Buttons */}
+            <div className="flex gap-3">
+              {/* Play Game Banner */}
+              <button
+                onClick={() => router.push("/game")}
+                className="flex-1 relative overflow-hidden rounded-2xl flex items-center justify-between px-5 py-4 transition-all active:scale-95"
+                style={{
+                  background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)",
+                  boxShadow: "0 0 30px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
+                }}
+              >
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.3) 10px, rgba(255,255,255,0.3) 20px)" }} />
+                <div className="relative">
+                  <p className="text-white/70 text-xs font-bold uppercase tracking-widest mb-0.5">Ready to race?</p>
+                  <p className="text-white text-lg font-black tracking-wide">PLAY NOW</p>
+                </div>
+                <div className="relative w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <Play size={22} fill="white" className="text-white ml-0.5" />
+                </div>
+              </button>
+
+              {/* Marketplace Button */}
+              <button
+                onClick={() => router.push("/marketplace")}
+                className="relative overflow-hidden rounded-2xl flex flex-col items-center justify-center px-4 py-4 transition-all active:scale-95 gap-1"
+                style={{
+                  background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
+                  boxShadow: "0 0 24px rgba(249,115,22,0.4), inset 0 1px 0 rgba(255,255,255,0.15)",
+                  minWidth: 72,
+                }}
+              >
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.3) 10px, rgba(255,255,255,0.3) 20px)" }} />
+                <ShoppingBag size={22} className="text-white relative" />
+                <p className="text-white text-[10px] font-black tracking-wide relative uppercase">Market</p>
+              </button>
             </div>
 
             {/* Gacha Tier Rates */}

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
 import {
-  Gamepad2, Car, ChevronLeft, Play,
+  Gamepad2, Car, ChevronLeft, ChevronRight, Play,
   Zap, Wind, Gauge, RotateCw, Infinity, Globe,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -104,6 +104,23 @@ export default function GamePage() {
   const { isConnected, walletAddress, getAuthToken } = useWallet();
   const router = useRouter();
   const iframeRef = useRef(null);
+  const pickerRef = useRef(null);
+  const pickerDrag = useRef({ active: false, startX: 0, scrollLeft: 0 });
+
+  const onPickerMouseDown = (e) => {
+    pickerDrag.current = { active: true, startX: e.pageX - pickerRef.current.offsetLeft, scrollLeft: pickerRef.current.scrollLeft };
+    pickerRef.current.style.cursor = "grabbing";
+  };
+  const onPickerMouseMove = (e) => {
+    if (!pickerDrag.current.active) return;
+    e.preventDefault();
+    const x = e.pageX - pickerRef.current.offsetLeft;
+    pickerRef.current.scrollLeft = pickerDrag.current.scrollLeft - (x - pickerDrag.current.startX);
+  };
+  const onPickerMouseUp = () => {
+    pickerDrag.current.active = false;
+    if (pickerRef.current) pickerRef.current.style.cursor = "grab";
+  };
 
   const [cars, setCars] = useState([]);
   const [selectedCar, setSelectedCar] = useState(null);
@@ -400,7 +417,25 @@ export default function GamePage() {
             )}
 
             {/* Car Picker */}
-            <div className="flex gap-3 overflow-x-auto mb-2" style={{ scrollbarWidth: "none" }}>
+            <div className="relative flex items-center mb-2">
+              {cars.length > 3 && (
+                <button
+                  onClick={() => pickerRef.current?.scrollBy({ left: -220, behavior: "smooth" })}
+                  className="flex-shrink-0 z-10 flex items-center justify-center rounded-full transition-all active:scale-90"
+                  style={{ width: 28, height: 28, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", marginRight: 4 }}
+                >
+                  <ChevronLeft size={16} color="white" />
+                </button>
+              )}
+              <div
+                ref={pickerRef}
+                className="flex gap-3 overflow-x-auto flex-1 select-none"
+                style={{ scrollbarWidth: "none", cursor: "grab" }}
+                onMouseDown={onPickerMouseDown}
+                onMouseMove={onPickerMouseMove}
+                onMouseUp={onPickerMouseUp}
+                onMouseLeave={onPickerMouseUp}
+              >
               {cars.map((car, idx) => {
                 const isSelected = selectedCar === car;
                 return (
@@ -435,6 +470,16 @@ export default function GamePage() {
                   </button>
                 );
               })}
+              </div>
+              {cars.length > 3 && (
+                <button
+                  onClick={() => pickerRef.current?.scrollBy({ left: 220, behavior: "smooth" })}
+                  className="flex-shrink-0 z-10 flex items-center justify-center rounded-full transition-all active:scale-90"
+                  style={{ width: 28, height: 28, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", marginLeft: 4 }}
+                >
+                  <ChevronRight size={16} color="white" />
+                </button>
+              )}
             </div>
 
             {/* Launch Button */}

@@ -9,7 +9,6 @@ import { getGachaTiers, getGachaPricing, revealGacha, clearStuckGacha, getRarity
 import { toast } from "sonner";
 import GachaRoulette from "@/components/GachaRoulette";
 import ProgressSteps from "@/components/shared/ProgressSteps";
-import WalletButton from "@/components/shared/WalletButton";
 import PageHeader from "@/components/shared/PageHeader";
 
 // ==================== On-Chain Constants ====================
@@ -317,7 +316,7 @@ export default function GachaTierPage() {
         ],
       });
 
-      await signAndExecute({ transaction: revealTx });
+      const revealResult = await signAndExecute({ transaction: revealTx });
 
       // Show reward
       const rarityConfig = getRarityConfig(rarity);
@@ -329,6 +328,7 @@ export default function GachaTierPage() {
         rarityColor: rarityConfig.color,
         image: getAssetImage(rewardName),
         isCar,
+        txDigest: revealResult?.digest ?? null,
       });
 
       setShowAnimation(true);
@@ -652,10 +652,25 @@ export default function GachaTierPage() {
                 <h3 className="text-white font-black text-xl uppercase tracking-wider">{reward?.name}</h3>
               </div>
 
-              <p className="text-gray-300 text-sm mb-4">
+              <p className="text-gray-300 text-sm mb-2">
                 {reward?.isCar ? "🚗 Car" : "🔧 Spare Part"}
                 {reward?.paidWithTokens ? " · Paid with 🪙 Tokens" : " NFT · Minted on OneChain"}
               </p>
+
+              {reward?.txDigest && (
+                <a
+                  href={`https://onescan.cc/testnet/transactionBlocksDetail?digest=${reward.txDigest}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-xl px-3 py-2 mb-4 text-xs text-gray-400 hover:text-white hover:border-white/30 transition-all max-w-full"
+                >
+                  <span className="text-green-400">✓</span>
+                  <span className="font-mono truncate" style={{ maxWidth: 200 }}>
+                    {reward.txDigest.slice(0, 10)}...{reward.txDigest.slice(-8)}
+                  </span>
+                  <span className="text-gray-500 flex-shrink-0">↗</span>
+                </a>
+              )}
 
               <button
                 onClick={handleClaim}

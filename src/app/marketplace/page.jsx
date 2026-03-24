@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Tag, Search, List, Sparkles, Gem,
-  ShoppingBag, X
+  ShoppingBag, X, Plus, Trash2
 } from "lucide-react";
 import BottomNavigation from "@/components/shared/BottomNavigation";
 import { useWallet } from "@/hooks/useWallet";
@@ -12,6 +12,13 @@ import { toast } from "sonner";
 import { PullToRefresh } from "@/components/shared";
 import PageHeader from "@/components/shared/PageHeader";
 import { RARITY_CONFIG } from "@/constants";
+import { useSignAndExecuteTransaction } from "@onelabs/dapp-kit";
+import { Transaction } from "@onelabs/sui/transactions";
+
+const PACKAGE_ID     = process.env.NEXT_PUBLIC_PACKAGE_ID;
+const MARKETPLACE_ID = process.env.NEXT_PUBLIC_MARKETPLACE_ID;
+const OCT_TYPE       = "0x2::oct::OCT";
+const EXPIRY_MS      = (Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
 const RARITY_MAP = { 0: "common", 1: "rare", 2: "epic", 3: "legendary" };
 
@@ -57,6 +64,29 @@ function getItemName(listing) {
 export default function MarketplacePage() {
   const { isConnected, walletAddress, getAuthToken } = useWallet();
   const router = useRouter();
+  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+
+  // Find on-chain objectId via backend proxy (avoids CORS)
+  const getOnChainObjectId = useCallback(async (nftType, name) => {
+    if (!walletAddress) return null;
+    const token = await getAuthToken();
+    const typeStr = nftType === "car"
+      ? `${PACKAGE_ID}::car::Car`
+      : `${PACKAGE_ID}::sparepart::SparePart`;
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/owned-objects?structType=${encodeURIComponent(typeStr)}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const data = await res.json();
+    for (const obj of data.data || []) {
+      const fields = obj.data?.content?.fields;
+      if (fields && fields.name === name) {
+        return obj.data.objectId;
+      }
+    }
+    return null;
+  }, [walletAddress, getAuthToken]);
 
   const [activeTab, setActiveTab] = useState("browse");
 
@@ -74,6 +104,14 @@ export default function MarketplacePage() {
 
   // Detail modal
   const [selectedListing, setSelectedListing] = useState(null);
+
+  // Sell modal
+  const [showSellModal, setShowSellModal] = useState(false);
+  const [sellInventory, setSellInventory] = useState({ cars: [], parts: [] });
+  const [loadingSellInventory, setLoadingSellInventory] = useState(false);
+  const [sellItem, setSellItem] = useState(null); // { nftType, uid, name, imageUrl }
+  const [sellPrice, setSellPrice] = useState("");
+  const [listing, setListing] = useState(false);
 
   useEffect(() => {
     if (!isConnected) router.push("/");
@@ -138,6 +176,144 @@ export default function MarketplacePage() {
   const handleRefresh = async () => {
     if (activeTab === "browse") await fetchListings();
     else await fetchMyListings();
+  };
+
+  const openSellModal = async () => {
+    setShowSellModal(true);
+    setSellItem(null);
+    setSellPrice("");
+    setLoadingSellInventory(true);
+    try {
+      const token = await getAuthToken();
+      const [carsRes, partsRes] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/inventory/cars`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/inventory/spareparts`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const carsData = await carsRes.json();
+      const partsData = await partsRes.json();
+      setSellInventory({
+        cars: (carsData.data || []).filter((c) => !c.isListed && !c.isClaimed),
+        parts: (partsData.data || []).filter((p) => !p.isListed && !p.isClaimed && !p.isEquipped),
+      });
+    } catch {
+      toast.error("Failed to load inventory");
+    } finally {
+      setLoadingSellInventory(false);
+    }
+  };
+
+  const handleList = async () => {
+    if (!sellItem) { toast.error("Select an item to list"); return; }
+    const priceNum = parseFloat(sellPrice);
+    if (!sellPrice || isNaN(priceNum) || priceNum <= 0) { toast.error("Enter a valid price"); return; }
+    const priceMist = BigInt(Math.floor(priceNum * 1_000_000_000)); // OCT → MIST
+    if (!MARKETPLACE_ID) { toast.error("Marketplace not configured"); return; }
+    setListing(true);
+    try {
+      // 1. Find on-chain object ID
+      toast.loading("Finding NFT on-chain...", { id: "list-tx" });
+      const objectId = await getOnChainObjectId(sellItem.nftType, sellItem.name);
+      if (!objectId) throw new Error("NFT not found in wallet. Make sure it's minted on-chain.");
+
+      // 2. Build on-chain transaction
+      const tx = new Transaction();
+      const fnName = sellItem.nftType === "car" ? "list_car" : "list_sparepart";
+      tx.moveCall({
+        target: `${PACKAGE_ID}::marketplace::${fnName}`,
+        typeArguments: [OCT_TYPE],
+        arguments: [
+          tx.object(MARKETPLACE_ID),
+          tx.object(objectId),
+          tx.pure.u64(priceMist),
+          tx.pure.u64(BigInt(EXPIRY_MS)),
+        ],
+      });
+
+      toast.loading("Waiting for wallet approval...", { id: "list-tx" });
+      const result = await signAndExecute({ transaction: tx });
+
+      // 3. Parse on-chain listing ID — fetch events via backend proxy
+      let onChainListingId = null;
+      if (result?.digest) {
+        try {
+          const token2 = await getAuthToken();
+          const evRes = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/tx-events/${result.digest}`,
+            { headers: { Authorization: `Bearer ${token2}` } }
+          );
+          const evData = await evRes.json();
+          const ev = (evData.events || []).find((e) => e.parsedJson?.listing_id !== undefined);
+          if (ev) onChainListingId = String(ev.parsedJson.listing_id);
+        } catch (e) {
+          console.warn("[Marketplace] Could not fetch events:", e);
+        }
+      }
+      console.log("[Marketplace] onChainListingId:", onChainListingId);
+
+      // 4. Record in backend DB
+      toast.loading("Saving to database...", { id: "list-tx" });
+      const token = await getAuthToken();
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/list`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nftType: sellItem.nftType,
+          nftUid: sellItem.uid,
+          price: priceMist.toString(),
+          ...(result?.digest && { txDigest: result.digest }),
+          ...(onChainListingId !== null && { onChainListingId }),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save listing");
+
+      toast.success("Item listed on-chain!", { id: "list-tx" });
+      setShowSellModal(false);
+      fetchMyListings();
+      fetchListings();
+    } catch (err) {
+      const msg = err.message || "Failed to list item";
+      const isRejected = msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("denied");
+      toast.error(isRejected ? "Transaction cancelled." : msg, { id: "list-tx" });
+    } finally {
+      setListing(false);
+    }
+  };
+
+  const handleDelist = async (listing) => {
+    if (!MARKETPLACE_ID) { toast.error("Marketplace not configured"); return; }
+    try {
+      // 1. Cancel on-chain if we have onChainListingId
+      if (listing.onChainListingId !== null && listing.onChainListingId !== undefined) {
+        toast.loading("Cancelling on-chain...", { id: "delist-tx" });
+        const tx = new Transaction();
+        tx.moveCall({
+          target: `${PACKAGE_ID}::marketplace::cancel_listing`,
+          typeArguments: [OCT_TYPE],
+          arguments: [
+            tx.object(MARKETPLACE_ID),
+            tx.pure.u64(BigInt(listing.onChainListingId)),
+          ],
+        });
+        await signAndExecute({ transaction: tx });
+        toast.loading("Updating database...", { id: "delist-tx" });
+      }
+
+      // 2. Update backend DB
+      const token = await getAuthToken();
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/listing/${listing.listingId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to cancel listing");
+      toast.success("Listing cancelled", { id: "delist-tx" });
+      fetchMyListings();
+    } catch (err) {
+      const msg = err.message || "Failed to cancel";
+      const isRejected = msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("denied");
+      toast.error(isRejected ? "Transaction cancelled." : msg, { id: "delist-tx" });
+    }
   };
 
   if (!isConnected) return null;
@@ -235,7 +411,8 @@ export default function MarketplacePage() {
 
             {/* My Listings Sub-tabs */}
             {activeTab === "my-listings" && (
-              <div className="flex gap-2 px-4">
+              <div className="flex items-center gap-2 px-4">
+                <div className="flex gap-2 flex-1">
                 {["active", "sold"].map((t) => (
                   <button
                     key={t}
@@ -249,6 +426,15 @@ export default function MarketplacePage() {
                     {t}
                   </button>
                 ))}
+                </div>
+                {/* Sell button */}
+                <button
+                  onClick={openSellModal}
+                  className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white font-black px-4 py-2 rounded-full text-sm transition-all active:scale-95 flex-shrink-0"
+                >
+                  <Plus size={16} />
+                  Sell
+                </button>
               </div>
             )}
           </header>
@@ -300,7 +486,7 @@ export default function MarketplacePage() {
                           {/* Price */}
                           <div className="bg-yellow-400 rounded-full py-1 flex items-center justify-center">
                             <span className="text-orange-900 text-xs font-black">
-                              {Number(listing.price).toLocaleString()} ONE
+                              {(Number(listing.price) / 1_000_000_000).toLocaleString()} ONE
                             </span>
                           </div>
                         </div>
@@ -350,7 +536,7 @@ export default function MarketplacePage() {
                                 {listing.nftType === "car" ? "Car" : "Spare Part"}
                               </p>
                               <p className="text-yellow-300 font-black text-sm mt-1">
-                                {Number(listing.price).toLocaleString()} ONE
+                                {(Number(listing.price) / 1_000_000_000).toLocaleString()} ONE
                               </p>
                               {listing.isSold && listing.soldAt && (
                                 <p className="text-green-300 text-xs">
@@ -358,13 +544,23 @@ export default function MarketplacePage() {
                                 </p>
                               )}
                             </div>
-                            <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                              listing.isSold ? "bg-blue-500 text-white" :
-                              listing.isActive ? "bg-green-500 text-white" :
-                              "bg-gray-500 text-white"
-                            }`}>
-                              {listing.isSold ? "Sold" : listing.isActive ? "Active" : "Ended"}
-                            </span>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                                listing.isSold ? "bg-blue-500 text-white" :
+                                listing.isActive ? "bg-green-500 text-white" :
+                                "bg-gray-500 text-white"
+                              }`}>
+                                {listing.isSold ? "Sold" : listing.isActive ? "Active" : "Ended"}
+                              </span>
+                              {listing.isActive && !listing.isSold && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDelist(listing); }}
+                                  className="flex items-center gap-1 bg-red-500/80 hover:bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full transition-all"
+                                >
+                                  <Trash2 size={10} /> Cancel
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -380,14 +576,13 @@ export default function MarketplacePage() {
                   </div>
                 )}
 
-                {/* Link to inventory for selling */}
                 {activeTab === "my-listings" && myTab === "active" && (
                   <button
-                    onClick={() => router.push("/inventory")}
-                    className="w-full mt-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-black py-3 rounded-xl flex items-center justify-center gap-2"
+                    onClick={openSellModal}
+                    className="w-full mt-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-black py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
                   >
-                    <Tag size={16} />
-                    Go to Inventory to Sell
+                    <Plus size={16} />
+                    List New Item
                   </button>
                 )}
               </div>
@@ -426,7 +621,7 @@ export default function MarketplacePage() {
                 ["Name", getItemName(selectedListing)],
                 ["Type", selectedListing.nftType === "car" ? "Car NFT" : "Spare Part"],
                 ["Rarity", getRarityConfig(selectedListing).label],
-                ["Price", `${Number(selectedListing.price).toLocaleString()} ONE`],
+                ["Price", `${(Number(selectedListing.price) / 1_000_000_000).toLocaleString()} ONE`],
                 ["Seller", selectedListing.sellerUser?.username ||
                   (selectedListing.sellerUser?.address
                     ? `${selectedListing.sellerUser.address.slice(0, 6)}...${selectedListing.sellerUser.address.slice(-4)}`
@@ -440,13 +635,72 @@ export default function MarketplacePage() {
               ))}
             </div>
 
-            {/* Note: Buy requires on-chain tx */}
-            {selectedListing.isActive && !selectedListing.isSold && (
-              <div className="bg-black/20 rounded-xl p-3 mb-4">
-                <p className="text-white/70 text-xs text-center">
-                  On-chain purchase coming soon via OneChain wallet
-                </p>
-              </div>
+            {/* Buy button */}
+            {selectedListing.isActive && !selectedListing.isSold &&
+             selectedListing.sellerUser?.address !== walletAddress && (
+              <button
+                onClick={async () => {
+                  if (!MARKETPLACE_ID) { toast.error("Marketplace not configured"); return; }
+                  try {
+                    // Resolve onChainListingId — fetch from txDigest if missing
+                    let listingId = selectedListing.onChainListingId;
+                    if ((listingId === null || listingId === undefined) && selectedListing.txDigest) {
+                      toast.loading("Fetching on-chain listing ID...", { id: "buy-tx" });
+                      const tokenEv = await getAuthToken();
+                      const evRes = await fetch(
+                        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/tx-events/${selectedListing.txDigest}`,
+                        { headers: { Authorization: `Bearer ${tokenEv}` } }
+                      );
+                      const evData = await evRes.json();
+                      const ev = (evData.events || []).find((e) => e.parsedJson?.listing_id !== undefined);
+                      if (ev) listingId = String(ev.parsedJson.listing_id);
+                    }
+                    if (listingId === null || listingId === undefined) {
+                      toast.error("This listing is not on-chain yet", { id: "buy-tx" });
+                      return;
+                    }
+
+                    toast.loading("Waiting for wallet approval...", { id: "buy-tx" });
+                    const tx = new Transaction();
+                    const [payment] = tx.splitCoins(tx.gas, [tx.pure.u64(BigInt(selectedListing.price))]);
+                    tx.moveCall({
+                      target: `${PACKAGE_ID}::marketplace::buy`,
+                      typeArguments: [OCT_TYPE],
+                      arguments: [
+                        tx.object(MARKETPLACE_ID),
+                        tx.pure.u64(BigInt(listingId)),
+                        payment,
+                        tx.object("0x6"),
+                      ],
+                    });
+                    await signAndExecute({ transaction: tx });
+
+                    // Update DB — transfer ownership to buyer
+                    const token = await getAuthToken();
+                    const buyRes = await fetch(
+                      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/buy/${selectedListing.listingId}`,
+                      { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+                    );
+                    if (!buyRes.ok) {
+                      const errData = await buyRes.json().catch(() => ({}));
+                      console.error("[Marketplace] buy DB update failed:", errData);
+                      toast.warning("On-chain TX succeeded but inventory update failed: " + (errData.message || buyRes.status), { id: "buy-tx" });
+                    } else {
+                      toast.success("Purchase successful! Check your inventory.", { id: "buy-tx" });
+                    }
+                    setSelectedListing(null);
+                    fetchListings();
+                  } catch (err) {
+                    const msg = err.message || "Purchase failed";
+                    const isRejected = msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("denied");
+                    toast.error(isRejected ? "Transaction cancelled." : msg, { id: "buy-tx" });
+                  }
+                }}
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-black py-3 rounded-xl mb-3 flex items-center justify-center gap-2 active:scale-95 transition-all"
+              >
+                <ShoppingBag size={16} />
+                Buy for {(Number(selectedListing.price) / 1_000_000_000).toLocaleString()} ONE
+              </button>
             )}
 
             <button
@@ -455,6 +709,120 @@ export default function MarketplacePage() {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sell Modal */}
+      {showSellModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-end justify-center z-[100] p-0">
+          <div className="bg-gray-900 rounded-t-3xl w-full max-w-md flex flex-col" style={{ maxHeight: "calc(100dvh - 70px)" }}>
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
+              <h3 className="text-white font-black text-lg">List Item for Sale</h3>
+              <button onClick={() => setShowSellModal(false)} className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center">
+                <X size={16} className="text-white" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 px-5 pb-5 space-y-4">
+              {loadingSellInventory ? (
+                <div className="flex items-center justify-center py-10">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-400" />
+                </div>
+              ) : (
+                <>
+                  {/* Cars */}
+                  {sellInventory.cars.length > 0 && (
+                    <div>
+                      <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-2">Cars</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {sellInventory.cars.map((car) => {
+                          const rc = RARITY_CONFIG[RARITY_MAP[car.rarity]] || RARITY_CONFIG.common;
+                          const selected = sellItem?.uid === car.uid;
+                          return (
+                            <button
+                              key={car.uid}
+                              onClick={() => setSellItem({ nftType: "car", uid: car.uid, name: car.name, imageUrl: car.imageUrl })}
+                              className={`relative bg-gradient-to-br ${rc.gradient} rounded-xl p-2 text-center transition-all ${selected ? "ring-2 ring-orange-400 scale-105" : "opacity-80"}`}
+                            >
+                              <img src={car.imageUrl || getItemImage(car.name)} alt={car.name} className="w-full h-14 object-contain mb-1" onError={(e) => { e.target.src = "/assets/car/High Speed.png"; }} />
+                              <p className="text-white text-[9px] font-black truncate">{car.name}</p>
+                              {selected && <div className="absolute top-1 right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center"><span className="text-[8px] text-white font-black">✓</span></div>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Parts */}
+                  {sellInventory.parts.length > 0 && (
+                    <div>
+                      <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-2">Spare Parts</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {sellInventory.parts.map((part) => {
+                          const rc = RARITY_CONFIG[RARITY_MAP[part.rarity]] || RARITY_CONFIG.common;
+                          const selected = sellItem?.uid === part.uid;
+                          return (
+                            <button
+                              key={part.uid}
+                              onClick={() => setSellItem({ nftType: "sparePart", uid: part.uid, name: part.name, imageUrl: part.imageUrl })}
+                              className={`relative bg-gradient-to-br ${rc.gradient} rounded-xl p-2 text-center transition-all ${selected ? "ring-2 ring-orange-400 scale-105" : "opacity-80"}`}
+                            >
+                              <img src={part.imageUrl || getItemImage(part.name)} alt={part.name} className="w-full h-14 object-contain mb-1" onError={(e) => { e.target.src = "/assets/car/High Speed.png"; }} />
+                              <p className="text-white text-[9px] font-black truncate">{part.name}</p>
+                              {selected && <div className="absolute top-1 right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center"><span className="text-[8px] text-white font-black">✓</span></div>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {sellInventory.cars.length === 0 && sellInventory.parts.length === 0 && (
+                    <div className="text-center py-10">
+                      <p className="text-gray-400 font-bold">No items available to list</p>
+                      <p className="text-gray-600 text-sm mt-1">All your items are already listed or claimed</p>
+                    </div>
+                  )}
+
+                </>
+              )}
+            </div>
+
+            {/* Price + submit — pinned at bottom, always visible */}
+            {!loadingSellInventory && (sellInventory.cars.length > 0 || sellInventory.parts.length > 0) && (
+              <div className="flex-shrink-0 px-5 pb-6 pt-3 border-t border-gray-800 space-y-3 bg-gray-900">
+                {sellItem && (
+                  <div className="bg-gray-800 rounded-xl p-2.5 flex items-center gap-3">
+                    <img src={sellItem.imageUrl || getItemImage(sellItem.name)} alt={sellItem.name} className="w-10 h-10 object-contain flex-shrink-0" onError={(e) => { e.target.src = "/assets/car/High Speed.png"; }} />
+                    <div className="min-w-0">
+                      <p className="text-white text-sm font-black truncate">{sellItem.name}</p>
+                      <p className="text-gray-400 text-xs">{sellItem.nftType === "car" ? "Car" : "Spare Part"}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Price (ONE)"
+                    value={sellPrice}
+                    onChange={(e) => setSellPrice(e.target.value)}
+                    className="flex-1 bg-gray-800 text-white font-black rounded-xl px-4 py-3 border border-gray-700 focus:border-orange-400 outline-none"
+                  />
+                  <button
+                    onClick={handleList}
+                    disabled={listing || !sellItem || !sellPrice}
+                    className="bg-gradient-to-r from-orange-500 to-red-500 text-white font-black px-5 py-3 rounded-xl flex items-center gap-2 disabled:opacity-50 active:scale-95 transition-all whitespace-nowrap"
+                  >
+                    <Tag size={16} />
+                    {listing ? "..." : "List"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
