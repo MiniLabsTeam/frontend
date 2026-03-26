@@ -406,7 +406,7 @@ export default function GachaTierPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Token pull failed");
 
-      const { rarity, name, newTokenBalance } = data.data;
+      const { rarity, name, newTokenBalance, txDigest } = data.data;
       setTokenBalance(newTokenBalance);
 
       const rarityConfig = getRarityConfig(rarity);
@@ -417,7 +417,8 @@ export default function GachaTierPage() {
         rarityColor: rarityConfig.color,
         image: getAssetImage(rewardName),
         isCar,
-        paidWithTokens: true,
+        paidWithTokens: !txDigest,
+        txDigest: txDigest ?? null,
       });
       setShowAnimation(true);
     } catch (err) {
@@ -654,7 +655,7 @@ export default function GachaTierPage() {
 
               <p className="text-gray-300 text-sm mb-2">
                 {reward?.isCar ? "🚗 Car" : "🔧 Spare Part"}
-                {reward?.paidWithTokens ? " · Paid with 🪙 Tokens" : " NFT · Minted on OneChain"}
+                {reward?.txDigest ? " NFT · Minted on OneChain" : reward?.paidWithTokens ? " · Paid with 🪙 Tokens" : " NFT · Minted on OneChain"}
               </p>
 
               {reward?.txDigest && (

@@ -170,7 +170,7 @@ export default function ProfilePage() {
       id: "about",
       Icon: Info,
       title: "About",
-      subtitle: "MiniLabs v1.0",
+      subtitle: "MiniGarage v1.0",
       onClick: () => handleComingSoon("About")
     },
   ];

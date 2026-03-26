@@ -432,7 +432,7 @@ export default function Home() {
               className="minigarage-title minigarage-gradient-text mb-8 text-center text-2xl font-black sm:text-3xl md:text-4xl"
               style={{ filter: "drop-shadow(0 0 6px #000) drop-shadow(0 0 12px #000)" }}
             >
-              How MiniLabs Works
+              How MiniGarage Works
             </h2>
 
             {/* Features Grid */}

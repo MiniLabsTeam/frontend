@@ -23,6 +23,7 @@ export function useWallet() {
   const { mutateAsync: signPersonalMessage } = useSignPersonalMessage();
   const [jwtToken, setJwtToken] = useState(null);
   const authInFlight = useRef(null);
+  const wasConnected = useRef(false);
 
   const isConnected = !!account;
   const walletAddress = account?.address ?? null;
@@ -33,11 +34,15 @@ export function useWallet() {
     if (stored) setJwtToken(stored);
   }, []);
 
-  // Clear JWT when wallet disconnects
+  // Clear JWT hanya saat explicit disconnect (bukan saat page refresh)
   useEffect(() => {
-    if (!isConnected) {
+    if (isConnected) {
+      wasConnected.current = true;
+    } else if (wasConnected.current) {
+      // Hanya hapus token jika sebelumnya sudah connected (explicit disconnect)
       localStorage.removeItem("auth_token");
       setJwtToken(null);
+      wasConnected.current = false;
     }
   }, [isConnected]);
 

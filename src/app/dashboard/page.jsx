@@ -69,7 +69,7 @@ export default function Dashboard() {
   const handleOnboardingClose = () => {
     setShowOnboarding(false);
     localStorage.setItem('hasSeenTutorial', 'true');
-    toast.success('Welcome to MiniLabs! 🎉');
+    toast.success('Welcome to MiniGarage! 🎉');
   };
 
   // Rare pool showcase cars - Images matched with rarity tiers (based on backend gacha config)

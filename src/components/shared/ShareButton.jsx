@@ -32,8 +32,8 @@ export default function ShareButton({
         // Fallback to Web Share API
         if (navigator.share) {
           await navigator.share({
-            title: "MiniLabs",
-            text: text || "Check out my car collection in MiniLabs!",
+            title: "MiniGarage",
+            text: text || "Check out my car collection in MiniGarage!",
             url: url || window.location.href,
           });
           toast.success("Shared successfully!");
@@ -48,7 +48,7 @@ export default function ShareButton({
 
       // Use Farcaster SDK share
       const shareData = {
-        text: text || "Check out my car collection in MiniLabs! 🏎️",
+        text: text || "Check out my car collection in MiniGarage! 🏎️",
       };
 
       // Add embeds if provided
@@ -92,8 +92,8 @@ export function ShareCarButton({ car, variant = "ghost", size = "sm" }) {
     : "";
 
   const shareText = car
-    ? `Check out my ${car.rarity} car in MiniLabs! 🏎️\n${car.name || "Awesome Car"}`
-    : "Check out MiniLabs! 🏎️";
+    ? `Check out my ${car.rarity} car in MiniGarage! 🏎️\n${car.name || "Awesome Car"}`
+    : "Check out MiniGarage! 🏎️";
 
   return (
     <ShareButton
@@ -118,7 +118,7 @@ export function ShareCollectionButton({
   variant = "primary",
   size = "md"
 }) {
-  const shareText = `I have ${totalCars} cars in my MiniLabs collection! ${
+  const shareText = `I have ${totalCars} cars in my MiniGarage collection! ${
     rareCount > 0 ? `Including ${rareCount} rare cars! 🏆` : ""
   } Check it out! 🏎️`;
 

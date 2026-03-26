@@ -6,7 +6,7 @@ import { Button } from "./shared";
 
 /**
  * Onboarding Modal Component
- * First-time user experience for MiniLabs
+ * First-time user experience for MiniGarage
  */
 
 export default function OnboardingModal({ isOpen, onClose, onComplete }) {
@@ -14,7 +14,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }) {
 
   useEffect(() => {
     if (isOpen && typeof window !== "undefined") {
-      const hasSeenOnboarding = localStorage.getItem("minilabs_onboarding_completed");
+      const hasSeenOnboarding = localStorage.getItem("minigarage_onboarding_completed");
       if (hasSeenOnboarding) {
         onClose?.();
       }
@@ -24,7 +24,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }) {
   const steps = [
     {
       icon: Car,
-      title: "Welcome to MiniLabs!",
+      title: "Welcome to MiniGarage!",
       description: "Collect, race, and trade NFT cars on OneChain. Use OCT tokens to pull gacha, equip spare parts, and boost your cars!",
       iconColor: "text-orange-500",
       bgGradient: "from-orange-500 to-orange-600",
@@ -54,7 +54,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }) {
 
   const handleComplete = () => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("minilabs_onboarding_completed", "true");
+      localStorage.setItem("minigarage_onboarding_completed", "true");
     }
     onComplete?.();
     onClose?.();

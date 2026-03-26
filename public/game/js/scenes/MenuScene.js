@@ -38,7 +38,7 @@ class MenuScene extends Phaser.Scene {
     corners.fillRect(W - 28, 20, 8, 8);
 
     // ── Title ──────────────────────────────────────────────────────────────
-    this.add.text(cx, 60, 'ONECHAIN RACING', {
+    this.add.text(cx, 60, 'MINIGARAGE RACING', {
       fontSize: '58px',
       fontFamily: 'Orbitron, Arial',
       fontStyle: 'bold',

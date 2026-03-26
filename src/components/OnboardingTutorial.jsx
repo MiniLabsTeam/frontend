@@ -6,7 +6,7 @@ import { X, ChevronRight, ChevronLeft, Wallet, Car, Flame, Gift, Gamepad2, Troph
 const TUTORIAL_STEPS = [
   {
     icon: '🏎️',
-    title: 'Welcome to MiniLabs!',
+    title: 'Welcome to MiniGarage!',
     description: 'The ultimate NFT car racing game on OneChain. Collect rare cars, race against players, and earn rewards!',
     image: '/assets/car/Blaze Runner.png',
     color: 'from-orange-500 to-red-600'
