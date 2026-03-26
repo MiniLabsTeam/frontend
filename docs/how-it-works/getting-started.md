@@ -1,10 +1,10 @@
 # Getting Started
 
-Get up and running with MiniLabs in under 2 minutes.
+Get up and running with MiniGarage in under 2 minutes.
 
 ## Step 1 — Install a Wallet
 
-MiniLabs runs on **OneChain** (a Sui-based blockchain). You'll need a compatible wallet:
+MiniGarage runs on **OneChain** (a Sui-based blockchain). You'll need a compatible wallet:
 
 * Install a OneChain-compatible wallet extension
 * Create a new wallet or import an existing one
@@ -12,32 +12,32 @@ MiniLabs runs on **OneChain** (a Sui-based blockchain). You'll need a compatible
 
 ## Step 2 — Connect Your Wallet
 
-1. Visit [MiniLabs App](https://minilabsapp.vercel.app)
+1. Visit [MiniGarage App](https://minigarageapp.vercel.app)
 2. Tap **Launch App** on the landing page
 3. Your wallet extension will prompt you to connect
 4. Approve the connection
 
 ## Step 3 — Authenticate
 
-After connecting, MiniLabs authenticates you securely:
+After connecting, MiniGarage authenticates you securely:
 
 ```mermaid
 sequenceDiagram
     participant You
-    participant MiniLabs
+    participant MiniGarage
     participant Wallet
     participant Backend
 
-    You->>MiniLabs: Click "Launch App"
-    MiniLabs->>Wallet: Request connection
-    Wallet-->>MiniLabs: Connected (address)
-    MiniLabs->>Backend: Request nonce
-    Backend-->>MiniLabs: Sign message
-    MiniLabs->>Wallet: Sign message
-    Wallet-->>MiniLabs: Signature
-    MiniLabs->>Backend: Verify signature
-    Backend-->>MiniLabs: JWT token
-    MiniLabs->>You: Dashboard loaded!
+    You->>MiniGarage: Click "Launch App"
+    MiniGarage->>Wallet: Request connection
+    Wallet-->>MiniGarage: Connected (address)
+    MiniGarage->>Backend: Request nonce
+    Backend-->>MiniGarage: Sign message
+    MiniGarage->>Wallet: Sign message
+    Wallet-->>MiniGarage: Signature
+    MiniGarage->>Backend: Verify signature
+    Backend-->>MiniGarage: JWT token
+    MiniGarage->>You: Dashboard loaded!
 ```
 
 ## Step 4 — Explore the Dashboard

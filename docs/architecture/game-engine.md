@@ -1,6 +1,6 @@
 # Game Engine
 
-MiniLabs uses a **server-authoritative game engine** to ensure fair and cheat-proof racing.
+MiniGarage uses a **server-authoritative game engine** to ensure fair and cheat-proof racing.
 
 ## Architecture
 

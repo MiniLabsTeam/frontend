@@ -1,6 +1,6 @@
 # Racing Game
 
-MiniLabs features three distinct racing modes, each with unique mechanics and objectives.
+MiniGarage features three distinct racing modes, each with unique mechanics and objectives.
 
 ## Game Modes
 

@@ -4,7 +4,7 @@
 
 | Platform | Link |
 |----------|------|
-| **Web App** | [minilabsapp.vercel.app](https://minilabsapp.vercel.app) |
+| **Web App** | [minigarageapp.vercel.app](https://minigarageapp.vercel.app) |
 | **GitHub** | [github.com/MiniLabsTeam](https://github.com/MiniLabsTeam) |
 
 ## OneChain Ecosystem

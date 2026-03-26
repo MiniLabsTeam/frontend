@@ -2,7 +2,7 @@
 
 ## Supported Wallets
 
-MiniLabs uses **@onelabs/dapp-kit** for wallet integration. Any OneChain-compatible wallet that implements the Sui wallet standard is supported.
+MiniGarage uses **@onelabs/dapp-kit** for wallet integration. Any OneChain-compatible wallet that implements the Sui wallet standard is supported.
 
 ## Getting OCT Tokens
 
@@ -21,7 +21,7 @@ During testnet, you can get free OCT tokens:
 
 ## Wallet Connection Flow
 
-MiniLabs uses a secure **nonce-signature** authentication:
+MiniGarage uses a secure **nonce-signature** authentication:
 
 1. **Nonce Request** — Backend generates a unique nonce for your address
 2. **Message Signing** — Your wallet signs a message containing the nonce
@@ -35,7 +35,7 @@ This ensures:
 
 ## Network Configuration
 
-MiniLabs operates on **OneChain Testnet**:
+MiniGarage operates on **OneChain Testnet**:
 
 | Parameter | Value |
 |-----------|-------|

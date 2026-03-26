@@ -1,6 +1,6 @@
 # Marketplace
 
-The MiniLabs Marketplace is a fully on-chain peer-to-peer trading platform for NFT cars and spare parts.
+The MiniGarage Marketplace is a fully on-chain peer-to-peer trading platform for NFT cars and spare parts.
 
 ## How It Works
 

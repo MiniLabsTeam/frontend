@@ -22,7 +22,7 @@ Meanwhile, most Web3 games suffer from:
 
 ## The Solution
 
-MiniLabs solves both sides of the equation:
+MiniGarage solves both sides of the equation:
 
 ### For Gamers
 * **Fun-first design** — engaging racing mechanics across multiple game modes
@@ -49,7 +49,7 @@ graph TB
         B[Closed Economies] --> D
         C[Complex Web3 UX] --> E[Users Don't Adopt]
     end
-    subgraph MiniLabs Solution
+    subgraph MiniGarage Solution
         F[NFT Cars on OneChain] --> I[True Ownership]
         G[Open Marketplace] --> J[Liquid Economy]
         H[Seamless Wallet UX] --> K[Easy Onboarding]

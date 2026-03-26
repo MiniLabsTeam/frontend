@@ -1,6 +1,6 @@
 # Security
 
-MiniLabs takes security seriously across every layer of the stack.
+MiniGarage takes security seriously across every layer of the stack.
 
 ## Authentication
 

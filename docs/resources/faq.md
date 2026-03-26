@@ -2,11 +2,11 @@
 
 ## General
 
-### What is MiniLabs?
-MiniLabs is an NFT car racing game on OneChain where you collect cars, race against players, trade on the marketplace, and predict race outcomes.
+### What is MiniGarage?
+MiniGarage is an NFT car racing game on OneChain where you collect cars, race against players, trade on the marketplace, and predict race outcomes.
 
-### What blockchain does MiniLabs use?
-MiniLabs is built on **OneChain**, a high-performance Sui-based blockchain.
+### What blockchain does MiniGarage use?
+MiniGarage is built on **OneChain**, a high-performance Sui-based blockchain.
 
 ### What is OCT?
 OCT is the native token on OneChain, used for gacha pulls, marketplace trades, prediction bets, and transaction fees.
@@ -22,14 +22,14 @@ Any OneChain-compatible wallet that implements the Sui wallet standard.
 During testnet, you can use the OneChain Testnet Faucet to request free test tokens.
 
 ### Is my private key safe?
-Yes. MiniLabs never accesses your private key. Authentication uses a sign-message flow where you sign a nonce with your wallet — the private key never leaves your device.
+Yes. MiniGarage never accesses your private key. Authentication uses a sign-message flow where you sign a nonce with your wallet — the private key never leaves your device.
 
 ---
 
 ## Gacha
 
 ### Is the gacha system fair?
-Yes. MiniLabs uses a **commit-reveal pattern** — you commit funds before the result is known, and the result is determined after your commitment. This is cryptographically verifiable on-chain.
+Yes. MiniGarage uses a **commit-reveal pattern** — you commit funds before the result is known, and the result is determined after your commitment. This is cryptographically verifiable on-chain.
 
 ### What can I get from gacha?
 Either an **NFT Car** or a **Spare Part**, each with random rarity, brand, and stats.
@@ -42,7 +42,7 @@ No. Once committed on-chain, the pull is final. This is by design to maintain th
 ## Racing
 
 ### Can people cheat in races?
-No. MiniLabs uses a **server-authoritative game engine** — the server runs all physics at 60 FPS and clients only send input. There's no way to modify game state from the client side.
+No. MiniGarage uses a **server-authoritative game engine** — the server runs all physics at 60 FPS and clients only send input. There's no way to modify game state from the client side.
 
 ### Do car stats matter?
 Yes. Speed, Acceleration, Handling, and Drift directly affect race performance. Equipped spare parts add bonus stats.

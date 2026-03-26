@@ -2,7 +2,7 @@
 
 ## Cars
 
-Every car in MiniLabs is a unique NFT on OneChain with performance stats that directly affect racing.
+Every car in MiniGarage is a unique NFT on OneChain with performance stats that directly affect racing.
 
 ### Brands
 

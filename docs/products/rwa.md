@@ -1,6 +1,6 @@
 # Real-World Assets (RWA)
 
-MiniLabs bridges digital and physical ownership — legendary NFT cars can be redeemed for **real diecast model cars**.
+MiniGarage bridges digital and physical ownership — legendary NFT cars can be redeemed for **real diecast model cars**.
 
 ## How It Works
 
