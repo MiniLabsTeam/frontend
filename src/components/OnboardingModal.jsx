@@ -1,19 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Car, Wrench, ShoppingCart, Trophy, X } from "lucide-react";
+import { Car, Gamepad2, ShoppingCart, Trophy, X } from "lucide-react";
 import { Button } from "./shared";
 
 /**
  * Onboarding Modal Component
- * First-time user experience for Base Mini App
+ * First-time user experience for MiniLabs
  */
 
 export default function OnboardingModal({ isOpen, onClose, onComplete }) {
   const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
-    // Check if user has seen onboarding before
     if (isOpen && typeof window !== "undefined") {
       const hasSeenOnboarding = localStorage.getItem("minilabs_onboarding_completed");
       if (hasSeenOnboarding) {
@@ -26,28 +25,28 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }) {
     {
       icon: Car,
       title: "Welcome to MiniLabs!",
-      description: "Collect, race, and trade digital car NFTs on OneChain",
+      description: "Collect, race, and trade NFT cars on OneChain. Use OCT tokens to pull gacha, equip spare parts, and boost your cars!",
       iconColor: "text-orange-500",
       bgGradient: "from-orange-500 to-orange-600",
     },
     {
-      icon: Wrench,
-      title: "Open Gacha Boxes",
-      description: "Get random car fragments or complete cars. Collect 5 fragments to forge a complete car!",
-      iconColor: "text-yellow-500",
-      bgGradient: "from-yellow-500 to-orange-500",
+      icon: Gamepad2,
+      title: "Race & Compete",
+      description: "Jump into 2D Drag Races, 3D Endless runs, or Multiplayer battles. Your car stats directly affect race performance!",
+      iconColor: "text-emerald-500",
+      bgGradient: "from-emerald-500 to-teal-600",
     },
     {
       icon: ShoppingCart,
-      title: "Trade in Marketplace",
-      description: "Buy and sell cars with other collectors. Build your dream collection!",
+      title: "Trade on Marketplace",
+      description: "Buy and sell NFT cars and spare parts with other players using OCT tokens. Build your dream collection!",
       iconColor: "text-blue-500",
       bgGradient: "from-blue-500 to-indigo-600",
     },
     {
       icon: Trophy,
-      title: "Claim Physical Cars",
-      description: "Rare legendary cars can be redeemed for physical diecast models!",
+      title: "Predict & Earn",
+      description: "Bet on race outcomes in Prediction Markets, complete daily quests for rewards, and claim physical diecast models for legendary cars!",
       iconColor: "text-purple-500",
       bgGradient: "from-purple-500 to-pink-600",
     },
@@ -143,7 +142,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }) {
               onClick={handleNext}
               className="flex-1"
             >
-              {currentStep < steps.length - 1 ? "Next" : "Get Started"}
+              {currentStep < steps.length - 1 ? "Next" : "Let's Race!"}
             </Button>
           </div>
         </div>

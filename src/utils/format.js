@@ -44,8 +44,8 @@ export function formatCooldown(seconds) {
 }
 
 /**
- * Format MockIDRX balance
- * @param {number} balance - Balance in IDRX
+ * Format OCT token balance
+ * @param {number} balance - Balance in OCT
  * @returns {string} Formatted balance
  */
 export function formatBalance(balance) {
@@ -58,6 +58,6 @@ export function formatBalance(balance) {
  * @param {string} currency - Currency symbol
  * @returns {string} Formatted price
  */
-export function formatPrice(price, currency = "IDRX") {
+export function formatPrice(price, currency = "OCT") {
   return `${formatNumber(price)} ${currency}`;
 }

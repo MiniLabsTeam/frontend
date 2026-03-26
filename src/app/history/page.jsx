@@ -254,7 +254,7 @@ export default function HistoryPage() {
                         {/* Price */}
                         {activity.price !== undefined && (
                           <span className="text-[10px] sm:text-xs bg-green-500/20 text-green-400 px-2 py-0.5 sm:py-1 rounded font-bold">
-                            {Math.floor(activity.price).toLocaleString()} IDRX
+                            {Math.floor(activity.price).toLocaleString()} OCT
                           </span>
                         )}
 

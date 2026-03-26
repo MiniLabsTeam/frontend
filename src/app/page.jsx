@@ -31,23 +31,23 @@ const diecastCarsBottom = [
 const features = [
   {
     icon: "/assets/icons/wallet.png",
-    title: "Instant Wallet Setup",
-    description: "Get started in seconds with seamless onboarding",
+    title: "Gacha & NFT Cars",
+    description: "Pull gacha boxes to collect rare NFT cars with unique stats",
   },
   {
     icon: "/assets/icons/nft.png",
-    title: "Collect Exclusive NFTs",
-    description: "Own rare digital collectibles and trade them",
+    title: "Race & Compete",
+    description: "2D Drag Race, 3D Endless, and Multiplayer battles",
   },
   {
     icon: "/assets/icons/car.png",
-    title: "Earn Rewards",
-    description: "Generate value from your collection",
+    title: "Trade & Earn",
+    description: "Marketplace trading, prediction markets, and daily quests",
   },
   {
     icon: "/assets/icons/comunity.png",
-    title: "Community Driven",
-    description: "Join thousands of collectors worldwide",
+    title: "Real-World Rewards",
+    description: "Claim physical diecast models for legendary cars",
   },
 ];
 
@@ -305,7 +305,7 @@ export default function Home() {
             <p className="minigarage-tagline mb-12 text-sm uppercase tracking-widest sm:text-base md:text-lg"
               style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.8))" }}
             >
-              Collect. Build. Own.
+              Collect. Race. Win.
             </p>
 
             <div className="minigarage-launch-wrap mx-auto w-full max-w-[380px]">

@@ -6,7 +6,7 @@ import { formatNumber } from "@/utils";
 /**
  * Reusable balance display badge
  * @param {Object} props
- * @param {number} props.balance - MockIDRX balance
+ * @param {number} props.balance - OCT token balance
  * @param {boolean} props.loading - Loading state
  * @param {Function} props.onClick - Click handler
  */
@@ -21,7 +21,7 @@ export function BalanceBadge({ balance, loading, onClick }) {
       <span className="font-bold text-white">
         {loading ? "..." : formatNumber(balance)}
       </span>
-      <span className="text-white/60 text-sm">IDRX</span>
+      <span className="text-white/60 text-sm">OCT</span>
     </button>
   );
 }
