@@ -274,15 +274,7 @@ export default function PredictionPage() {
                 className="flex items-center gap-1.5 bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-400 font-black text-xs px-3 py-2 rounded-full transition-all active:scale-95"
               >
                 <Eye size={14} />
-                3D LIVE
-              </a>
-              <a
-                href="/game/index.html"
-                target="_blank"
-                className="flex items-center gap-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 font-black text-xs px-3 py-2 rounded-full transition-all active:scale-95"
-              >
-                <Eye size={14} />
-                WATCH LIVE
+                WATCH RACE
               </a>
             </div>
           </div>

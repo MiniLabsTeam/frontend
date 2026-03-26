@@ -36,7 +36,7 @@ export default function PageHeader() {
   }, [isConnected, getAuthToken]);
 
   return (
-    <div className="flex items-center justify-end gap-2 px-4 pt-3 pb-3">
+    <div className="flex items-center justify-center gap-3 px-4 pt-3 pb-2 w-full">
       {walletAddress && tokenBalance !== null && (
         <div className="bg-purple-600/90 border-2 border-purple-400 rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-lg">
           <span className="text-yellow-300 text-xs">🪙</span>
