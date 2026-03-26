@@ -8,9 +8,9 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalLoadingIndicator from "@/components/shared/GlobalLoadingIndicator";
 import NetworkGuard from "@/components/shared/NetworkGuard";
 
-// Force OneChain Testnet only — no mainnet option exposed
+// Force OneChain Testnet only — proxy through Next.js API route to bypass CORS
 const { networkConfig } = createNetworkConfig({
-  testnet: { url: "https://rpc-testnet.onelabs.cc" },
+  testnet: { url: typeof window !== "undefined" ? "/api/rpc" : "https://rpc-testnet.onelabs.cc" },
 });
 
 const queryClient = new QueryClient();
