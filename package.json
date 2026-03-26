@@ -28,7 +28,7 @@
     "devDependencies": {
         "@eslint/eslintrc": "^0.1.0",
         "autoprefixer": "^10.4.20",
-        "eslint": "^10.0.0",
+        "eslint": "^9.0.0",
         "eslint-config-next": "^0.2.4",
         "eslint-plugin-react-hooks": "^5.1.0",
         "next-pwa": "^5.0.3",

@@ -17,8 +17,8 @@ import { toast } from "sonner";
 export default function ProfilePage() {
   const { isConnected, walletAddress, getAuthToken, disconnect } = useWallet();
   const router = useRouter();
-  const [mockIDRXBalance, setMockIDRXBalance] = useState(0);
-  const [loadingMockIDRX, setLoadingMockIDRX] = useState(false);
+  const [tokenBalance, setTokenBalance] = useState(0);
+  const [loadingBalance, setLoadingBalance] = useState(false);
   const [showShippingModal, setShowShippingModal] = useState(false);
   const [shippingInfo, setShippingInfo] = useState({
     shippingName: null,
@@ -55,16 +55,16 @@ export default function ProfilePage() {
     }
   }, [isConnected, router]);
 
-  // Fetch MockIDRX balance from backend
+  // Fetch token balance from backend
   useEffect(() => {
     if (isConnected) {
-      fetchMockIDRXBalance();
+      fetchTokenBalance();
     }
   }, [isConnected]);
 
-  const fetchMockIDRXBalance = async () => {
+  const fetchTokenBalance = async () => {
     try {
-      setLoadingMockIDRX(true);
+      setLoadingBalance(true);
       const authToken = await getAuthToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/garage/overview`, {
         headers: {
@@ -72,7 +72,7 @@ export default function ProfilePage() {
         },
       });
       const data = await response.json();
-      setMockIDRXBalance(data.user?.mockIDRX || 0);
+      setTokenBalance(data.user?.tokenBalance || data.user?.mockIDRX || 0);
 
       // Store shipping info
       setShippingInfo({
@@ -81,10 +81,10 @@ export default function ProfilePage() {
         shippingAddress: data.user?.shippingAddress || null
       });
     } catch (error) {
-      console.error("Failed to fetch MockIDRX balance:", error);
-      setMockIDRXBalance(0);
+      console.error("Failed to fetch token balance:", error);
+      setTokenBalance(0);
     } finally {
-      setLoadingMockIDRX(false);
+      setLoadingBalance(false);
     }
   };
 
@@ -207,21 +207,21 @@ export default function ProfilePage() {
 
             {/* Balance Display */}
             <div className="flex flex-wrap gap-2">
-              {/* MockIDRX Balance Badge */}
+              {/* Token Balance Badge */}
               <button
                 type="button"
-                onClick={fetchMockIDRXBalance}
+                onClick={fetchTokenBalance}
                 className="flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full px-4 py-2 w-fit profile-badge transition-transform hover:scale-[1.02] active:scale-95"
-                aria-label="Refresh IDRX balance"
-                title="Tap to refresh IDRX balance"
+                aria-label="Refresh OCT balance"
+                title="Tap to refresh OCT balance"
               >
                 <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center">
                   <Wallet size={16} className="text-yellow-300" strokeWidth={3} />
                 </div>
                 <span className="font-black text-lg text-orange-900">
-                  {loadingMockIDRX ? "..." : Math.floor(mockIDRXBalance)}
+                  {loadingBalance ? "..." : Math.floor(tokenBalance)}
                 </span>
-                <span className="text-sm font-bold text-orange-900 opacity-90">IDRX</span>
+                <span className="text-sm font-bold text-orange-900 opacity-90">OCT</span>
               </button>
             </div>
           </div>

@@ -34,7 +34,7 @@ export function validatePrice(price) {
   if (numPrice > 10000000) {
     return {
       valid: false,
-      error: "Price exceeds maximum allowed (10,000,000 IDRX)"
+      error: "Price exceeds maximum allowed (10,000,000 OCT)"
     };
   }
 

@@ -8,7 +8,7 @@ import { useWallet } from "@/hooks/useWallet";
  * More efficient than separate hooks since it fetches from one endpoint
  *
  * @returns {Object} Garage overview state and methods
- * @returns {number} returns.balance - MockIDRX balance
+ * @returns {number} returns.balance - OCT token balance
  * @returns {Object} returns.userInfo - User information object
  * @returns {string|null} returns.userInfo.username - User's username
  * @returns {string|null} returns.userInfo.email - User's email
@@ -53,7 +53,7 @@ export function useGarageOverview() {
       );
       const data = await response.json();
 
-      setBalance(data.user?.mockIDRX || 0);
+      setBalance(data.user?.tokenBalance || data.user?.mockIDRX || 0);
       setUserInfo({
         username: data.user?.username || null,
         email: data.user?.email || null,

@@ -152,7 +152,7 @@ export default function SellToAdminModal({ isOpen, onClose, car, buybackPrice, o
                     <p className="text-white/80 text-sm font-bold mb-1">YOU WILL RECEIVE</p>
                     <div className="flex items-baseline gap-2">
                         <span className="text-white text-4xl font-black">{buybackPrice.toLocaleString()}</span>
-                        <span className="text-white/90 text-lg font-bold">IDRX</span>
+                        <span className="text-white/90 text-lg font-bold">OCT</span>
                     </div>
                 </div>
 
@@ -198,7 +198,7 @@ export default function SellToAdminModal({ isOpen, onClose, car, buybackPrice, o
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4 flex items-start gap-2">
                     <AlertTriangle size={20} className="text-yellow-400 flex-shrink-0 mt-0.5" />
                     <p className="text-yellow-400 text-xs font-bold">
-                        This action is permanent. The NFT will be transferred to admin and you will receive IDRX instantly.
+                        This action is permanent. The NFT will be transferred to admin and you will receive OCT instantly.
                     </p>
                 </div>
 

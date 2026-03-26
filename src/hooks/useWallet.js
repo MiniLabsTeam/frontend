@@ -5,8 +5,9 @@ import {
   useConnectWallet,
   useDisconnectWallet,
   useWallets,
+  useSignPersonalMessage,
 } from "@onelabs/dapp-kit";
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { apiPost } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -19,7 +20,9 @@ export function useWallet() {
   const wallets = useWallets();
   const { mutate: connectWallet, isPending: isConnecting } = useConnectWallet();
   const { mutate: disconnectWallet } = useDisconnectWallet();
+  const { mutateAsync: signPersonalMessage } = useSignPersonalMessage();
   const [jwtToken, setJwtToken] = useState(null);
+  const authInFlight = useRef(null);
 
   const isConnected = !!account;
   const walletAddress = account?.address ?? null;
@@ -39,8 +42,7 @@ export function useWallet() {
   }, [isConnected]);
 
   /**
-   * Get JWT auth token - uses test-login for development
-   * (signature verification is a placeholder in backend, test-login avoids nonce race conditions)
+   * Get JWT auth token via nonce → wallet sign → backend verify flow
    */
   const getAuthToken = useCallback(async () => {
     if (!walletAddress) throw new Error("Wallet not connected");
@@ -49,23 +51,51 @@ export function useWallet() {
     const cached = localStorage.getItem("auth_token");
     if (cached) return cached;
 
-    try {
-      // Use test-login: skips nonce+signature flow (dev only)
-      // Backend: POST /api/auth/test-login → { success, data: { accessToken } }
-      const res = await apiPost("/api/auth/test-login", { address: walletAddress });
-      const token = res.data?.accessToken ?? res.accessToken ?? res.token;
+    // Deduplicate concurrent auth calls
+    if (authInFlight.current) return authInFlight.current;
 
-      if (!token) throw new Error("No token returned from backend");
+    authInFlight.current = (async () => {
+      try {
+        // Step 1: Get nonce from backend
+        const nonceRes = await apiPost("/api/auth/nonce", { address: walletAddress });
+        const { message } = nonceRes.data ?? nonceRes;
 
-      localStorage.setItem("auth_token", token);
-      setJwtToken(token);
-      return token;
-    } catch (error) {
-      console.error("Auth failed:", error);
-      toast.error("Authentication failed. Please try again.");
-      throw error;
-    }
-  }, [walletAddress]);
+        if (!message) throw new Error("No sign message returned from backend");
+
+        // Step 2: Sign the message with wallet
+        const { signature, bytes } = await signPersonalMessage({
+          message: new TextEncoder().encode(message),
+        });
+
+        // Step 3: Send signature to backend for verification
+        const connectRes = await apiPost("/api/auth/connect", {
+          address: walletAddress,
+          signature,
+          message,
+        });
+
+        const token =
+          connectRes.data?.accessToken ??
+          connectRes.accessToken ??
+          connectRes.data?.token ??
+          connectRes.token;
+
+        if (!token) throw new Error("No token returned from backend");
+
+        localStorage.setItem("auth_token", token);
+        setJwtToken(token);
+        return token;
+      } catch (error) {
+        console.error("Auth failed:", error);
+        toast.error("Authentication failed. Please try again.");
+        throw error;
+      } finally {
+        authInFlight.current = null;
+      }
+    })();
+
+    return authInFlight.current;
+  }, [walletAddress, signPersonalMessage]);
 
   /**
    * Connect to first available wallet
