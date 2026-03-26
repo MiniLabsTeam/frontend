@@ -5,9 +5,9 @@ export async function generateMetadata() {
   const URL = process.env.NEXT_PUBLIC_URL || "https://minigarageapp.vercel.app";
   
   return {
-    title: "MiniLabs - NFT Car Racing on OneChain",
+    title: "MiniGarage - NFT Car Racing on OneChain",
     description: "Collect, race, and own digital collectible cars as NFTs on OneChain. Your personal garage of legendary racing machines.",
-    applicationName: "MiniLabs",
+    applicationName: "MiniGarage",
     manifest: "/manifest.webmanifest",
     icons: {
       icon: "/icons/icon-512.png",
@@ -17,10 +17,10 @@ export async function generateMetadata() {
         version: "next",
         imageUrl: `${URL}/icons/icon-512.png`,
         button: {
-          title: "Launch MiniLabs",
+          title: "Launch MiniGarage",
           action: {
             type: "launch_miniapp",
-            name: "MiniLabs",
+            name: "MiniGarage",
             url: URL,
             splashImageUrl: `${URL}/icons/icon-512.png`,
             splashBackgroundColor: "#ff7a00",
