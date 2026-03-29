@@ -67,23 +67,35 @@ export default function MarketplacePage() {
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
 
   // Find on-chain objectId via backend proxy (avoids CORS)
-  const getOnChainObjectId = useCallback(async (nftType, name) => {
+  const getOnChainObjectId = useCallback(async (nftType, name, uid) => {
     if (!walletAddress) return null;
-    const token = await getAuthToken();
+    let token = await getAuthToken();
     const typeStr = nftType === "car"
       ? `${PACKAGE_ID}::car::Car`
       : `${PACKAGE_ID}::sparepart::SparePart`;
 
-    const res = await fetch(
+    let res = await fetch(
       `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/owned-objects?structType=${encodeURIComponent(typeStr)}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
+    if (res.status === 401) {
+      localStorage.removeItem("auth_token");
+      token = await getAuthToken();
+      res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/owned-objects?structType=${encodeURIComponent(typeStr)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    }
     const data = await res.json();
+    console.log("[Marketplace] owned objects:", JSON.stringify(data.data?.slice(0, 2)));
     for (const obj of data.data || []) {
       const fields = obj.data?.content?.fields;
-      if (fields && fields.name === name) {
-        return obj.data.objectId;
-      }
+      if (!fields) continue;
+      // Match by uid first (most reliable), then by name
+      if (uid && (fields.uid === uid || fields.id === uid)) return obj.data.objectId;
+      if (fields.name === name) return obj.data.objectId;
+      // Partial match: DB name includes "#number" suffix, blockchain may not
+      if (name && fields.name && name.startsWith(fields.name)) return obj.data.objectId;
     }
     return null;
   }, [walletAddress, getAuthToken]);
@@ -212,7 +224,7 @@ export default function MarketplacePage() {
     try {
       // 1. Find on-chain object ID
       toast.loading("Finding NFT on-chain...", { id: "list-tx" });
-      const objectId = await getOnChainObjectId(sellItem.nftType, sellItem.name);
+      const objectId = await getOnChainObjectId(sellItem.nftType, sellItem.name, sellItem.uid);
       if (!objectId) throw new Error("NFT not found in wallet. Make sure it's minted on-chain.");
 
       // 2. Build on-chain transaction
@@ -230,20 +242,46 @@ export default function MarketplacePage() {
       });
 
       toast.loading("Waiting for wallet approval...", { id: "list-tx" });
-      const result = await signAndExecute({ transaction: tx });
+      const result = await signAndExecute({
+        transaction: tx,
+        options: { showEvents: true, showObjectChanges: true },
+      });
 
-      // 3. Parse on-chain listing ID — fetch events via backend proxy
+      // 3. Parse on-chain listing ID
       let onChainListingId = null;
-      if (result?.digest) {
+      console.log("[Marketplace] signAndExecute result:", JSON.stringify(result));
+
+      // Try from result.events directly (if hook returns them)
+      if (result?.events?.length) {
+        for (const ev of result.events) {
+          const p = ev.parsedJson || {};
+          const id = p.listing_id ?? p.id ?? p.listingId ?? p.listing ?? p.list_id;
+          if (id !== undefined && id !== null) { onChainListingId = String(id); break; }
+        }
+      }
+
+      // Fallback: fetch events from backend proxy
+      if (onChainListingId === null && result?.digest) {
         try {
           const token2 = await getAuthToken();
+          // Small delay to let RPC index the TX
+          await new Promise(r => setTimeout(r, 2000));
           const evRes = await fetch(
             `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/tx-events/${result.digest}`,
             { headers: { Authorization: `Bearer ${token2}` } }
           );
           const evData = await evRes.json();
-          const ev = (evData.events || []).find((e) => e.parsedJson?.listing_id !== undefined);
-          if (ev) onChainListingId = String(ev.parsedJson.listing_id);
+          console.log("[Marketplace] TX events from proxy:", JSON.stringify(evData));
+          for (const ev of (evData.events || [])) {
+            const p = ev.parsedJson || {};
+            const id = p.listing_id ?? p.id ?? p.listingId ?? p.listing ?? p.list_id;
+            if (id !== undefined && id !== null) { onChainListingId = String(id); break; }
+          }
+          // Also check objectChanges for created objects
+          if (onChainListingId === null) {
+            const changes = evData.objectChanges || result?.objectChanges || [];
+            console.log("[Marketplace] objectChanges:", JSON.stringify(changes));
+          }
         } catch (e) {
           console.warn("[Marketplace] Could not fetch events:", e);
         }
@@ -652,8 +690,12 @@ export default function MarketplacePage() {
                         { headers: { Authorization: `Bearer ${tokenEv}` } }
                       );
                       const evData = await evRes.json();
-                      const ev = (evData.events || []).find((e) => e.parsedJson?.listing_id !== undefined);
-                      if (ev) listingId = String(ev.parsedJson.listing_id);
+                      console.log("[Marketplace] Buy fallback events:", JSON.stringify(evData.events));
+                      for (const ev of (evData.events || [])) {
+                        const p = ev.parsedJson || {};
+                        const id = p.listing_id ?? p.id ?? p.listingId ?? p.listing ?? p.list_id;
+                        if (id !== undefined && id !== null) { listingId = String(id); break; }
+                      }
                     }
                     if (listingId === null || listingId === undefined) {
                       toast.error("This listing is not on-chain yet", { id: "buy-tx" });
@@ -676,11 +718,20 @@ export default function MarketplacePage() {
                     await signAndExecute({ transaction: tx });
 
                     // Update DB — transfer ownership to buyer
-                    const token = await getAuthToken();
-                    const buyRes = await fetch(
+                    let token = await getAuthToken();
+                    let buyRes = await fetch(
                       `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/buy/${selectedListing.listingId}`,
                       { method: "POST", headers: { Authorization: `Bearer ${token}` } }
                     );
+                    // If 401, clear stale token and retry with fresh auth
+                    if (buyRes.status === 401) {
+                      localStorage.removeItem("auth_token");
+                      token = await getAuthToken();
+                      buyRes = await fetch(
+                        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/marketplace/buy/${selectedListing.listingId}`,
+                        { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+                      );
+                    }
                     if (!buyRes.ok) {
                       const errData = await buyRes.json().catch(() => ({}));
                       console.error("[Marketplace] buy DB update failed:", errData);

@@ -162,7 +162,7 @@ export default function GamePage() {
   const handleViewerLoad = () => {
     setViewerReady(true);
     if (selectedCar && iframeRef.current) {
-      iframeRef.current.contentWindow.postMessage({ type: "SET_CAR", brand: selectedCar.brand ?? 0 }, "*");
+      iframeRef.current.contentWindow.postMessage({ type: "SET_CAR", brand: selectedCar.brand ?? 0, modelUrl: selectedCar.modelUrl || null }, "*");
       iframeRef.current.contentWindow.postMessage({ type: "SET_RARITY", rarity: selectedCar.rarity ?? 0 }, "*");
     }
   };
@@ -170,7 +170,7 @@ export default function GamePage() {
   // Sync 3D viewer when selected car changes
   useEffect(() => {
     if (!viewerReady || !selectedCar || !iframeRef.current) return;
-    iframeRef.current.contentWindow.postMessage({ type: "SET_CAR", brand: selectedCar.brand ?? 0 }, "*");
+    iframeRef.current.contentWindow.postMessage({ type: "SET_CAR", brand: selectedCar.brand ?? 0, modelUrl: selectedCar.modelUrl || null }, "*");
     iframeRef.current.contentWindow.postMessage({ type: "SET_RARITY", rarity: selectedCar.rarity ?? 0 }, "*");
   }, [selectedCar, viewerReady]);
 
@@ -192,6 +192,7 @@ export default function GamePage() {
       name: selectedCar.name || "",
       rarity: selectedCar.rarity || "",
       brand: selectedCar.brand ?? 0,
+      modelUrl: selectedCar.modelUrl || null,
     }));
     localStorage.setItem("backend_url", (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000") + "/api");
     localStorage.setItem("game_mode", gameMode);

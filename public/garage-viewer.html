@@ -88,6 +88,42 @@
       3: '/asset3d/assets3dcarglb/CHEVROLET.glb',
     };
 
+    // ── Per-model rotation override ──
+    const MODEL_ROTATION_OVERRIDE = {
+      '/asset3d/cars_assets3d/lamborghini/lamborghini_revuelto.glb':          Math.PI / 2,
+      '/asset3d/cars_assets3d/lamborghini/lamborghini_temerario.glb':         Math.PI,
+      '/asset3d/cars_assets3d/lamborghini/lamborghini_aventador.glb':         Math.PI / 2,
+      '/asset3d/cars_assets3d/lamborghini/lamborghini_huracan.glb':           Math.PI,
+      '/asset3d/cars_assets3d/lamborghini/lamborghini_countach.glb':          Math.PI,
+      '/asset3d/cars_assets3d/lamborghini/lamborghini_diablo_sv.glb':         Math.PI,
+      '/asset3d/cars_assets3d/lamborghini/lamborghini_murcielago.glb':        Math.PI,
+      '/asset3d/cars_assets3d/lamborghini/free_lamborghini_gallardo.glb':     0,
+      '/asset3d/cars_assets3d/ferrari/2020_ferrari_sf90_stradale.glb':        Math.PI,
+      '/asset3d/cars_assets3d/ferrari/2022_ferrari_296_gtb.glb':              Math.PI,
+      '/asset3d/cars_assets3d/ferrari/2018_ferrari_812_superfast.glb':        Math.PI,
+      '/asset3d/cars_assets3d/ferrari/2020_ferrari_f8_tributo.glb':           Math.PI,
+      '/asset3d/cars_assets3d/ferrari/2025_ferrari_12cilindri.glb':           Math.PI,
+      '/asset3d/cars_assets3d/ferrari/ferrari_f40.glb':                       Math.PI,
+      '/asset3d/cars_assets3d/ferrari/2002_ferrari_enzo_ferrari_out_run.glb': 0,
+      '/asset3d/cars_assets3d/ferrari/2014_ferrari_laferrari.glb':            Math.PI,
+      '/asset3d/cars_assets3d/ford/2020_ford_shelby_gt500.glb':               Math.PI,
+      '/asset3d/cars_assets3d/ford/ford_mustang_shelby_2012.glb':             Math.PI,
+      '/asset3d/cars_assets3d/ford/2019_ford_gt_heritage_edition.glb':        Math.PI,
+      '/asset3d/cars_assets3d/ford/2020_ford_mustang_mach-e_1400_concept.glb':Math.PI,
+      '/asset3d/cars_assets3d/ford/2009_ford_focus_rs.glb':                   Math.PI,
+      '/asset3d/cars_assets3d/ford/2013_ford_fiesta_st_grc.glb':              Math.PI,
+      '/asset3d/cars_assets3d/ford/ford_capri_group_b.glb':                   Math.PI,
+      '/asset3d/cars_assets3d/ford/ford_everest_sport_2023.glb':              Math.PI,
+      '/asset3d/cars_assets3d/ford/2014_ford_ranger_dakar.glb':               Math.PI,
+      '/asset3d/cars_assets3d/chevrolet/2019_chevrolet_corvette_zr1.glb':     Math.PI,
+      '/asset3d/cars_assets3d/chevrolet/2012_chevrolet_camaro_zl1.glb':       Math.PI,
+      '/asset3d/cars_assets3d/chevrolet/2024_chevrolet_silverado_ev_rst.glb': Math.PI,
+      '/asset3d/cars_assets3d/chevrolet/2017_chevrolet_colorado_zr2.glb':     Math.PI,
+      '/asset3d/cars_assets3d/chevrolet/chevrolet_impala_1967-_supernatural.glb': Math.PI * 1.5,
+      '/asset3d/cars_assets3d/chevrolet/1970_chevrolet_chevelle_ss_454.glb':  Math.PI,
+      '/asset3d/cars_assets3d/chevrolet/2017_chevrolet_cruze_ltz.glb':        Math.PI,
+    };
+
     // ── Rarity rim-light colors ──
     const RARITY_COLORS = {
       0: 0x556677,  // Common — gray
@@ -222,7 +258,7 @@
       unavailableEl.classList.add('show');
     }
 
-    async function loadCar(brand) {
+    async function loadCar(brand, modelUrl) {
       const gen = ++loadGeneration;
 
       // Remove old car
@@ -231,8 +267,8 @@
         currentCarMesh = null;
       }
 
-      // Validate brand
-      const modelPath = CAR_MODELS[brand];
+      // Use modelUrl if provided, fall back to brand-based map
+      const modelPath = modelUrl || CAR_MODELS[brand];
       if (!modelPath) {
         showUnavailable();
         return;
@@ -262,8 +298,9 @@
         const boxAfter = new THREE.Box3().setFromObject(model);
         model.position.y -= boxAfter.min.y;
 
-        // Face camera
-        model.rotation.y = Math.PI;
+        // Per-model rotation (default Math.PI, override to 0 if already faces camera)
+        const rotOverride = MODEL_ROTATION_OVERRIDE[modelPath];
+        model.rotation.y = (rotOverride !== undefined) ? rotOverride : Math.PI;
 
         // Enhance materials + shadows
         model.traverse((child) => {
@@ -311,7 +348,7 @@
       if (!e.data || typeof e.data !== 'object') return;
       if (e.data.type === 'SET_CAR') {
         const brand = typeof e.data.brand === 'number' ? Math.max(0, Math.min(3, e.data.brand)) : 0;
-        loadCar(brand);
+        loadCar(brand, e.data.modelUrl || null);
       }
       if (e.data.type === 'SET_RARITY') {
         const rarity = typeof e.data.rarity === 'number' ? e.data.rarity : 0;

@@ -1,4 +1,7 @@
-﻿# Logs
+﻿# Testing tools
+public/model-test.html
+
+# Logs
 logs
 *.log
 npm-debug.log*

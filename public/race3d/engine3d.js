@@ -125,10 +125,45 @@ export const carTextures = {};
 export const brandCarModels = { 0: null, 1: null, 2: null, 3: null }; // Lamborghini, Ferrari, Ford, Chevrolet
 
 const BRAND_MODEL_PATHS = {
-  0: '/asset3d/assets3dcarglb/Lamborghini-Huracan.glb',
-  1: '/asset3d/assets3dcarglb/Ferrari-F8-Turbo.glb',
-  2: '/asset3d/assets3dcarglb/ford.glb',
-  3: '/asset3d/assets3dcarglb/CHEVROLET.glb',
+  0: '/asset3d/cars_assets3d/lamborghini/lamborghini_revuelto.glb',
+  1: '/asset3d/cars_assets3d/ferrari/2020_ferrari_sf90_stradale.glb',
+  2: '/asset3d/cars_assets3d/ford/2020_ford_shelby_gt500.glb',
+  3: '/asset3d/cars_assets3d/chevrolet/2019_chevrolet_corvette_zr1.glb',
+};
+
+const MODEL_ROTATION_OVERRIDE = {
+  '/asset3d/cars_assets3d/lamborghini/lamborghini_revuelto.glb':          Math.PI / 2,
+  '/asset3d/cars_assets3d/lamborghini/lamborghini_temerario.glb':         Math.PI,
+  '/asset3d/cars_assets3d/lamborghini/lamborghini_aventador.glb':         Math.PI / 2,
+  '/asset3d/cars_assets3d/lamborghini/lamborghini_huracan.glb':           Math.PI,
+  '/asset3d/cars_assets3d/lamborghini/lamborghini_countach.glb':          Math.PI,
+  '/asset3d/cars_assets3d/lamborghini/lamborghini_diablo_sv.glb':         Math.PI,
+  '/asset3d/cars_assets3d/lamborghini/lamborghini_murcielago.glb':        Math.PI,
+  '/asset3d/cars_assets3d/lamborghini/free_lamborghini_gallardo.glb':     0,
+  '/asset3d/cars_assets3d/ferrari/2020_ferrari_sf90_stradale.glb':        Math.PI,
+  '/asset3d/cars_assets3d/ferrari/2022_ferrari_296_gtb.glb':              Math.PI,
+  '/asset3d/cars_assets3d/ferrari/2018_ferrari_812_superfast.glb':        Math.PI,
+  '/asset3d/cars_assets3d/ferrari/2020_ferrari_f8_tributo.glb':           Math.PI,
+  '/asset3d/cars_assets3d/ferrari/2025_ferrari_12cilindri.glb':           Math.PI,
+  '/asset3d/cars_assets3d/ferrari/ferrari_f40.glb':                       Math.PI,
+  '/asset3d/cars_assets3d/ferrari/2002_ferrari_enzo_ferrari_out_run.glb': 0,
+  '/asset3d/cars_assets3d/ferrari/2014_ferrari_laferrari.glb':            Math.PI,
+  '/asset3d/cars_assets3d/ford/2020_ford_shelby_gt500.glb':               Math.PI,
+  '/asset3d/cars_assets3d/ford/ford_mustang_shelby_2012.glb':             Math.PI,
+  '/asset3d/cars_assets3d/ford/2019_ford_gt_heritage_edition.glb':        Math.PI,
+  '/asset3d/cars_assets3d/ford/2020_ford_mustang_mach-e_1400_concept.glb':Math.PI,
+  '/asset3d/cars_assets3d/ford/2009_ford_focus_rs.glb':                   Math.PI,
+  '/asset3d/cars_assets3d/ford/2013_ford_fiesta_st_grc.glb':              Math.PI,
+  '/asset3d/cars_assets3d/ford/ford_capri_group_b.glb':                   Math.PI,
+  '/asset3d/cars_assets3d/ford/ford_everest_sport_2023.glb':              Math.PI,
+  '/asset3d/cars_assets3d/ford/2014_ford_ranger_dakar.glb':               Math.PI,
+  '/asset3d/cars_assets3d/chevrolet/2019_chevrolet_corvette_zr1.glb':     Math.PI,
+  '/asset3d/cars_assets3d/chevrolet/2012_chevrolet_camaro_zl1.glb':       Math.PI,
+  '/asset3d/cars_assets3d/chevrolet/2024_chevrolet_silverado_ev_rst.glb': Math.PI,
+  '/asset3d/cars_assets3d/chevrolet/2017_chevrolet_colorado_zr2.glb':     Math.PI,
+  '/asset3d/cars_assets3d/chevrolet/chevrolet_impala_1967-_supernatural.glb': Math.PI * 1.5,
+  '/asset3d/cars_assets3d/chevrolet/1970_chevrolet_chevelle_ss_454.glb':  Math.PI,
+  '/asset3d/cars_assets3d/chevrolet/2017_chevrolet_cruze_ltz.glb':        Math.PI,
 };
 
 // ─── Loading Progress ────────────────────────────────────────────────────────
@@ -235,13 +270,18 @@ export async function loadAssets(loadingBarEl, loadingTextEl) {
   }
 
   // Brand car models (Lamborghini, Ferrari, Ford, Chevrolet)
+  // If player has a specific modelUrl, override their brand's path
+  const playerBrand = WEB3.carData.brand ?? 0;
+  const playerModelUrl = WEB3.carData.modelUrl;
   for (const brandId of [0, 1, 2, 3]) {
+    const path = (brandId === playerBrand && playerModelUrl) ? playerModelUrl : BRAND_MODEL_PATHS[brandId];
     try {
       const gltf = await new Promise((resolve, reject) => {
-        gltfLoader.load(BRAND_MODEL_PATHS[brandId], resolve, undefined, reject);
+        gltfLoader.load(path, resolve, undefined, reject);
       });
       brandCarModels[brandId] = gltf.scene;
-      console.log(`Brand car ${brandId} loaded`);
+      brandCarModels[brandId].userData.modelPath = path;
+      console.log(`Brand car ${brandId} loaded from ${path}`);
     } catch (e) {
       console.warn(`Brand car ${brandId} failed, will use FBX fallback`, e);
     }
@@ -430,6 +470,7 @@ export function createCarMesh(colorHex, textureKey, brand = 0) {
         child.receiveShadow = true;
       }
     });
+    // New GLB models face correct direction — no rotation needed
   } else if (carModelTemplate) {
     carMesh = carModelTemplate.clone();
     const box = new THREE.Box3().setFromObject(carMesh);
@@ -489,7 +530,13 @@ export function createCarMesh(colorHex, textureKey, brand = 0) {
     carMesh.add(top);
   }
 
-  carMesh.rotation.y = Math.PI;
+  // Look up per-model rotation, default Math.PI
+  const modelPath = brandCarModels[brand]?.userData?.modelPath || null;
+  const rotation = (modelPath && modelPath in MODEL_ROTATION_OVERRIDE)
+    ? MODEL_ROTATION_OVERRIDE[modelPath]
+    : Math.PI;
+  carMesh.rotation.y = rotation;
+  carMesh.userData.baseRotation = rotation; // store for multiplayer steering
   container.add(carMesh);
   return container;
 }

@@ -19,7 +19,7 @@ const TIER_STATIC = {
     iconBg: "from-gray-500 to-gray-600",
     title: "STANDARD BOX",
     description: "Perfect for beginners! Get common to rare car fragments.",
-    carImage: "/assets/car_no_background/10-Honda-Civic-removebg-preview.png",
+    carImage: "/assets/assetdcar2d/ford/ford_mustang.png",
     fallbackRewards: [
       { rarity: "Common", chance: "70%", color: "text-gray-400" },
       { rarity: "Rare", chance: "25%", color: "text-blue-400" },
@@ -34,7 +34,7 @@ const TIER_STATIC = {
     iconBg: "from-blue-500 to-indigo-600",
     title: "RARE BOX",
     description: "Better chances for sport cars and rare fragments!",
-    carImage: "/assets/car_no_background/04-BMW-M3-GTR-removebg-preview.png",
+    carImage: "/assets/assetdcar2d/ferrari/SF90 Stradale.png",
     fallbackRewards: [
       { rarity: "Rare", chance: "58%", color: "text-blue-400" },
       { rarity: "Epic", chance: "37%", color: "text-purple-400" },
@@ -49,7 +49,7 @@ const TIER_STATIC = {
     iconBg: "from-yellow-400 to-amber-500",
     title: "LEGENDARY BOX",
     description: "Best odds for legendary fragments and cars!",
-    carImage: "/assets/car_no_background/02-Bugatti-Chiron-removebg-preview.png",
+    carImage: "/assets/assetdcar2d/lamborghin/lamborghini_Revuelto.png",
     fallbackRewards: [
       { rarity: "Epic", chance: "30%", color: "text-purple-400" },
       { rarity: "Legendary", chance: "70%", color: "text-yellow-400" },

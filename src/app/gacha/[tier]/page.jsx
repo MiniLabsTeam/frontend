@@ -36,26 +36,49 @@ const hexToUint8 = (hex) => {
 
 const getAssetImage = (name) => {
   const n = name?.toLowerCase() || "";
+  // Spare parts
   if (n.includes("body")) return "/assets/Fragments/Body.png";
   if (n.includes("chassis") || n.includes("chasis")) return "/assets/Fragments/Chasis.png";
   if (n.includes("engine")) return "/assets/Fragments/Engine.png";
   if (n.includes("interior")) return "/assets/Fragments/Interior.png";
   if (n.includes("wheel")) return "/assets/Fragments/Wheels.png";
-  if (n.includes("porsche 911 turbo")) return "/assets/car_no_background/01-Porche-911-Turbo-removebg-preview.png";
-  if (n.includes("bugatti")) return "/assets/car_no_background/02-Bugatti-Chiron-removebg-preview.png";
-  if (n.includes("jesko")) return "/assets/car_no_background/03-Koenigsegg_Jesko-removebg-preview.png";
-  if (n.includes("m3 gtr")) return "/assets/car_no_background/04-BMW-M3-GTR-removebg-preview.png";
-  if (n.includes("huracan")) return "/assets/car_no_background/05-Lamborghini-Huracan-removebg-preview.png";
-  if (n.includes("audi rs")) return "/assets/car_no_background/06-Audi-RS-Superwagon-removebg-preview.png";
-  if (n.includes("ferrari f8")) return "/assets/car_no_background/07-Ferrari-F8-Turbo-removebg-preview.png";
-  if (n.includes("huayra")) return "/assets/car_no_background/08-Pagain-Huayra-removebg-preview.png";
-  if (n.includes("mercedes amg gt")) return "/assets/car_no_background/11-Mercedes-AMG-GT-removebg-preview.png";
-  if (n.includes("mercedes amg")) return "/assets/car_no_background/09-Mercede-AMG-removebg-preview.png";
-  if (n.includes("civic")) return "/assets/car_no_background/10-Honda-Civic-removebg-preview.png";
-  if (n.includes("corolla")) return "/assets/car_no_background/12-Toyota-Corrola-removebg-preview.png";
-  if (n.includes("porsche 911")) return "/assets/car_no_background/13-Proche-911-removebg-preview.png";
-  if (n.includes("720s")) return "/assets/car_no_background/14-McLAREN-720s-removebg-preview.png";
-  return "/assets/car/Chrome Viper.png";
+  // Lamborghini
+  if (n.includes("revuelto"))   return "/assets/assetdcar2d/lamborghin/lamborghini_Revuelto.png";
+  if (n.includes("temerario"))  return "/assets/assetdcar2d/lamborghin/lamborghini_Temerario.png";
+  if (n.includes("aventador"))  return "/assets/assetdcar2d/lamborghin/lamborghini_aventador.png";
+  if (n.includes("huracan"))    return "/assets/assetdcar2d/lamborghin/lamborghini_huracan.png";
+  if (n.includes("countach"))   return "/assets/assetdcar2d/lamborghin/Lamborghini_Countach.png";
+  if (n.includes("diablo"))     return "/assets/assetdcar2d/lamborghin/lamborghini_diablo.png";
+  if (n.includes("murci"))      return "/assets/assetdcar2d/lamborghin/Murcelago.png";
+  if (n.includes("gallardo"))   return "/assets/assetdcar2d/lamborghin/galardo.png";
+  // Ferrari
+  if (n.includes("f80"))        return "/assets/assetdcar2d/ferrari/f80.png";
+  if (n.includes("12cilindri")) return "/assets/assetdcar2d/ferrari/12Cilindri.png";
+  if (n.includes("296 gtb"))    return "/assets/assetdcar2d/ferrari/296 GTB.png";
+  if (n.includes("sf90"))       return "/assets/assetdcar2d/ferrari/SF90 Stradale.png";
+  if (n.includes("812"))        return "/assets/assetdcar2d/ferrari/812superfast.png";
+  if (n.includes("enzo"))       return "/assets/assetdcar2d/ferrari/enzo.png";
+  if (n.includes("laferrari"))  return "/assets/assetdcar2d/ferrari/Laferrari.png";
+  if (n.includes("f40"))        return "/assets/assetdcar2d/ferrari/f80.png";
+  // Ford
+  if (n.includes("mach-e"))     return "/assets/assetdcar2d/ford/mach-e.png";
+  if (n.includes("shelby"))     return "/assets/assetdcar2d/ford/shelby.png";
+  if (n.includes("mustang"))    return "/assets/assetdcar2d/ford/ford_mustang.png";
+  if (n.includes("ford gt"))    return "/assets/assetdcar2d/ford/ford_gt.png";
+  if (n.includes("everest"))    return "/assets/assetdcar2d/ford/everest.png";
+  if (n.includes("ranger"))     return "/assets/assetdcar2d/ford/ranger.png";
+  if (n.includes("focus"))      return "/assets/assetdcar2d/ford/focus.png";
+  if (n.includes("fiesta"))     return "/assets/assetdcar2d/ford/fiesta.png";
+  if (n.includes("capri"))      return "/assets/assetdcar2d/ford/capri.png";
+  // Chevrolet
+  if (n.includes("corvette"))   return "/assets/assetdcar2d/chevrolet/corvette.png";
+  if (n.includes("camaro"))     return "/assets/assetdcar2d/chevrolet/camaro.png";
+  if (n.includes("silverado"))  return "/assets/assetdcar2d/chevrolet/silverado.png";
+  if (n.includes("colorado"))   return "/assets/assetdcar2d/chevrolet/colorado.png";
+  if (n.includes("cruze"))      return "/assets/assetdcar2d/chevrolet/cruza.png";
+  if (n.includes("impala"))     return "/assets/assetdcar2d/chevrolet/impala.png";
+  if (n.includes("chevelle"))   return "/assets/assetdcar2d/chevrolet/chevelle.png";
+  return "/assets/assetdcar2d/lamborghin/lamborghini_huracan.png";
 };
 
 const dummyAssets = [
@@ -441,10 +464,10 @@ export default function GachaTierPage() {
   if (!isConnected) return null;
 
   const tierConfigs = {
-    standard: { title: "STANDARD BOX", icon: "📦", gradient: "from-gray-600 to-gray-700", carImage: "/assets/car_no_background/10-Honda-Civic-removebg-preview.png" },
-    rare:     { title: "RARE BOX",     icon: "🎲", gradient: "from-blue-600 to-indigo-700", carImage: "/assets/car_no_background/04-BMW-M3-GTR-removebg-preview.png" },
-    premium:  { title: "PREMIUM BOX",  icon: "🎁", gradient: "from-orange-600 to-red-700",  carImage: "/assets/car_no_background/06-Audi-RS-Superwagon-removebg-preview.png" },
-    legendary:{ title: "LEGENDARY BOX",icon: "💎", gradient: "from-yellow-500 to-amber-600", carImage: "/assets/car_no_background/02-Bugatti-Chiron-removebg-preview.png" },
+    standard: { title: "STANDARD BOX", icon: "📦", gradient: "from-gray-600 to-gray-700", carImage: "/assets/assetdcar2d/ford/ford_mustang.png" },
+    rare:     { title: "RARE BOX",     icon: "🎲", gradient: "from-blue-600 to-indigo-700", carImage: "/assets/assetdcar2d/ferrari/SF90 Stradale.png" },
+    premium:  { title: "PREMIUM BOX",  icon: "🎁", gradient: "from-orange-600 to-red-700",  carImage: "/assets/assetdcar2d/lamborghin/lamborghini_aventador.png" },
+    legendary:{ title: "LEGENDARY BOX",icon: "💎", gradient: "from-yellow-500 to-amber-600", carImage: "/assets/assetdcar2d/lamborghin/lamborghini_Revuelto.png" },
   };
   const config = tierConfigs[tierType] || tierConfigs.standard;
 

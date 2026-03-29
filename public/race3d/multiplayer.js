@@ -664,7 +664,8 @@ function renderGameState(state) {
     const currentSteer = car3D.userData.steer || 0;
     car3D.userData.steer = currentSteer + (steerAngle - currentSteer) * 0.3;
     if (car3D.children[0]) {
-      car3D.children[0].rotation.y = Math.PI + car3D.userData.steer;
+      const baseRot = car3D.children[0].userData.baseRotation ?? Math.PI;
+      car3D.children[0].rotation.y = baseRot + car3D.userData.steer;
     }
 
     // Opacity for finished players
