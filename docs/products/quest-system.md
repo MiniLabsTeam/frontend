@@ -1,6 +1,6 @@
 # Quest System
 
-MiniLabs has an automated quest system that rewards players for daily and weekly engagement.
+MiniGarage has an automated quest system that rewards players for daily and weekly engagement.
 
 ## Quest Types
 

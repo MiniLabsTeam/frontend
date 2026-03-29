@@ -1,6 +1,6 @@
 # Gacha System
 
-The gacha system is MiniLabs' primary method for acquiring NFT cars and spare parts. It uses a **commit-reveal pattern** to ensure cryptographic fairness.
+The gacha system is MiniGarage' primary method for acquiring NFT cars and spare parts. It uses a **commit-reveal pattern** to ensure cryptographic fairness.
 
 ## Gacha Tiers
 

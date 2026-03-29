@@ -1,10 +1,10 @@
-# What is MiniLabs?
+# What is MiniGarage?
 
-MiniLabs is a **play-to-earn NFT car racing game** built on OneChain. It combines the thrill of competitive racing with the ownership economy of blockchain — every car you collect is a true digital asset that you own, trade, and upgrade.
+MiniGarage is a **play-to-earn NFT car racing game** built on OneChain. It combines the thrill of competitive racing with the ownership economy of blockchain — every car you collect is a true digital asset that you own, trade, and upgrade.
 
 ## The Vision
 
-MiniLabs bridges gaming and Web3 by making blockchain interactions seamless. Players don't need to understand smart contracts — they just play, collect, and compete. Under the hood, every car, trade, and race result is secured on-chain.
+MiniGarage bridges gaming and Web3 by making blockchain interactions seamless. Players don't need to understand smart contracts — they just play, collect, and compete. Under the hood, every car, trade, and race result is secured on-chain.
 
 ## Core Pillars
 

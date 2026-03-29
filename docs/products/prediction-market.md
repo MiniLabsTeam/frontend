@@ -1,6 +1,6 @@
 # Prediction Market
 
-MiniLabs features a pool-based prediction market where players can bet on race outcomes using OCT tokens.
+MiniGarage features a pool-based prediction market where players can bet on race outcomes using OCT tokens.
 
 ## How It Works
 

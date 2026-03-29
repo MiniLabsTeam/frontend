@@ -1,10 +1,10 @@
-# MiniLabs
+# MiniGarage
 
 **The Ultimate NFT Car Racing Game on OneChain**
 
 ---
 
-MiniLabs is a blockchain-integrated multiplayer racing game where players collect NFT cars, equip spare parts, race against others, trade on the marketplace, and predict race outcomes — all powered by OneChain.
+MiniGarage is a blockchain-integrated multiplayer racing game where players collect NFT cars, equip spare parts, race against others, trade on the marketplace, and predict race outcomes — all powered by OneChain.
 
 ### What Can You Do?
 

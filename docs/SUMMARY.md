@@ -4,7 +4,7 @@
 
 ## Introduction
 
-* [What is MiniLabs?](introduction/overview.md)
+* [What is MiniGarage?](introduction/overview.md)
 * [Problem & Solution](introduction/problem-and-solution.md)
 * [Key Features](introduction/key-features.md)
 * [Roadmap](introduction/roadmap.md)

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Predict race winners and earn OCT tokens. MiniLabs uses a pool-based prediction market where all bets on a race go into a shared pool, and winners split it proportionally.
+Predict race winners and earn OCT tokens. MiniGarage uses a pool-based prediction market where all bets on a race go into a shared pool, and winners split it proportionally.
 
 ## Depositing OCT for Predictions
 

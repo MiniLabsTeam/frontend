@@ -1,12 +1,12 @@
 # Smart Contracts
 
-MiniLabs smart contracts are written in **Move** and deployed on OneChain (Sui-based).
+MiniGarage smart contracts are written in **Move** and deployed on OneChain (Sui-based).
 
 ## Contract Architecture
 
 ```mermaid
 graph TB
-    subgraph MiniLabs Package
+    subgraph MiniGarage Package
         A[Gacha Module]
         B[Marketplace Module]
         C[Racing Module]

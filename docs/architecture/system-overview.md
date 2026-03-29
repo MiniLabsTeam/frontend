@@ -1,6 +1,6 @@
 # System Overview
 
-MiniLabs is composed of three main components: a **Next.js frontend**, an **Express backend**, and **smart contracts on OneChain**.
+MiniGarage is composed of three main components: a **Next.js frontend**, an **Express backend**, and **smart contracts on OneChain**.
 
 ## High-Level Architecture
 

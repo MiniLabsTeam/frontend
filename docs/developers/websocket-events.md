@@ -1,6 +1,6 @@
 # WebSocket Events
 
-MiniLabs uses **Socket.io** for real-time game communication during multiplayer races.
+MiniGarage uses **Socket.io** for real-time game communication during multiplayer races.
 
 ## Connection
 
